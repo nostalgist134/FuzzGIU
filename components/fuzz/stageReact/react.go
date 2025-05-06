@@ -100,6 +100,7 @@ func match(resp *fuzzTypes.Resp, meta matchMeta) bool {
 	return !retVal
 }
 
+// defaultOutputMsg 生成默认的输出信息
 func defaultOutputMsg(keywordsUsed []string, payloadEachKeyword []string,
 	req *fuzzTypes.Req, resp *fuzzTypes.Resp, ignoreError bool, verbosity int) string {
 	msgBuilder := strings.Builder{}
@@ -155,8 +156,14 @@ func defaultOutputMsg(keywordsUsed []string, payloadEachKeyword []string,
 		msgBuilder.WriteString("HTTP Redirect: ")
 		msgBuilder.WriteString(resp.HttpRedirectChain + "\n")
 	}
-	if resp.RespError != nil && !ignoreError {
-		msgBuilder.WriteString(resp.RespError.Error())
+	msgBuilder.WriteString(fmt.Sprintf("response:[Size = %d|Lines = %d|Words = %d|Time = %.10f",
+		resp.Size, resp.Lines, resp.Words, resp.ResponseTime.Seconds()))
+	if resp.HttpResponse != nil {
+		msgBuilder.WriteString(fmt.Sprintf("|Status = %d", resp.HttpResponse.StatusCode))
+	}
+	msgBuilder.WriteString("]\n")
+	if resp.ErrMsg != "" && !ignoreError {
+		msgBuilder.WriteString(resp.ErrMsg)
 	}
 	return msgBuilder.String()
 }
@@ -242,6 +249,11 @@ func React(fuzz1 *fuzzTypes.Fuzz, newReq *fuzzTypes.Req, resp *fuzzTypes.Resp,
 		respJson, _ := json.Marshal(resp)
 		reaction = (plugin.Call(plugin.PTypeReactor, reactPlugin, reqJson, respJson)).(*fuzzTypes.Reaction)
 	}
+	// 添加递归任务（如果自定义reactor没有添加）
+	if reaction.NewJob == nil && recursionJob != nil {
+		reaction.Flag |= fuzzTypes.ReactFlagAddJob
+		reaction.NewJob = recursionJob
+	}
 	// 决定是否输出
 	// 自定义reactor没有标识响应是否会被过滤，根据Matcher和Filter来确定
 	if (reaction.Flag&fuzzTypes.ReactFlagMatch == 0) && (reaction.Flag&fuzzTypes.ReactFlagFiltered == 0) {
@@ -255,10 +267,6 @@ func React(fuzz1 *fuzzTypes.Fuzz, newReq *fuzzTypes.Req, resp *fuzzTypes.Resp,
 		if reaction.Flag&fuzzTypes.ReactFlagMatch != 0 {
 			reaction.Flag |= fuzzTypes.ReactFlagOutput
 		}
-	}
-	// 如果没有添加新任务，且启用递归模式，则添加任务由默认递归逻辑确定
-	if reaction.NewJob == nil {
-		reaction.NewJob = recursionJob
 	}
 	// 生成输出消息
 	if (reaction.Flag&fuzzTypes.ReactFlagOutput != 0) && !reaction.Output.Overwrite {
