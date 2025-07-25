@@ -24,6 +24,7 @@ func appendPayloadTmp(tempMap map[string]fuzzTypes.PayloadTemp, pluginStrs []str
 		gentypeSep = "|"
 	)
 	for _, tmp := range pluginStrs {
+		// 在命令行参数中，要使用的文件/插件与fuzz关键字使用"::"关联，比如 -w C:\aaa.txt::FUZZ1, -pl-proc base64,suffix("123")::FUZZ2
 		indSep := strings.LastIndex(tmp, keywordSep)
 		var keyword string
 		if indSep+len(keywordSep) >= len(tmp) || indSep == -1 { // 未指定keyword，使用默认keyword
@@ -41,8 +42,8 @@ func appendPayloadTmp(tempMap map[string]fuzzTypes.PayloadTemp, pluginStrs []str
 			// 判断键是否已经存在
 			if keyExist {
 				originalGenerators = tempMap[keyword].Generators
-				originalGentype := originalGenerators[strings.LastIndex(originalGenerators, gentypeSep)+1:]
-				if originalGentype != genType { // 如果原先的生成器类型与现有的不符则不修改，直接退出
+				originalGenType := originalGenerators[strings.LastIndex(originalGenerators, gentypeSep)+1:]
+				if originalGenType != genType { // 如果原先的生成器类型与现有的不符则不修改，直接退出
 					return
 				}
 				originalProcessors = tempMap[keyword].Processors
