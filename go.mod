@@ -1,4 +1,4 @@
-module FuzzGIU
+module github.com/nostalgist134/FuzzGIU
 
 go 1.23.0
 
