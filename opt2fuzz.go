@@ -1,9 +1,9 @@
 package main
 
 import (
-	"FuzzGIU/components/fuzzTypes"
-	"FuzzGIU/components/options"
 	"fmt"
+	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
+	"github.com/nostalgist134/FuzzGIU/components/options"
 	"os"
 	"strconv"
 	"strings"

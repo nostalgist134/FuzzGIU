@@ -1,11 +1,11 @@
 package stageReact
 
 import (
-	"FuzzGIU/components/common"
-	"FuzzGIU/components/fuzzTypes"
-	"FuzzGIU/components/output"
-	"FuzzGIU/components/plugin"
 	"fmt"
+	"github.com/nostalgist134/FuzzGIU/components/common"
+	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
+	"github.com/nostalgist134/FuzzGIU/components/output"
+	"github.com/nostalgist134/FuzzGIU/components/plugin"
 	"strings"
 )
 

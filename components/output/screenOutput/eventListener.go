@@ -1,9 +1,9 @@
 package output
 
 import (
-	"FuzzGIU/components/wp"
 	"fmt"
 	ui "github.com/gizak/termui/v3"
+	"github.com/nostalgist134/FuzzGIU/components/wp"
 	"os"
 )
 

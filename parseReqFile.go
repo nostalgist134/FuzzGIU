@@ -1,10 +1,10 @@
 package main
 
 import (
-	"FuzzGIU/components/fuzzTypes"
 	"bufio"
 	"bytes"
 	"fmt"
+	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"io"
 	"strings"
 )

@@ -1,7 +1,7 @@
 package output
 
 import (
-	"FuzzGIU/components/output/common"
+	"github.com/nostalgist134/FuzzGIU/components/output/common"
 	"io"
 	"os"
 )

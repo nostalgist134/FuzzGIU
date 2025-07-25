@@ -1,8 +1,8 @@
 package plugin
 
 import (
-	"FuzzGIU/components/common"
-	"FuzzGIU/components/output"
+	"github.com/nostalgist134/FuzzGIU/components/common"
+	"github.com/nostalgist134/FuzzGIU/components/output"
 	"strconv"
 	"strings"
 )

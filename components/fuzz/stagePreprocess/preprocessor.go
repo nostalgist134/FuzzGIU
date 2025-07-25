@@ -1,8 +1,8 @@
 package stagePreprocess
 
 import (
-	"FuzzGIU/components/fuzzTypes"
-	plugin2 "FuzzGIU/components/plugin"
+	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
+	plugin2 "github.com/nostalgist134/FuzzGIU/components/plugin"
 )
 
 // Preprocess 预处理函数，用来对fuzz模板进行预处理，可自定义

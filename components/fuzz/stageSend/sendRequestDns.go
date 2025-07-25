@@ -1,9 +1,9 @@
 package stageSend
 
 import (
-	"FuzzGIU/components/fuzzTypes"
 	"bytes"
 	"context"
+	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"net"
 	"net/url"
 	"time"

@@ -1,12 +1,12 @@
 package output
 
 import (
-	"FuzzGIU/components/fuzzTypes"
-	"FuzzGIU/components/output/common"
-	fo "FuzzGIU/components/output/fileOutput"
-	native "FuzzGIU/components/output/nativeOutput"
-	so "FuzzGIU/components/output/screenOutput"
 	"encoding/xml"
+	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
+	"github.com/nostalgist134/FuzzGIU/components/output/common"
+	fo "github.com/nostalgist134/FuzzGIU/components/output/fileOutput"
+	native "github.com/nostalgist134/FuzzGIU/components/output/nativeOutput"
+	so "github.com/nostalgist134/FuzzGIU/components/output/screenOutput"
 	"sync"
 )
 

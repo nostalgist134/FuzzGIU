@@ -1,7 +1,7 @@
 package common
 
 import (
-	"FuzzGIU/components/fuzzTypes"
+	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"time"
 )
 

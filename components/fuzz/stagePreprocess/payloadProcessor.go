@@ -1,8 +1,8 @@
 package stagePreprocess
 
 import (
-	"FuzzGIU/components/plugin"
 	"encoding/base64"
+	"github.com/nostalgist134/FuzzGIU/components/plugin"
 	"net/url"
 	"regexp"
 	"strings"

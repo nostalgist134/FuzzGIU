@@ -1,8 +1,8 @@
 package output
 
 import (
-	"FuzzGIU/components/fuzzTypes"
 	"fmt"
+	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"sort"
 	"strconv"
 	"strings"

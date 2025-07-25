@@ -1,15 +1,15 @@
 package fuzz
 
 import (
-	"FuzzGIU/components/common"
-	"FuzzGIU/components/fuzz/stagePreprocess"
-	"FuzzGIU/components/fuzz/stageReact"
-	"FuzzGIU/components/fuzz/stageSend"
-	"FuzzGIU/components/fuzzTypes"
-	"FuzzGIU/components/output"
-	"FuzzGIU/components/plugin"
-	"FuzzGIU/components/wp"
 	"fmt"
+	"github.com/nostalgist134/FuzzGIU/components/common"
+	"github.com/nostalgist134/FuzzGIU/components/fuzz/stagePreprocess"
+	"github.com/nostalgist134/FuzzGIU/components/fuzz/stageReact"
+	"github.com/nostalgist134/FuzzGIU/components/fuzz/stageSend"
+	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
+	"github.com/nostalgist134/FuzzGIU/components/output"
+	"github.com/nostalgist134/FuzzGIU/components/plugin"
+	"github.com/nostalgist134/FuzzGIU/components/wp"
 	"net/http"
 	"os"
 	"sync"

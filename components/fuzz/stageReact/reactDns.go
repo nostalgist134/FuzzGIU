@@ -1,8 +1,8 @@
 package stageReact
 
 import (
-	"FuzzGIU/components/fuzzTypes"
 	"bytes"
+	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"net/url"
 	"strings"
 )

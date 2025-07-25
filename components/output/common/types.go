@@ -1,8 +1,8 @@
 package common
 
 import (
-	"FuzzGIU/components/fuzzTypes"
 	"encoding/xml"
+	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 )
 
 // OutObj 用于输出的结构体

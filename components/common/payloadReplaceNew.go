@@ -1,8 +1,8 @@
 package common
 
 import (
-	"FuzzGIU/components/fuzzTypes"
 	"container/heap"
+	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"math/rand"
 	"strings"
 )

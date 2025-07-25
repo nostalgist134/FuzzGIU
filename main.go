@@ -1,10 +1,10 @@
 package main
 
 import (
-	"FuzzGIU/components/fuzz"
-	"FuzzGIU/components/options"
-	"FuzzGIU/components/plugin"
 	"fmt"
+	"github.com/nostalgist134/FuzzGIU/components/fuzz"
+	"github.com/nostalgist134/FuzzGIU/components/options"
+	"github.com/nostalgist134/FuzzGIU/components/plugin"
 	"os"
 )
 

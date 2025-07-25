@@ -1,10 +1,10 @@
 package output
 
 import (
-	"FuzzGIU/components/fuzzTypes"
-	"FuzzGIU/components/output/common"
 	"fmt"
 	ui "github.com/gizak/termui/v3"
+	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
+	"github.com/nostalgist134/FuzzGIU/components/output/common"
 	"time"
 )
 

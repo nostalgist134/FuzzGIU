@@ -1,8 +1,8 @@
 package plugin
 
 import (
-	"FuzzGIU/components/fuzzTypes"
 	"encoding/json"
+	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"strings"
 	"unsafe"
 )

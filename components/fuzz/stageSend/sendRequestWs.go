@@ -1,10 +1,10 @@
 package stageSend
 
 import (
-	"FuzzGIU/components/common"
-	"FuzzGIU/components/fuzzTypes"
 	"bytes"
 	"github.com/gorilla/websocket"
+	"github.com/nostalgist134/FuzzGIU/components/common"
+	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"sync"
 	"time"
 )

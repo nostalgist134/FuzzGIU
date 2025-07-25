@@ -1,11 +1,11 @@
 package stagePreprocess
 
 import (
-	"FuzzGIU/components/common"
-	"FuzzGIU/components/output"
-	"FuzzGIU/components/plugin"
 	"bufio"
 	"fmt"
+	"github.com/nostalgist134/FuzzGIU/components/common"
+	"github.com/nostalgist134/FuzzGIU/components/output"
+	"github.com/nostalgist134/FuzzGIU/components/plugin"
 	"os"
 	"strings"
 )
