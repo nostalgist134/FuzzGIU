@@ -33,24 +33,24 @@ func ParseOptCmdline() *Opt {
 	// 响应匹配器
 	flag.StringVar(&matcher.MatcherCode, "mc", "200,204,301,302,307,401,403,405,500",
 		"Match status code from response")
-	flag.StringVar(&matcher.MatcherSize, "ms", "", "Match response size")
-	flag.StringVar(&matcher.MatcherMode, "mmode", "or", "Matcher set operator")
-	flag.StringVar(&matcher.MatcherRegex, "mr", "", "Match regexp")
+	flag.StringVar(&matcher.MatcherSize, "ms", "", "match response size")
+	flag.StringVar(&matcher.MatcherMode, "mmode", "or", "matcher set operator")
+	flag.StringVar(&matcher.MatcherRegex, "mr", "", "match regexp")
 	flag.StringVar(&matcher.MatcherTime, "mt", "",
 		"Match time(millisecond) to the first response byte")
-	flag.StringVar(&matcher.MatcherWords, "mw", "", "Match amount of words in response")
-	flag.StringVar(&matcher.MatcherLines, "ml", "", "Match amount of lines in response")
+	flag.StringVar(&matcher.MatcherWords, "mw", "", "match amount of words in response")
+	flag.StringVar(&matcher.MatcherLines, "ml", "", "match amount of lines in response")
 	// 响应过滤器
-	flag.StringVar(&filter.FilterCode, "fc", "", "Filter status code from response")
-	flag.StringVar(&filter.FilterSize, "fs", "", "Filter response size")
+	flag.StringVar(&filter.FilterCode, "fc", "", "filter status code from response")
+	flag.StringVar(&filter.FilterSize, "fs", "", "filter response size")
 	flag.StringVar(&filter.FilterMode, "fmode", "and", "Filter set operator")
-	flag.StringVar(&filter.FilterRegex, "fr", "", "Filter regexp")
+	flag.StringVar(&filter.FilterRegex, "fr", "", "filter regexp")
 	flag.StringVar(&filter.FilterTime, "ft", "",
 		"Filter time(millisecond) to the first response byte")
-	flag.StringVar(&filter.FilterWords, "fw", "", "Filter amount of words in response")
-	flag.StringVar(&filter.FilterLines, "fl", "", "Filter amount of lines in response")
+	flag.StringVar(&filter.FilterWords, "fw", "", "filter amount of words in response")
+	flag.StringVar(&filter.FilterLines, "fl", "", "filter amount of lines in response")
 	// http设置
-	flag.StringVar(&http.Method, "W", "GET", "Method")
+	flag.StringVar(&http.Method, "W", "GET", "http method")
 	flag.Var(&http.Cookies, "b", "Cookies")
 	flag.Var(&http.Headers, "H", "http headers to be used")
 	flag.BoolVar(&http.HTTP2, "http2", false, "force http2")
@@ -77,7 +77,7 @@ func ParseOptCmdline() *Opt {
 		"is enabled)")
 	flag.StringVar(&recursionControl.RecursionStatus, "rec-code",
 		"200", "Recursion status code(http protocol only)")
-	flag.StringVar(&recursionControl.RecursionRegex, "rec-regex", "", "Recursion when matched regex")
+	flag.StringVar(&recursionControl.RecursionRegex, "rec-regex", "", "recursion when matched regex")
 	flag.StringVar(&recursionControl.RecursionSplitter, "rec-splitter", "/",
 		"splitter to be used to split recursion positions")
 	// 错误处理
