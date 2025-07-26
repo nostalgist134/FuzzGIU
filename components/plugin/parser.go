@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"github.com/nostalgist134/FuzzGIU/components/common"
+	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/nostalgist134/FuzzGIU/components/output"
 	"strconv"
 	"strings"
@@ -53,12 +54,12 @@ func parseArgStr(argStr string) any {
 
 // ParsePluginsStr 用来解析插件字符串，具体规则参考fuzzTypes.go中的注释
 // 解析结果为Plugin类型
-func ParsePluginsStr(pluginsStr string) []Plugin {
+func ParsePluginsStr(pluginsStr string) []fuzzTypes.Plugin {
 	if len(pluginsStr) == 0 {
 		return nil
 	}
 	pluginsStr = strings.TrimSpace(pluginsStr)
-	plugins := make([]Plugin, 1)
+	plugins := make([]fuzzTypes.Plugin, 1)
 	tmpStrArgBuilder := strings.Builder{}
 	tmpPlugNameBuilder := strings.Builder{}
 	// 根据下标遍历整个pluginsStr字符串，i为下标，j为当前所处的状态
@@ -120,7 +121,7 @@ func ParsePluginsStr(pluginsStr string) []Plugin {
 				plugins[curPluginInd].Name = strings.TrimSpace(tmpPlugNameBuilder.String())
 				tmpPlugNameBuilder.Reset()
 				curPluginInd++
-				plugins = append(plugins, Plugin{})
+				plugins = append(plugins, fuzzTypes.Plugin{})
 			case 1:
 				plugins[curPluginInd].Args = append(plugins[curPluginInd].Args, parseArgStr(tmpStrArgBuilder.String()))
 				tmpStrArgBuilder.Reset()

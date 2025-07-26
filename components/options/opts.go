@@ -2,23 +2,14 @@ package options
 
 type (
 	sliceStr []string
-	Filter   struct {
-		FilterCode  string `json:"filter_code,omitempty"`
-		FilterSize  string `json:"filter_size,omitempty"`
-		FilterTime  string `json:"filter_time,omitempty"`
-		FilterMode  string `json:"filter_mode,omitempty"`
-		FilterRegex string `json:"filter_regex,omitempty"`
-		FilterLines string `json:"filter_lines,omitempty"`
-		FilterWords string `json:"filter_words,omitempty"`
-	}
-	Matcher struct {
-		MatcherCode  string `json:"matcher_code,omitempty"`
-		MatcherSize  string `json:"matcher_size,omitempty"`
-		MatcherTime  string `json:"matcher_time,omitempty"`
-		MatcherMode  string `json:"matcher_mode,omitempty"`
-		MatcherRegex string `json:"matcher_regex,omitempty"`
-		MatcherLines string `json:"matcher_lines,omitempty"`
-		MatcherWords string `json:"matcher_words,omitempty"`
+	Match    struct {
+		Code  string `json:"code,omitempty"`
+		Size  string `json:"size,omitempty"`
+		Time  string `json:"time,omitempty"`
+		Mode  string `json:"mode,omitempty"`
+		Regex string `json:"regex,omitempty"`
+		Lines string `json:"lines,omitempty"`
+		Words string `json:"words,omitempty"`
 	}
 	Http struct {
 		Headers        sliceStr `json:"header,omitempty"`
@@ -70,8 +61,8 @@ type (
 	Opt struct {
 		Payload          *PayloadSetting
 		Plugin           *Plugin
-		Filter           *Filter
-		Matcher          *Matcher
+		Filter           *Match
+		Matcher          *Match
 		HTTP             *Http
 		Output           *Output
 		General          *General

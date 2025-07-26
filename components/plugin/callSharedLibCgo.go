@@ -4,6 +4,7 @@ package plugin
 
 import (
 	"errors"
+	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"math"
 	"path/filepath"
 	"sync"
@@ -21,7 +22,7 @@ var mu = sync.Mutex{}
 
 // callSharedLib 调用插件的PluginWrapper函数 windows
 // 调用约定 pluginFunction(...[jsonData, lenJsonData], 用户指定参数),
-func callSharedLib(plugin Plugin, relPath string, jsons ...[]byte) uintptr {
+func callSharedLib(plugin fuzzTypes.Plugin, relPath string, jsons ...[]byte) uintptr {
 	var dll *syscall.DLL
 	var proc *syscall.Proc
 	var err error

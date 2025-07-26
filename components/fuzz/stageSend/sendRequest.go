@@ -51,10 +51,8 @@ func SendRequest(meta *fuzzTypes.SendMeta) *fuzzTypes.Resp {
 	case "dns":
 		retResp = sendRequestDns(meta.Request, meta.Timeout)
 	default:
-		p := plugin.Plugin{Name: u.Scheme}
-		/*sendMetaJson, _ := json.Marshal(meta)
-		retResp = (plugin.Call(plugin.PTypeReqSender, p, sendMetaJson, nil)).(*fuzzTypes.Resp)*/
-		retResp = plugin.ReqSender(p, meta)
+		p := fuzzTypes.Plugin{Name: u.Scheme}
+		retResp = plugin.SendRequest(p, meta)
 	}
 	if retResp == nil {
 		return &fuzzTypes.Resp{ErrMsg: "nil response"}

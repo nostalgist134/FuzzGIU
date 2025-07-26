@@ -18,12 +18,6 @@ import (
 
 type JobQueue []*fuzzTypes.Fuzz
 
-type safeSlice struct {
-	l   []*fuzzTypes.Reaction
-	end int
-	mu  sync.Mutex
-}
-
 var JQ JobQueue = make([]*fuzzTypes.Fuzz, 0)
 var SendMetaPool = sync.Pool{
 	New: func() any { return new(fuzzTypes.SendMeta) },
@@ -33,13 +27,13 @@ var SendMetaPool = sync.Pool{
 var Wp *wp.WorkerPool
 
 // handleReaction 根据fuzz设置处理反应
-func handleReaction(r *fuzzTypes.Reaction, fuzz1 *fuzzTypes.Fuzz, reactPlugin plugin.Plugin) bool {
+func handleReaction(r *fuzzTypes.Reaction, fuzz1 *fuzzTypes.Fuzz, reactPlugin fuzzTypes.Plugin) bool {
 	stopJob := false
-	if r.Flag&fuzzTypes.ReactFlagAddJob != 0 && r.NewJob != nil {
+	if r.Flag&fuzzTypes.ReactAddJob != 0 && r.NewJob != nil {
 		JQ.AddJob(r.NewJob)
 		output.SetJobCounter(output.GetCounterSingle(3) + 1)
 	}
-	if r.Flag&fuzzTypes.ReactFlagStopJob != 0 {
+	if r.Flag&fuzzTypes.ReactStopJob != 0 {
 		output.Log("job stopped by react", common.OutputToWhere)
 		stopJob = true
 	}
@@ -64,7 +58,7 @@ func handleReaction(r *fuzzTypes.Reaction, fuzz1 *fuzzTypes.Fuzz, reactPlugin pl
 		output.SetTaskCounter(output.GetCounterSingle(1) + 1)
 		Wp.Submit(newTask)
 	}
-	if r.Flag&fuzzTypes.ReactFlagExit != 0 {
+	if r.Flag&fuzzTypes.ReactExit != 0 {
 		output.FinishOutput(common.OutputToWhere)
 		if common.OutputToWhere&output.OutToScreen != 0 {
 			output.ScreenClose()
@@ -88,6 +82,7 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz) time.Duration {
 		Wp = wp.New(fuzz1.Misc.PoolSize)
 		Wp.Start()
 	} else {
+		Wp.Clear()
 		Wp.Resize(fuzz1.Misc.PoolSize)
 	}
 
@@ -133,16 +128,16 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz) time.Duration {
 	// req模板解析
 	reqTemplate := common.ParseReqTemplate(&fuzz1.Send.Request, keywords)
 	// 反应器插件
-	var reactPlugin plugin.Plugin
+	var reactPlugin fuzzTypes.Plugin
 	if fuzz1.React.Reactor != "" {
 		reactPlugin = plugin.ParsePluginsStr(fuzz1.React.Reactor)[0]
 	}
 	// payload处理插件
-	var plProcessorPlugins = make([][]plugin.Plugin, len(keywords))
+	var plProcessorPlugins = make([][]fuzzTypes.Plugin, len(keywords))
 	// 用于接收handleReaction标记当前任务是否结束
 	jobStop := false
 	for i, keyword := range keywords {
-		plProcessorPlugins[i] = plugin.ParsePluginsStr(fuzz1.Preprocess.PlTemp[keyword].Processors)
+		plProcessorPlugins[i] = fuzz1.Preprocess.PlTemp[keyword].Processors
 	}
 	// 主循环
 	for i := int64(0); i < loopLen; i++ {
@@ -171,15 +166,17 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz) time.Duration {
 					d := int64(len(fuzz1.Preprocess.PlTemp[keywords[len(keywords)-j-1]].PlList))
 					r := curInd % d
 					curInd /= d
-					payloadEachKeyword = append([]string{fuzz1.Preprocess.PlTemp[keywords[len(keywords)-j-1]].PlList[r]},
+					payloadEachKeyword = append(
+						[]string{fuzz1.Preprocess.PlTemp[keywords[len(keywords)-j-1]].PlList[r]},
 						payloadEachKeyword...)
 				// pitchfork模式：每个关键字使用一样的payload下标
 				case "pitchfork":
 					payloadEachKeyword = append(payloadEachKeyword, fuzz1.Preprocess.PlTemp[keywords[j]].PlList[i])
 				// pitchfork-cycle模式：每次i循环下标都同步更新1，但payload列表到尾部后会从头再次开始
 				case "pitchfork-cycle":
-					payloadEachKeyword = append(payloadEachKeyword, fuzz1.Preprocess.PlTemp[keywords[j]].PlList[i%
-						int64(len(fuzz1.Preprocess.PlTemp[keywords[j]].PlList))])
+					payloadEachKeyword = append(payloadEachKeyword,
+						fuzz1.Preprocess.PlTemp[keywords[j]].PlList[i%
+							int64(len(fuzz1.Preprocess.PlTemp[keywords[j]].PlList))])
 				}
 			}
 			task = func() *fuzzTypes.Reaction {
@@ -207,7 +204,8 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz) time.Duration {
 					fuzz1.React.RecursionControl.RecursionDepth <= fuzz1.React.RecursionControl.MaxRecursionDepth {
 					// 同时启用sniper和递归
 					send.Request, recPos = common.ReplacePayloadTrackTemplate(reqTemplate, payload, int(i/curInd))
-				} else if fuzz1.React.RecursionControl.RecursionDepth <= fuzz1.React.RecursionControl.MaxRecursionDepth {
+				} else if fuzz1.React.RecursionControl.RecursionDepth <=
+					fuzz1.React.RecursionControl.MaxRecursionDepth {
 					// 只启用递归
 					send.Request, recPos = common.ReplacePayloadTrackTemplate(reqTemplate, payload, -1)
 				} else { // 只启用sniper
@@ -298,6 +296,6 @@ func Debug(fuzz1 *fuzzTypes.Fuzz) {
 	newReq, trackPos := common.ReplacePayloadTrackTemplate(t, "1milaogiu", -1)
 	resp := &fuzzTypes.Resp{HttpResponse: &http.Response{StatusCode: 404}}
 	fmt.Println(newReq, trackPos)
-	reaction := stageReact.React(fuzz1, newReq, resp, plugin.Plugin{}, []string{}, []string{}, trackPos)
+	reaction := stageReact.React(fuzz1, newReq, resp, fuzzTypes.Plugin{}, []string{}, []string{}, trackPos)
 	fmt.Println(reaction.NewJob.Send.Request)
 }

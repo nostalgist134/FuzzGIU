@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/common"
+	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/nostalgist134/FuzzGIU/components/output"
 	"github.com/nostalgist134/FuzzGIU/components/plugin"
 	"os"
@@ -45,7 +46,7 @@ func getPayloadsWordlist(files []string) []string {
 }
 
 // generatePayloadsPlugin 使用插件生成payload
-func generatePayloadsPlugin(generatorPlugins []plugin.Plugin) []string {
+func generatePayloadsPlugin(generatorPlugins []fuzzTypes.Plugin) []string {
 	payloads := make([]string, 0)
 	for _, p := range generatorPlugins {
 		// payloadGen := plugin.Call(plugin.PTypePlGen, plugin1, nil, nil).([]string)
@@ -59,16 +60,17 @@ func generatePayloadsPlugin(generatorPlugins []plugin.Plugin) []string {
 
 // GeneratePayloads 根据payloadGenerator生成payload，同时使用payloadProcessor对生成的payload进行处理
 // 返回[]string类型 - 生成的payload
-func GeneratePayloads(payloadGenerator string) []string {
-	generators := payloadGenerator[:strings.LastIndex(payloadGenerator, "|")]
-	generatorType := payloadGenerator[strings.LastIndex(payloadGenerator, "|")+1:]
+func GeneratePayloads(payloadGenerator fuzzTypes.PlGen) []string {
+	generators := payloadGenerator.Gen
+	generatorType := payloadGenerator.Type
 	// 根据generator生成payload
 	var payloads []string
 	switch generatorType {
 	case "wordlist": // wordlist类型的generator
-		payloads = getPayloadsWordlist(strings.Split(generators, ","))
+		files := strings.Split(generators[0].Name, ",")
+		payloads = getPayloadsWordlist(files)
 	case "plugin": // plugin类型的generator
-		payloads = generatePayloadsPlugin(plugin.ParsePluginsStr(generators))
+		payloads = generatePayloadsPlugin(generators)
 	default:
 		fmt.Printf("Unsupported generator type: %s\n", generatorType)
 		payloads = []string{""}

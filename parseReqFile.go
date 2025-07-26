@@ -3,16 +3,21 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"io"
+	"os"
 	"strings"
 )
 
 // parseHttpRequest 尝试将raw request解析为http请求
-func parseHttpRequest(rawReq []byte) (*fuzzTypes.Req, error) {
-	reader := bufio.NewReader(bytes.NewReader(rawReq))
-
+func parseHttpRequest(fileName string) (*fuzzTypes.Req, error) {
+	raw, err := os.ReadFile(fileName)
+	if err != nil {
+		return nil, err
+	}
+	reader := bufio.NewReader(bytes.NewReader(raw))
 	// 读取请求行
 	startLine, err := reader.ReadBytes('\n')
 	if err != nil {
@@ -94,4 +99,18 @@ func parseHttpRequest(rawReq []byte) (*fuzzTypes.Req, error) {
 	}
 
 	return req, nil
+}
+
+func jsonRequest(fileName string) (*fuzzTypes.Req, error) {
+	raw, err := os.ReadFile(fileName)
+	if err != nil {
+		return nil, err
+	}
+	req := new(fuzzTypes.Req)
+	err = json.Unmarshal(raw, req)
+	return req, err
+}
+
+func rawData(fileName string) ([]byte, error) {
+	return os.ReadFile(fileName)
 }

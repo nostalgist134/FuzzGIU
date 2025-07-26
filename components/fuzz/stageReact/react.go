@@ -9,19 +9,19 @@ import (
 	"strings"
 )
 
-func valIn(val int, slice []int) bool {
-	for _, v := range slice {
-		if v == val {
+func valInRanges(v int, ranges []fuzzTypes.Range) bool {
+	for _, r := range ranges {
+		if v < r.Upper && v >= r.Lower {
 			return true
 		}
 	}
 	return false
 }
 
-// patchLog#10: 修复了match函数在未指定match成员（成员长度为0或值无效）时仍然比较的问题
-func match(resp *fuzzTypes.Resp, m *fuzzTypes.Match) bool {
+// matchResponse 将响应与match成员进行匹配
+func matchResponse(resp *fuzzTypes.Resp, m *fuzzTypes.Match) bool {
 	if len(m.Size) == 0 && len(m.Words) == 0 && len(m.Code) == 0 && len(m.Lines) == 0 &&
-		len(m.Regex) == 0 && m.Time.UpBound == m.Time.DownBound {
+		len(m.Regex) == 0 && m.Time.Upper == m.Time.Lower {
 		return false
 	}
 	mode := func(cond bool) bool {
@@ -35,22 +35,22 @@ func match(resp *fuzzTypes.Resp, m *fuzzTypes.Match) bool {
 		retVal = false
 	}
 	if len(m.Size) != 0 {
-		if mode(valIn(resp.Size, m.Size)) {
+		if mode(valInRanges(resp.Size, m.Size)) {
 			return retVal
 		}
 	}
 	if len(m.Words) != 0 {
-		if mode(valIn(resp.Words, m.Words)) {
+		if mode(valInRanges(resp.Words, m.Words)) {
 			return retVal
 		}
 	}
 	if len(m.Code) != 0 {
-		if mode(resp.HttpResponse != nil && valIn(resp.HttpResponse.StatusCode, m.Code)) {
+		if mode(resp.HttpResponse != nil && valInRanges(resp.HttpResponse.StatusCode, m.Code)) {
 			return retVal
 		}
 	}
 	if len(m.Lines) != 0 {
-		if mode(valIn(resp.Lines, m.Lines)) {
+		if mode(valInRanges(resp.Lines, m.Lines)) {
 			return retVal
 		}
 	}
@@ -59,15 +59,14 @@ func match(resp *fuzzTypes.Resp, m *fuzzTypes.Match) bool {
 			return retVal
 		}
 	}
-	if m.Time.UpBound != m.Time.DownBound {
-		if mode(resp.ResponseTime < m.Time.UpBound && resp.ResponseTime >= m.Time.DownBound) {
+	if m.Time.Upper != m.Time.Lower {
+		if mode(resp.ResponseTime < m.Time.Upper && resp.ResponseTime >= m.Time.Lower) {
 			return retVal
 		}
 	}
 	return !retVal
 }
 
-// insertRecursionMarker This function inserts a recursion marker into a given field at the specified positions
 func insertRecursionMarker(recKeyword string, splitter string,
 	field string, recursionPos []int, currentPos int) (string, int) {
 	sb := strings.Builder{}
@@ -96,7 +95,7 @@ func insertRecursionMarker(recKeyword string, splitter string,
 // patchLog#12: 添加了一个reactPlugin参数，现在reactor插件通过此参数调用，避免每次调用都解析插件字符串导致性能问题
 // reactPlugin在doFuzz函数中通过一次plugin.ParsePluginsStr解析得到
 func React(fuzz1 *fuzzTypes.Fuzz, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
-	reactPlugin plugin.Plugin, keywordsUsed []string, payloadEachKeyword []string,
+	reactPlugin fuzzTypes.Plugin, keywordsUsed []string, payloadEachKeyword []string,
 	recursionPos []int) *fuzzTypes.Reaction {
 	defer common.PutReq(reqSend)
 	reaction := new(fuzzTypes.Reaction)
@@ -109,7 +108,8 @@ func React(fuzz1 *fuzzTypes.Fuzz, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 	*/
 	// 递归模式添加新任务
 	if fuzz1.React.RecursionControl.RecursionDepth < fuzz1.React.RecursionControl.MaxRecursionDepth &&
-		(resp.HttpResponse != nil && valIn(resp.HttpResponse.StatusCode, fuzz1.React.RecursionControl.StatCodes) ||
+		(resp.HttpResponse != nil &&
+			valInRanges(resp.HttpResponse.StatusCode, fuzz1.React.RecursionControl.StatCodes) ||
 			common.RegexMatch(resp.RawResponse, fuzz1.React.RecursionControl.Regex)) && recursionPos != nil {
 		output.Log(fmt.Sprintf("payload %s recursive, add new job", payloadEachKeyword[0]), common.OutputToWhere)
 		recKeyword := fuzz1.React.RecursionControl.Keyword
@@ -151,29 +151,29 @@ func React(fuzz1 *fuzzTypes.Fuzz, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 	}
 	// 添加递归任务（如果自定义reactor没有添加）
 	if reaction.NewJob == nil && recursionJob != nil {
-		reaction.Flag |= fuzzTypes.ReactFlagAddJob
+		reaction.Flag |= fuzzTypes.ReactAddJob
 		reaction.NewJob = recursionJob
 	}
 	// 决定是否输出，自定义reactor若没有标识响应是否会被过滤，根据Matcher和Filter确定
-	if (reaction.Flag&fuzzTypes.ReactFlagMatch == 0) && (reaction.Flag&fuzzTypes.ReactFlagFiltered == 0) {
-		filtered := match(resp, &fuzz1.React.Filter)
-		matched := match(resp, &fuzz1.React.Matcher)
+	if (reaction.Flag&fuzzTypes.ReactMatch == 0) && (reaction.Flag&fuzzTypes.ReactFiltered == 0) {
+		filtered := matchResponse(resp, &fuzz1.React.Filter)
+		matched := matchResponse(resp, &fuzz1.React.Matcher)
 		if filtered {
-			reaction.Flag |= fuzzTypes.ReactFlagFiltered
+			reaction.Flag |= fuzzTypes.ReactFiltered
 		}
 		if matched {
-			reaction.Flag |= fuzzTypes.ReactFlagMatch
+			reaction.Flag |= fuzzTypes.ReactMatch
 		}
 		// 仅当没被标记为过滤，且被标记为匹配，或者出错时输出
 		if !filtered && matched || !fuzz1.React.OutSettings.IgnoreError && resp.ErrMsg != "" {
-			reaction.Flag |= fuzzTypes.ReactFlagOutput
+			reaction.Flag |= fuzzTypes.ReactOutput
 		}
-	} else if reaction.Flag&fuzzTypes.ReactFlagMatch != 0 {
-		reaction.Flag |= fuzzTypes.ReactFlagOutput
+	} else if reaction.Flag&fuzzTypes.ReactMatch != 0 {
+		reaction.Flag |= fuzzTypes.ReactOutput
 	}
 	o := output.ObjectOutput{Msg: reaction.Output.Msg}
 	// 生成并输出消息
-	if reaction.Flag&fuzzTypes.ReactFlagOutput != 0 {
+	if reaction.Flag&fuzzTypes.ReactOutput != 0 {
 		if !reaction.Output.Overwrite {
 			o.Keywords = keywordsUsed
 			o.Payloads = payloadEachKeyword
@@ -181,6 +181,9 @@ func React(fuzz1 *fuzzTypes.Fuzz, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 			o.Response = resp
 		}
 		output.ObjOutput(&o, common.OutputToWhere)
+	}
+	if reaction.Flag&fuzzTypes.ReactAddReq != 0 {
+
 	}
 	return reaction
 }

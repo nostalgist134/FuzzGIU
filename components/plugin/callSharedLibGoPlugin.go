@@ -3,10 +3,11 @@
 package plugin
 
 import (
+	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	goPlugin "plugin"
 )
 
-func CallSharedLib(plugin Plugin, relPath string, jsons ...[]byte) uintptr {
+func CallSharedLib(plugin fuzzTypes.Plugin, relPath string, jsons ...[]byte) uintptr {
 	pName := relPath + plugin.Name
 	p, err := goPlugin.Open(BaseDir + pName + binSuffix)
 	if err != nil {

@@ -76,7 +76,7 @@ func bytes2Strings(ptrBytes uintptr) []string {
 }*/
 
 // PreProcessor 返回指向preprocessor处理后新生成的*Fuzz
-func PreProcessor(p Plugin, fuzz1 *fuzzTypes.Fuzz) *fuzzTypes.Fuzz {
+func PreProcessor(p fuzzTypes.Plugin, fuzz1 *fuzzTypes.Fuzz) *fuzzTypes.Fuzz {
 	fuzzJson, err := json.Marshal(fuzz1)
 	fuzzJson = parseJson(callSharedLib(p, RelPathPreprocessor, fuzzJson))
 	newFuzz := new(fuzzTypes.Fuzz)
@@ -88,14 +88,14 @@ func PreProcessor(p Plugin, fuzz1 *fuzzTypes.Fuzz) *fuzzTypes.Fuzz {
 }
 
 // PayloadGenerator 返回插件生成的payload切片
-func PayloadGenerator(p Plugin) []string {
+func PayloadGenerator(p fuzzTypes.Plugin) []string {
 	ptrPayload := callSharedLib(p, RelPathPlGen)
 	payloads := bytes2Strings(ptrPayload)
 	return payloads
 }
 
 // PayloadProcessor 返回处理后的字符串
-func PayloadProcessor(p Plugin) string {
+func PayloadProcessor(p fuzzTypes.Plugin) string {
 	sb := strings.Builder{}
 	ptrPayloads := (*string)(unsafe.Pointer(callSharedLib(p, RelPathPlProc)))
 	sb.WriteString(*ptrPayloads)
@@ -104,8 +104,8 @@ func PayloadProcessor(p Plugin) string {
 	return ret
 }
 
-// ReqSender 返回响应
-func ReqSender(p Plugin, m *fuzzTypes.SendMeta) *fuzzTypes.Resp {
+// SendRequest 根据sendMeat发送请求，并接收响应
+func SendRequest(p fuzzTypes.Plugin, m *fuzzTypes.SendMeta) *fuzzTypes.Resp {
 	reqJson, err := json.Marshal(m)
 	if err != nil {
 		panic(err)
@@ -120,7 +120,7 @@ func ReqSender(p Plugin, m *fuzzTypes.SendMeta) *fuzzTypes.Resp {
 }
 
 // Reactor 返回*reaction
-func Reactor(p Plugin, req *fuzzTypes.Req, resp *fuzzTypes.Resp) *fuzzTypes.Reaction {
+func Reactor(p fuzzTypes.Plugin, req *fuzzTypes.Req, resp *fuzzTypes.Resp) *fuzzTypes.Reaction {
 	reqJson, err := json.Marshal(req)
 	if err != nil {
 		panic(err)

@@ -7,17 +7,11 @@ import (
 
 // Preprocess 预处理函数，用来对fuzz模板进行预处理，可自定义
 // 除了自定义的逻辑之外，默认的预处理包括生成payload、处理payload、处理json data（如果有）等
-func Preprocess(fuzz *fuzzTypes.Fuzz, preprocessors string) *fuzzTypes.Fuzz {
+func Preprocess(fuzz *fuzzTypes.Fuzz, preprocessors []fuzzTypes.Plugin) *fuzzTypes.Fuzz {
 	newFuzz := fuzz // newFuzz作为预处理器返回的新Fuzz结构
-	if preprocessors != "" {
-		plugins := plugin2.ParsePluginsStr(preprocessors)
+	if len(preprocessors) > 0 {
 		// 遍历预处理器链
-		for _, p := range plugins {
-			/*fuzzJson, err := json.Marshal(newFuzz) // 将fuzz类序列化后传入
-			if err != nil {
-				panic(err)
-			}
-			ret := plugin2.Call(plugin2.PTypePreProc, p, fuzzJson, nil)*/
+		for _, p := range preprocessors {
 			newFuzz = plugin2.PreProcessor(p, fuzz)
 		}
 	}

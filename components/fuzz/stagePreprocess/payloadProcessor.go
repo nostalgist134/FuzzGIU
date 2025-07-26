@@ -2,6 +2,7 @@ package stagePreprocess
 
 import (
 	"encoding/base64"
+	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/nostalgist134/FuzzGIU/components/plugin"
 	"net/url"
 	"regexp"
@@ -31,7 +32,7 @@ func stripslashes(s string) string {
 }
 
 // PayloadProcessor 对单个payload进行处理，默认的处理模块有urlencode、addslashes、base64以及给payload加后缀
-func PayloadProcessor(payload string, plugins []plugin.Plugin) string {
+func PayloadProcessor(payload string, plugins []fuzzTypes.Plugin) string {
 	processedPayload := payload
 	for _, p := range plugins { // 与preprocessor类似的循环
 		switch p.Name {

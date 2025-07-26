@@ -4,11 +4,6 @@ import (
 	"runtime"
 )
 
-type Plugin struct {
-	Name string
-	Args []any
-}
-
 const (
 	pluginEntry         = "PluginWrapper"
 	BaseDir             = "./plugins/"
@@ -19,24 +14,16 @@ const (
 	RelPathReactor      = "reactors/"
 )
 
-const (
-	PTypePlGen     = "payloadGenerator"
-	PTypePreProc   = "preprocessor"
-	PTypePlProc    = "payloadProcessor"
-	PTypeReactor   = "reactor"
-	PTypeReqSender = "reqSender"
-)
-
 var binSuffix = ""
 
 func init() {
 	operSys := runtime.GOOS
 	switch operSys {
-	case "Windows":
+	case "windows":
 		binSuffix = ".dll"
-	case "Linux":
+	case "linux":
 		binSuffix = ".so"
-	case "Darwin":
+	case "darwin":
 		binSuffix = ".dylib"
 	}
 }

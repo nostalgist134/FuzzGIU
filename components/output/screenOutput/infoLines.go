@@ -12,6 +12,26 @@ func splitLines(s string) []string {
 	return strings.Split(s, "\n")
 }
 
+func ranges2String(ranges []fuzzTypes.Range) string {
+	if len(ranges) == 0 {
+		return "[]"
+	}
+	sb := strings.Builder{}
+	sb.WriteByte('[')
+	for i, r := range ranges {
+		if r.Upper > r.Lower {
+			sb.WriteString(fmt.Sprintf("%d-%d", r.Lower, r.Upper))
+		} else if r.Upper == r.Lower {
+			sb.WriteString(strconv.Itoa(r.Upper))
+		}
+		if i != len(ranges)-1 {
+			sb.Write([]byte{',', ' '})
+		}
+	}
+	sb.WriteByte(']')
+	return sb.String()
+}
+
 // intSlice2String 将int型切片转变成形如[a b-c d ...]字符串，如果其中有连续的片段则使用减号连接
 func intSlice2String(s []int) string {
 	if len(s) == 0 {
@@ -21,7 +41,7 @@ func intSlice2String(s []int) string {
 	sorted := make([]int, len(s))
 	copy(sorted, s)
 	sort.Ints(sorted)
-	var sb strings.Builder
+	sb := strings.Builder{}
 	sb.WriteString("[")
 
 	for i := 0; i < len(sorted); {
@@ -61,7 +81,7 @@ func match2Lines(m *fuzzTypes.Match) []string {
 		"WORDS : " + intSlice2String(m.Words),
 		"SIZE  : " + intSlice2String(m.Size),
 		"REGEX : " + m.Regex,
-		"TIME  : " + fmt.Sprintf("%d-%d(ms)", m.Time.DownBound.Milliseconds(), m.Time.UpBound.Milliseconds())}
+		"TIME  : " + fmt.Sprintf("%d-%d(ms)", m.Time.Lower.Milliseconds(), m.Time.Upper.Milliseconds())}
 }
 
 // recCtrl2Lines 将递归设置转化为string切片
@@ -92,7 +112,7 @@ func genInfoLines(globInfo *fuzzTypes.Fuzz) []string {
 		strconv.Itoa(globInfo.React.OutSettings.Verbosity),
 		globInfo.React.OutSettings.OutputFile,
 		globInfo.React.OutSettings.OutputFormat,
-		globInfo.Preprocess.Preprocessors,
+		fuzzTypes.Plugins2Expr(globInfo.Preprocess.Preprocessors),
 		globInfo.React.Reactor,
 		"FUZZ_KEYWORDS >"}
 
@@ -183,7 +203,8 @@ func centeredLines(lines []string, width int) {
 func buildKeywordsLines(plTmp map[string]fuzzTypes.PayloadTemp) []string {
 	ret := make([]string, 0)
 	for keyword, pt := range plTmp {
-		ret = append(ret, fmt.Sprintf("%-7s :: Gen:[%s] Proc:[%s]", keyword, pt.Generators, pt.Processors))
+		ret = append(ret, fmt.Sprintf("%-7s :: Gen:[%s] Proc:[%s]", keyword,
+			fuzzTypes.Plugins2Expr(pt.Generators.Gen), fuzzTypes.Plugins2Expr(pt.Processors)))
 	}
 	return ret
 }

@@ -77,8 +77,12 @@ func (p *WorkerPool) Submit(task Task) {
 	p.tasks <- task
 }
 
-// Wait 等待所有任务完成
+// Wait 等待协程池若干时间（maxTime设为负值则不限时间），如果等待完成返回true，否则返回false
 func (p *WorkerPool) Wait(maxTime time.Duration) bool {
+	if maxTime < 0 {
+		p.wg.Wait()
+		return true
+	}
 	waitDone := make(chan struct{})
 	go func() {
 		p.wg.Wait()
@@ -139,11 +143,26 @@ func (p *WorkerPool) Resize(size int) {
 	}
 }
 
+// GetSingleResult 获取单个任务结果
 func (p *WorkerPool) GetSingleResult() *fuzzTypes.Reaction {
 	select {
 	case r := <-p.results:
 		return r
 	default:
 		return nil
+	}
+}
+
+// Clear 清空任务队列
+func (p *WorkerPool) Clear() {
+	p.Pause()
+	defer p.Resume()
+	for {
+		select {
+		case <-p.tasks:
+			p.wg.Done()
+		default:
+			return
+		}
 	}
 }

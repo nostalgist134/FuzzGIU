@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/nostalgist134/FuzzGIU/components/options"
+	"github.com/nostalgist134/FuzzGIU/components/plugin"
 	"os"
 	"strconv"
 	"strings"
@@ -12,7 +13,8 @@ import (
 
 const defaultKeyword = "MILAOGIU"
 
-func appendPayloadTmp(tempMap map[string]fuzzTypes.PayloadTemp, pluginStrs []string, appendType int, genType string) {
+func appendPayloadTmp(tempMap map[string]fuzzTypes.PayloadTemp, pluginStrings []string, appendType int,
+	genType string) {
 	/*
 		-w C:/aaa.txt,Q:/az/www.txt::FUZZ1 -> "FUZZ1":{"C:/aaa.txt,Q:/az/www.txt|wordlist", processor, pllist}
 		-pl-gen giu1(1,2,3),zzwa(1,"6666412",3)::FUZZ2 -> "FUZZ2":{"giu1(1,2,3),zzwa(1,\"6666412\",3)|plugin", processor, pllist}
@@ -21,49 +23,50 @@ func appendPayloadTmp(tempMap map[string]fuzzTypes.PayloadTemp, pluginStrs []str
 	const (
 		appendGen  = 0
 		keywordSep = "::"
-		gentypeSep = "|"
 	)
-	for _, tmp := range pluginStrs {
-		// 在命令行参数中，要使用的文件/插件与fuzz关键字使用"::"关联，比如 -w C:\aaa.txt::FUZZ1, -pl-proc base64,suffix("123")::FUZZ2
+	for _, tmp := range pluginStrings {
+		// 在命令行参数中，要使用的文件/插件与fuzz关键字使用"::"关联，
+		// 比如 -w C:\aaa.txt::FUZZ1, -pl-proc base64,suffix("123")::FUZZ2
 		indSep := strings.LastIndex(tmp, keywordSep)
-		var keyword string
+		keyword := ""
 		if indSep+len(keywordSep) >= len(tmp) || indSep == -1 { // 未指定keyword，使用默认keyword
 			indSep = len(tmp)
 			keyword = defaultKeyword
 		} else {
 			keyword = tmp[indSep+len(keywordSep):]
 		}
-		pluginExpression := tmp[:indSep]
-		originalGenerators := ""
-		originalProcessors := ""
+		pluginExpr := tmp[:indSep]
+		p := plugin.ParsePluginsStr(pluginExpr)
+		var originalGen = fuzzTypes.PlGen{}
+		var originalProc []fuzzTypes.Plugin
 		_, keyExist := tempMap[keyword]
+		// 添加新的payload生成器
 		if appendType == appendGen {
-			suffix := genType
 			// 判断键是否已经存在
 			if keyExist {
-				originalGenerators = tempMap[keyword].Generators
-				originalGenType := originalGenerators[strings.LastIndex(originalGenerators, gentypeSep)+1:]
-				if originalGenType != genType { // 如果原先的生成器类型与现有的不符则不修改，直接退出
+				originalGen = tempMap[keyword].Generators
+				originalGenType := tempMap[keyword].Generators.Type
+				// 如果原先的生成器类型与现有的不符则不修改，直接退出
+				if originalGenType != genType {
 					return
 				}
-				originalProcessors = tempMap[keyword].Processors
-				suffix = ","
-			} else {
-				suffix = gentypeSep + suffix
+				originalProc = tempMap[keyword].Processors
 			}
 			// 添加新项
 			tempMap[keyword] = fuzzTypes.PayloadTemp{
-				// 如果键已经存在，则拼接generator+","+原来的generator
-				Generators: pluginExpression + suffix + originalGenerators,
-				Processors: originalProcessors,
+				Generators: fuzzTypes.PlGen{
+					Type: originalGen.Type,
+					Gen:  append(originalGen.Gen, p...),
+				},
+				Processors: originalProc,
 			}
 		} else {
 			if keyExist {
-				originalGenerators = tempMap[keyword].Generators
-				originalProcessors = tempMap[keyword].Processors
+				originalGen = tempMap[keyword].Generators
+				originalProc = tempMap[keyword].Processors
 				tempMap[keyword] = fuzzTypes.PayloadTemp{
-					Generators: originalGenerators,
-					Processors: pluginExpression + originalProcessors,
+					Generators: originalGen,
+					Processors: append(originalProc, p...),
 				}
 			} else {
 				return
@@ -72,36 +75,90 @@ func appendPayloadTmp(tempMap map[string]fuzzTypes.PayloadTemp, pluginStrs []str
 	}
 }
 
-// parseCommaSeparatedStr 将形如1,2,3-9,11的字符串转化为int型切片
-func parseCommaSeparatedStr(str string) []int {
-	if str == "" {
+// str2Ranges 将string类型转化为range切片
+func str2Ranges(s string) []fuzzTypes.Range {
+	if s == "" {
 		return nil
 	}
-	strSplit := strings.Split(str, ",")
-	ret := make([]int, 0)
-	for _, s := range strSplit {
-		if ranges := strings.Split(s, "-"); len(ranges) == 2 {
-			lower, err := strconv.Atoi(ranges[0])
+	var errRange = fuzzTypes.Range{Upper: -1, Lower: 0}
+	ranges := make([]fuzzTypes.Range, 0)
+	sRanges := strings.Split(s, ",")
+	for _, r := range sRanges {
+		// 单个int值
+		if strings.Index(r, "-") == -1 {
+			v, err := strconv.Atoi(r)
 			if err != nil {
+				ranges = append(ranges, errRange)
 				continue
 			}
-			upper, err := strconv.Atoi(ranges[1])
-			if err != nil {
-				continue
-			}
-			for i := lower; i <= upper; i++ {
-				ret = append(ret, i)
-			}
-		} else {
-			j, err := strconv.Atoi(s)
-			if err != nil {
-				continue
-			} else {
-				ret = append(ret, j)
-			}
+			ranges = append(ranges, fuzzTypes.Range{Upper: v, Lower: v})
+			continue
 		}
+		// 多个int值
+		bounds := strings.Split(r, "-")
+		lower, err := strconv.Atoi(bounds[0])
+		if err != nil {
+			ranges = append(ranges, errRange)
+			continue
+		}
+		upper, err := strconv.Atoi(bounds[1])
+		if err != nil {
+			ranges = append(ranges, errRange)
+		}
+		ranges = append(ranges, fuzzTypes.Range{Upper: upper, Lower: lower})
 	}
-	return ret
+	return ranges
+}
+
+func str2TimeBounds(s string) struct {
+	Lower time.Duration `json:"lower,omitempty"`
+	Upper time.Duration `json:"upper,omitempty"`
+} {
+	timeBounds := strings.Split(s, "-")
+	var upper, lower int
+	if len(timeBounds) > 1 {
+		upper, _ = strconv.Atoi(timeBounds[1])
+		lower, _ = strconv.Atoi(timeBounds[0])
+	} else {
+		lower = 0
+		upper, _ = strconv.Atoi(timeBounds[0])
+	}
+	return struct {
+		Lower time.Duration `json:"lower,omitempty"`
+		Upper time.Duration `json:"upper,omitempty"`
+	}{
+		Upper: time.Duration(upper) * time.Millisecond,
+		Lower: time.Duration(lower) * time.Millisecond,
+	}
+}
+
+func setMatch(fuzzMatch *fuzzTypes.Match, optMatch *options.Match) {
+	fuzzMatch.Lines = str2Ranges(optMatch.Lines)
+	fuzzMatch.Size = str2Ranges(optMatch.Size)
+	fuzzMatch.Code = str2Ranges(optMatch.Code)
+	fuzzMatch.Words = str2Ranges(optMatch.Words)
+	fuzzMatch.Regex = optMatch.Regex
+	fuzzMatch.Time = str2TimeBounds(optMatch.Time)
+	fuzzMatch.Mode = optMatch.Mode
+}
+
+// parseRequestFile 解析请求文件
+func parseRequestFile(fileName string) (req *fuzzTypes.Req, raw []byte, err error) {
+	// 尝试解析为http请求
+	raw, err = rawData(fileName)
+	if err != nil {
+		return
+	}
+	req, err = parseHttpRequest(fileName)
+	if err == nil {
+		return
+	}
+	// 尝试解析为json
+	req, err = jsonRequest(fileName)
+	if err == nil {
+		return
+	}
+	return
 }
 
 func opt2fuzz(opt *options.Opt) *fuzzTypes.Fuzz {
@@ -114,28 +171,25 @@ func opt2fuzz(opt *options.Opt) *fuzzTypes.Fuzz {
 	fuzz.Misc.Delay = opt.General.Delay
 	// opt.HTTP
 	var req *fuzzTypes.Req
-	var textReq []byte
-	var readErr error
+	var raw []byte
+	var err error
+	// 指定从文件中读取请求结构（req结构的json或者http请求）
 	if opt.General.ReqFile != "" {
-		textReq, readErr = os.ReadFile(opt.General.ReqFile)
-	}
-	if opt.General.ReqFile != "" && !os.IsNotExist(readErr) && readErr == nil { // 有指定reqFile
-		req, _ = parseHttpRequest(textReq)
-		if req == nil { // 如果req == nil说明req文件不是http请求表单，此时把文件当作data对待
-			fuzz.Send.Request.Data = string(textReq)
-		} else {
-			if opt.General.URL != "" { // 使用-u指定的url优先级比-r高
-				req.URL = opt.General.URL
-			}
+		req, raw, err = parseRequestFile(opt.General.ReqFile)
+		if req != nil {
 			fuzz.Send.Request = *req
+			// -u指定的url优先级更高
+			fuzz.Send.Request.URL = opt.General.URL
+		} else { // 如果不是json或http，则将其视作data
+			fuzz.Send.Request.Data = string(raw)
 		}
 	}
-	if req == nil {
+	if err != nil || opt.General.ReqFile == "" {
 		if opt.General.ReqFile != "" {
-			if os.IsNotExist(readErr) {
-				fmt.Printf("request fileOutput %s not found, ignored\n", opt.General.ReqFile)
+			if os.IsNotExist(err) {
+				fmt.Printf("request file %s not found, ignored\n", opt.General.ReqFile)
 			} else {
-				fmt.Printf("error when reading request file %s - %v, skipping\n", opt.General.ReqFile, readErr)
+				fmt.Printf("error when parsing request file %s: %v, skipping\n", opt.General.ReqFile, err)
 			}
 		}
 		fuzz.Send.Request.HttpSpec.ForceHttps = opt.HTTP.HTTPS
@@ -170,40 +224,9 @@ func opt2fuzz(opt *options.Opt) *fuzzTypes.Fuzz {
 		fuzz.Send.Request.HttpSpec.Method = opt.HTTP.Method
 	}
 	// opt.Filter
-	fuzz.React.Filter.Lines = parseCommaSeparatedStr(opt.Filter.FilterLines)
-	fuzz.React.Filter.Size = parseCommaSeparatedStr(opt.Filter.FilterSize)
-	fuzz.React.Filter.Code = parseCommaSeparatedStr(opt.Filter.FilterCode)
-	fuzz.React.Filter.Words = parseCommaSeparatedStr(opt.Filter.FilterWords)
-	fuzz.React.Filter.Regex = opt.Filter.FilterRegex
-	timeBounds := strings.Split(opt.Filter.FilterTime, "-")
-	var upbound, downbound int
-	if len(timeBounds) > 1 {
-		upbound, _ = strconv.Atoi(timeBounds[1])
-		downbound, _ = strconv.Atoi(timeBounds[0])
-	} else {
-		downbound = 0
-		upbound, _ = strconv.Atoi(timeBounds[0])
-	}
-	fuzz.React.Filter.Time.UpBound = time.Duration(upbound) * time.Millisecond
-	fuzz.React.Filter.Time.DownBound = time.Duration(downbound) * time.Millisecond
-	fuzz.React.Filter.Mode = opt.Filter.FilterMode
+	setMatch(&fuzz.React.Filter, opt.Filter)
 	// opt.Match
-	fuzz.React.Matcher.Lines = parseCommaSeparatedStr(opt.Matcher.MatcherLines)
-	fuzz.React.Matcher.Size = parseCommaSeparatedStr(opt.Matcher.MatcherSize)
-	fuzz.React.Matcher.Code = parseCommaSeparatedStr(opt.Matcher.MatcherCode)
-	fuzz.React.Matcher.Words = parseCommaSeparatedStr(opt.Matcher.MatcherWords)
-	fuzz.React.Matcher.Regex = opt.Matcher.MatcherRegex
-	timeBounds = strings.Split(opt.Matcher.MatcherTime, "-")
-	if len(timeBounds) > 1 {
-		upbound, _ = strconv.Atoi(timeBounds[1])
-		downbound, _ = strconv.Atoi(timeBounds[0])
-	} else {
-		downbound = 0
-		upbound, _ = strconv.Atoi(timeBounds[0])
-	}
-	fuzz.React.Matcher.Time.UpBound = time.Duration(upbound) * time.Millisecond
-	fuzz.React.Matcher.Time.DownBound = time.Duration(downbound) * time.Millisecond
-	fuzz.React.Matcher.Mode = opt.Matcher.MatcherMode
+	setMatch(&fuzz.React.Matcher, opt.Matcher)
 	// opt.Output
 	fuzz.React.OutSettings.Verbosity = opt.Output.Verbosity
 	fuzz.React.OutSettings.OutputFormat = opt.Output.Fmt
@@ -231,7 +254,7 @@ func opt2fuzz(opt *options.Opt) *fuzzTypes.Fuzz {
 			sb.WriteString(",")
 		}
 	}
-	fuzz.Preprocess.Preprocessors = sb.String()
+	fuzz.Preprocess.Preprocessors = plugin.ParsePluginsStr(sb.String())
 	fuzz.React.Reactor = opt.Plugin.Reactors
 	// opt.RecursionControl
 	if opt.RecursionControl.Recursion {
@@ -239,17 +262,11 @@ func opt2fuzz(opt *options.Opt) *fuzzTypes.Fuzz {
 			panic("recursion mode only supports single fuzz keyword")
 		}
 		fuzz.React.RecursionControl.MaxRecursionDepth = opt.RecursionControl.RecursionDepth
-		fuzz.React.RecursionControl.StatCodes = make([]int, 0)
-		for _, stat := range strings.Split(opt.RecursionControl.RecursionStatus, ",") {
-			statCode, err := strconv.Atoi(stat)
-			if err == nil {
-				fuzz.React.RecursionControl.StatCodes = append(fuzz.React.RecursionControl.StatCodes, statCode)
-			}
-		}
+		fuzz.React.RecursionControl.StatCodes = str2Ranges(opt.RecursionControl.RecursionStatus)
 		fuzz.React.RecursionControl.Regex = opt.RecursionControl.RecursionRegex
 		fuzz.React.RecursionControl.Splitter = opt.RecursionControl.RecursionSplitter
 		for k, _ := range fuzz.Preprocess.PlTemp {
-			// 递归关键字设置为从关键字列表中取的第一个键
+			// 递归关键字设置为从关键字列表中取的第一个键（递归模式只支持一个关键字，所以怎么取都无所谓了）
 			fuzz.React.RecursionControl.Keyword = k
 			break
 		}

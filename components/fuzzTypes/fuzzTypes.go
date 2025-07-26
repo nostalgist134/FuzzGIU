@@ -5,7 +5,17 @@ import (
 	"time"
 )
 
+// todo:
+//  1.将match类型中的int切片替换为range类型
+//  2.将所有的插件字符串替换为插件类型
+
 type (
+	// Plugin 标记插件名和参数
+	Plugin struct {
+		Name string
+		Args []any
+	}
+	// Range 表示一个范围中的全部整数，上下界都是闭合的
 	Range struct {
 		Upper int `json:"upper,omitempty"`
 		Lower int `json:"lower,omitempty"`
@@ -43,10 +53,14 @@ type (
 		NewJob *Fuzz `json:"new_job,omitempty"` // 如果要添加新任务，新任务结构体指针
 		NewReq *Req  `json:"new_req,omitempty"` // 如果要添加新请求，新请求结构体指针
 	}
+	PlGen struct {
+		Type string   `json:"type"`
+		Gen  []Plugin `json:"gen"`
+	}
 	// PayloadTemp 与单个关键字相关联的payload相关设置
 	PayloadTemp struct {
-		Generators string   `json:"generators,omitempty"`
-		Processors string   `json:"processors,omitempty"`
+		Generators PlGen    `json:"generators,omitempty"`
+		Processors []Plugin `json:"processors,omitempty"`
 		PlList     []string `json:"pl_list,omitempty"`
 	}
 	// SendMeta 包括了请求本身以及与请求相关的设置（超时、代理等）的结构
@@ -68,15 +82,15 @@ type (
 		NativeStdout bool   `json:"native_stdout,omitempty"` // 输出到原生标准输出流
 	}
 	Match struct {
-		Code  []int  `json:"code,omitempty"`
-		Lines []int  `json:"lines,omitempty"`
-		Words []int  `json:"words,omitempty"`
-		Size  []int  `json:"size,omitempty"`
-		Regex string `json:"regex,omitempty"`
-		Mode  string `json:"mode,omitempty"`
+		Code  []Range `json:"code,omitempty"`
+		Lines []Range `json:"lines,omitempty"`
+		Words []Range `json:"words,omitempty"`
+		Size  []Range `json:"size,omitempty"`
+		Regex string  `json:"regex,omitempty"`
+		Mode  string  `json:"mode,omitempty"`
 		Time  struct {
-			DownBound time.Duration `json:"down_bound,omitempty"`
-			UpBound   time.Duration `json:"up_bound,omitempty"`
+			Lower time.Duration `json:"lower,omitempty"`
+			Upper time.Duration `json:"upper,omitempty"`
 		} `json:"time,omitempty"`
 	}
 	// Fuzz 测试任务结构，包含执行单个fuzz任务所需的所有信息
@@ -93,7 +107,7 @@ type (
 			// plugin类型的generator指定file时能加自定义的参数，直接在文件名后加上(参数列表)，比如 test(1,2,3,4),test2,...|plugin
 			// processor为由逗号隔开的多个processor名的列表，也可以有参数，如果指定了多个processor那么会按照在列表中的顺序调用
 			PlTemp        map[string]PayloadTemp `json:"pl_temp,omitempty"`
-			Preprocessors string                 `json:"preprocessors,omitempty"` // 使用的自定义预处理器
+			Preprocessors []Plugin               `json:"preprocessors,omitempty"` // 使用的自定义预处理器
 			Mode          string                 `json:"mode,omitempty"`          // 出现多个payload关键字时处理的模式
 		} `json:"preprocess,omitempty"`
 		// 发包阶段的设置
@@ -113,12 +127,12 @@ type (
 			Filter           Match          `json:"filter,omitempty"`          // 过滤
 			Matcher          Match          `json:"matcher,omitempty"`         // 匹配
 			RecursionControl struct {
-				RecursionDepth    int    `json:"recursion_depth,omitempty"`     // 当前递归深度
-				MaxRecursionDepth int    `json:"max_recursion_depth,omitempty"` // 最大递归深度
-				Keyword           string `json:"keyword,omitempty"`
-				StatCodes         []int  `json:"stat_codes,omitempty"`
-				Regex             string `json:"regex,omitempty"`
-				Splitter          string `json:"splitter,omitempty"`
+				RecursionDepth    int     `json:"recursion_depth,omitempty"`     // 当前递归深度
+				MaxRecursionDepth int     `json:"max_recursion_depth,omitempty"` // 最大递归深度
+				Keyword           string  `json:"keyword,omitempty"`
+				StatCodes         []Range `json:"stat_codes,omitempty"`
+				Regex             string  `json:"regex,omitempty"`
+				Splitter          string  `json:"splitter,omitempty"`
 			} `json:"recursion_control,omitempty"`
 		} `json:"react,omitempty"`
 		// 杂项设置
@@ -131,11 +145,11 @@ type (
 
 // Reaction使用的flag
 const (
-	ReactFlagOutput   = 0x1
-	ReactFlagAddJob   = 0x2
-	ReactFlagStopJob  = 0x4
-	ReactFlagExit     = 0x8
-	ReactFlagFiltered = 0x10
-	ReactFlagMatch    = 0x20
-	ReactAddReq       = 0x40
+	ReactOutput   = 0x1
+	ReactAddJob   = 0x2
+	ReactStopJob  = 0x4
+	ReactExit     = 0x8
+	ReactFiltered = 0x10
+	ReactMatch    = 0x20
+	ReactAddReq   = 0x40
 )

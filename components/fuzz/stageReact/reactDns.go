@@ -9,7 +9,7 @@ import (
 
 func reactDns(req *fuzzTypes.Req, resp *fuzzTypes.Resp) *fuzzTypes.Reaction { // 对dns请求专用的react函数
 	reaction := new(fuzzTypes.Reaction)
-	reaction.Flag |= fuzzTypes.ReactFlagMatch
+	reaction.Flag |= fuzzTypes.ReactMatch
 	reaction.Output.Overwrite = false
 	sb := strings.Builder{}
 	URL, _ := url.Parse(req.URL)
