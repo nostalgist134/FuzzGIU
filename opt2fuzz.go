@@ -37,36 +37,35 @@ func appendPayloadTmp(tempMap map[string]fuzzTypes.PayloadTemp, pluginStrings []
 		}
 		pluginExpr := tmp[:indSep]
 		p := plugin.ParsePluginsStr(pluginExpr)
-		var originalGen = fuzzTypes.PlGen{}
-		var originalProc []fuzzTypes.Plugin
+		var oldPlGen = fuzzTypes.PlGen{}
+		var oldProc []fuzzTypes.Plugin
 		_, keyExist := tempMap[keyword]
 		// 添加新的payload生成器
 		if appendType == appendGen {
 			// 判断键是否已经存在
 			if keyExist {
-				originalGen = tempMap[keyword].Generators
-				originalGenType := tempMap[keyword].Generators.Type
+				oldPlGen = tempMap[keyword].Generators
 				// 如果原先的生成器类型与现有的不符则不修改，直接退出
-				if originalGenType != genType {
+				if tempMap[keyword].Generators.Type != genType {
 					return
 				}
-				originalProc = tempMap[keyword].Processors
+				oldProc = tempMap[keyword].Processors
 			}
 			// 添加新项
 			tempMap[keyword] = fuzzTypes.PayloadTemp{
 				Generators: fuzzTypes.PlGen{
-					Type: originalGen.Type,
-					Gen:  append(originalGen.Gen, p...),
+					Type: genType,
+					Gen:  append(oldPlGen.Gen, p...),
 				},
-				Processors: originalProc,
+				Processors: oldProc,
 			}
 		} else {
 			if keyExist {
-				originalGen = tempMap[keyword].Generators
-				originalProc = tempMap[keyword].Processors
+				oldPlGen = tempMap[keyword].Generators
+				oldProc = tempMap[keyword].Processors
 				tempMap[keyword] = fuzzTypes.PayloadTemp{
-					Generators: originalGen,
-					Processors: append(originalProc, p...),
+					Generators: oldPlGen,
+					Processors: append(oldProc, p...),
 				}
 			} else {
 				return

@@ -13,12 +13,12 @@ type WorkerPool struct {
 	results     chan *fuzzTypes.Reaction
 	concurrency int
 
-	wg         sync.WaitGroup
-	stopChan   chan struct{}
-	pauseChan  chan struct{}
-	resumeChan chan struct{}
-	paused     bool
-	mu         sync.Mutex
+	wg     sync.WaitGroup
+	quit   chan struct{}
+	pause  chan struct{}
+	resume chan struct{}
+	paused bool
+	mu     sync.Mutex
 }
 
 var Wp *WorkerPool
@@ -29,9 +29,9 @@ func New(concurrency int) *WorkerPool {
 		tasks:       make(chan Task, 8192),
 		results:     make(chan *fuzzTypes.Reaction, 8192),
 		concurrency: concurrency,
-		stopChan:    make(chan struct{}),
-		pauseChan:   make(chan struct{}),
-		resumeChan:  make(chan struct{}),
+		quit:        make(chan struct{}),
+		pause:       make(chan struct{}),
+		resume:      make(chan struct{}),
 	}
 	return Wp
 }
@@ -46,9 +46,9 @@ func (p *WorkerPool) Start() {
 func (p *WorkerPool) worker() {
 	for {
 		select {
-		case <-p.stopChan:
+		case <-p.quit:
 			return
-		case <-p.pauseChan:
+		case <-p.pause:
 			p.waitForResume()
 		case task := <-p.tasks:
 			result := task()
@@ -61,9 +61,9 @@ func (p *WorkerPool) worker() {
 func (p *WorkerPool) waitForResume() {
 	for {
 		select {
-		case <-p.resumeChan:
+		case <-p.resume:
 			return
-		case <-p.stopChan:
+		case <-p.quit:
 			return
 		default:
 			time.Sleep(50 * time.Millisecond)
@@ -98,7 +98,7 @@ func (p *WorkerPool) Wait(maxTime time.Duration) bool {
 
 // Stop 停止所有 worker
 func (p *WorkerPool) Stop() {
-	close(p.stopChan)
+	close(p.quit)
 	close(p.results) // 关闭结果通道，避免 GetResChan 中泄露
 }
 
@@ -109,7 +109,7 @@ func (p *WorkerPool) Pause() {
 	if !p.paused {
 		p.paused = true
 		for i := 0; i < p.concurrency; i++ {
-			p.pauseChan <- struct{}{}
+			p.pause <- struct{}{}
 		}
 	}
 }
@@ -121,13 +121,13 @@ func (p *WorkerPool) Resume() {
 	if p.paused {
 		p.paused = false
 		for i := 0; i < p.concurrency; i++ {
-			p.resumeChan <- struct{}{}
+			p.resume <- struct{}{}
 		}
 	}
 }
 
 func (p *WorkerPool) Resize(size int) {
-	if size == p.concurrency {
+	if size == p.concurrency || size < 0 {
 		return
 	} else {
 		if size > p.concurrency {
@@ -136,7 +136,7 @@ func (p *WorkerPool) Resize(size int) {
 			}
 		} else {
 			for i := 0; i < p.concurrency-size; i++ {
-				p.stopChan <- struct{}{}
+				p.quit <- struct{}{}
 			}
 		}
 		p.concurrency = size

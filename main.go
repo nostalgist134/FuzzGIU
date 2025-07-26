@@ -38,7 +38,6 @@ func main() {
 		return
 	}
 	fuzz1 := opt2fuzz(opts)
-	debug()
 	/*fuzz.Debug(fuzz1)
 	return*/
 	fuzz.JQ.AddJob(fuzz1)

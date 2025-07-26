@@ -3,7 +3,6 @@ package output
 import (
 	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
-	"sort"
 	"strconv"
 	"strings"
 )
@@ -25,79 +24,38 @@ func ranges2String(ranges []fuzzTypes.Range) string {
 			sb.WriteString(strconv.Itoa(r.Upper))
 		}
 		if i != len(ranges)-1 {
-			sb.Write([]byte{',', ' '})
+			sb.WriteByte(' ')
 		}
 	}
 	sb.WriteByte(']')
 	return sb.String()
 }
 
-// intSlice2String 将int型切片转变成形如[a b-c d ...]字符串，如果其中有连续的片段则使用减号连接
-func intSlice2String(s []int) string {
-	if len(s) == 0 {
-		return "[]"
-	}
-
-	sorted := make([]int, len(s))
-	copy(sorted, s)
-	sort.Ints(sorted)
-	sb := strings.Builder{}
-	sb.WriteString("[")
-
-	for i := 0; i < len(sorted); {
-		start := sorted[i]
-		j := i + 1
-
-		// 找到连续片段
-		for j < len(sorted) && sorted[j] == sorted[j-1]+1 {
-			j++
-		}
-		if j-i >= 3 {
-			// 如果连续数量 >= 3，使用减号连接
-			sb.WriteString(fmt.Sprintf("%d-%d", start, sorted[j-1]))
-		} else {
-			// 否则逐个写出
-			for k := i; k < j; k++ {
-				sb.WriteString(strconv.Itoa(sorted[k]))
-				if k != j-1 {
-					sb.WriteString(" ")
-				}
-			}
-		}
-		i = j
-		if i < len(sorted) {
-			sb.WriteString(" ")
-		}
-	}
-	sb.WriteString("]")
-	return sb.String()
-}
-
 // match2Lines 将fuzzTypes.Match结构转化为行
 func match2Lines(m *fuzzTypes.Match) []string {
 	return []string{
-		"CODE  : " + intSlice2String(m.Code),
-		"LINES : " + intSlice2String(m.Lines),
-		"WORDS : " + intSlice2String(m.Words),
-		"SIZE  : " + intSlice2String(m.Size),
+		"CODE  : " + ranges2String(m.Code),
+		"LINES : " + ranges2String(m.Lines),
+		"WORDS : " + ranges2String(m.Words),
+		"SIZE  : " + ranges2String(m.Size),
 		"REGEX : " + m.Regex,
 		"TIME  : " + fmt.Sprintf("%d-%d(ms)", m.Time.Lower.Milliseconds(), m.Time.Upper.Milliseconds())}
 }
 
 // recCtrl2Lines 将递归设置转化为string切片
 func recCtrl2Lines(recCtrl *struct {
-	RecursionDepth    int    `json:"recursion_depth,omitempty"`     // 当前递归深度
-	MaxRecursionDepth int    `json:"max_recursion_depth,omitempty"` // 最大递归深度
-	Keyword           string `json:"keyword,omitempty"`
-	StatCodes         []int  `json:"stat_codes,omitempty"`
-	Regex             string `json:"regex,omitempty"`
-	Splitter          string `json:"splitter,omitempty"`
+	RecursionDepth    int               `json:"recursion_depth,omitempty"`     // 当前递归深度
+	MaxRecursionDepth int               `json:"max_recursion_depth,omitempty"` // 最大递归深度
+	Keyword           string            `json:"keyword,omitempty"`
+	StatCodes         []fuzzTypes.Range `json:"stat_codes,omitempty"`
+	Regex             string            `json:"regex,omitempty"`
+	Splitter          string            `json:"splitter,omitempty"`
 }) []string {
 	return []string{
 		"CUR_DEPTH : " + strconv.Itoa(recCtrl.RecursionDepth),
 		"MAX_DEPTH : " + strconv.Itoa(recCtrl.MaxRecursionDepth),
 		"KEYWORD   : " + recCtrl.Keyword,
-		"CODES     : " + intSlice2String(recCtrl.StatCodes),
+		"CODES     : " + ranges2String(recCtrl.StatCodes),
 		"REGEX     : " + recCtrl.Regex}
 }
 

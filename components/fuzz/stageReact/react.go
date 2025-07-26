@@ -11,7 +11,7 @@ import (
 
 func valInRanges(v int, ranges []fuzzTypes.Range) bool {
 	for _, r := range ranges {
-		if v < r.Upper && v >= r.Lower {
+		if v <= r.Upper && v >= r.Lower {
 			return true
 		}
 	}

@@ -82,7 +82,6 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz) time.Duration {
 		Wp = wp.New(fuzz1.Misc.PoolSize)
 		Wp.Start()
 	} else {
-		Wp.Clear()
 		Wp.Resize(fuzz1.Misc.PoolSize)
 	}
 
@@ -239,12 +238,14 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz) time.Duration {
 	for !Wp.Wait(time.Millisecond * 10) {
 		for r := Wp.GetSingleResult(); r != nil; r = Wp.GetSingleResult() {
 			if handleReaction(r, fuzz1, reactPlugin) {
+				Wp.Clear()
 				return time.Since(timeStart)
 			}
 		}
 	}
 	for r := Wp.GetSingleResult(); r != nil; r = Wp.GetSingleResult() {
 		if handleReaction(r, fuzz1, reactPlugin) {
+			Wp.Clear()
 			return time.Since(timeStart)
 		}
 	}

@@ -72,7 +72,7 @@ func GeneratePayloads(payloadGenerator fuzzTypes.PlGen) []string {
 	case "plugin": // plugin类型的generator
 		payloads = generatePayloadsPlugin(generators)
 	default:
-		fmt.Printf("Unsupported generator type: %s\n", generatorType)
+		output.Log(fmt.Sprintf("unsupported generator type [%s]", generatorType), common.OutputToWhere)
 		payloads = []string{""}
 	}
 	// patchLog#3: 修改了payloadGenerator逻辑使得即使生成的payload列表为空也至少会传入一个空字符串，避免doFuzz主循环中curInd为0
