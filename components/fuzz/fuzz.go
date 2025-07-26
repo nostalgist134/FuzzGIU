@@ -220,7 +220,6 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz) time.Duration {
 		}
 		Wp.Submit(task)
 		time.Sleep(time.Millisecond * time.Duration(fuzz1.Misc.Delay))
-		// 重复100次获取结果队列中的结果
 		maxTry := 8192
 		for {
 			if maxTry == 0 {
@@ -231,6 +230,8 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz) time.Duration {
 				if jobStop {
 					return time.Since(timeStart)
 				}
+			} else {
+				break
 			}
 			maxTry--
 		}
