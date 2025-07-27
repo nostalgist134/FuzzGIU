@@ -30,6 +30,10 @@ var Wp *wp.WorkerPool
 func handleReaction(r *fuzzTypes.Reaction, fuzz1 *fuzzTypes.Fuzz, reactPlugin fuzzTypes.Plugin) bool {
 	stopJob := false
 	if r.Flag&fuzzTypes.ReactAddJob != 0 && r.NewJob != nil {
+		k, p := stageReact.GetReactTraceInfo(r)
+		if k != nil && p != nil {
+			output.Log(fmt.Sprintf("task with %s:%s added job", k, p), common.OutputToWhere)
+		}
 		JQ.AddJob(r.NewJob)
 		output.SetJobCounter(output.GetCounterSingle(3) + 1)
 	}
@@ -38,6 +42,7 @@ func handleReaction(r *fuzzTypes.Reaction, fuzz1 *fuzzTypes.Fuzz, reactPlugin fu
 		stopJob = true
 	}
 	if r.Flag&fuzzTypes.ReactAddReq != 0 && r.NewReq != nil {
+		k, p := stageReact.GetReactTraceInfo(r)
 		newSend := (SendMetaPool.Get()).(*fuzzTypes.SendMeta)
 		newTask := func() *fuzzTypes.Reaction {
 			newSend.Timeout = fuzz1.Send.Timeout
@@ -48,7 +53,7 @@ func handleReaction(r *fuzzTypes.Reaction, fuzz1 *fuzzTypes.Fuzz, reactPlugin fu
 			newSend.Request = r.NewReq
 			resp := stageSend.SendRequest(newSend)
 			reaction := stageReact.React(fuzz1, newSend.Request, resp, reactPlugin,
-				[]string{""}, []string{"added via react"}, nil)
+				[]string{""}, []string{fmt.Sprintf("add via react by %s:%s", k, p)}, nil)
 			SendMetaPool.Put(newSend)
 			// task数加1
 			output.AddTaskCounter()

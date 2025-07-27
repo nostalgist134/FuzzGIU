@@ -9,6 +9,9 @@ import (
 	"strings"
 )
 
+// infoMarker 用来标识payload信息出现的位置
+var infoMarker = common.GetRandMarker()
+
 func valInRanges(v int, ranges []fuzzTypes.Range) bool {
 	for _, r := range ranges {
 		if v <= r.Upper && v >= r.Lower {
@@ -182,8 +185,43 @@ func React(fuzz1 *fuzzTypes.Fuzz, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 		}
 		output.ObjOutput(&o, common.OutputToWhere)
 	}
-	if reaction.Flag&fuzzTypes.ReactAddReq != 0 {
-
+	// 添加新单个请求的reaction，在输出消息后添加追溯信息(keyword:payload对)，易于追踪
+	if reaction.Flag&fuzzTypes.ReactAddReq != 0 || reaction.Flag&fuzzTypes.ReactAddJob != 0 {
+		sb := strings.Builder{}
+		sb.WriteByte('\n')
+		// 写入infoMarker，避免与原先的信息冲突，InfoMarker是随机生成的12位长字符串
+		sb.WriteString(infoMarker)
+		for i, k := range keywordsUsed {
+			sb.WriteString(k)
+			sb.WriteString(":")
+			sb.WriteString(payloadEachKeyword[i])
+			if i != len(keywordsUsed)-1 {
+				sb.WriteString(infoMarker)
+			}
+		}
+		reaction.Output.Msg += sb.String()
 	}
 	return reaction
+}
+
+// GetReactTraceInfo 获取reaction结构中的追溯信息
+func GetReactTraceInfo(reaction *fuzzTypes.Reaction) ([]string, []string) {
+	markerInd := strings.Index(reaction.Output.Msg, infoMarker)
+	if markerInd == -1 {
+		return nil, nil
+	}
+	k := make([]string, 0)
+	p := make([]string, 0)
+	if len(reaction.Output.Msg[markerInd:]) == len(infoMarker) {
+		return nil, nil
+	}
+	for _, kpPair := range strings.Split(reaction.Output.Msg[markerInd+len(infoMarker):], infoMarker) {
+		if kpPair != "" {
+			if kp := strings.Split(kpPair, ":"); len(kp) > 1 {
+				k = append(k, kp[0])
+				p = append(p, kp[1])
+			}
+		}
+	}
+	return k, p
 }

@@ -11,7 +11,18 @@ import (
 	"time"
 )
 
+var globKeywords = make([]string, 0)
+
 const defaultKeyword = "MILAOGIU"
+
+func keywordOverlap(keyword string) (string, bool) {
+	for _, k := range globKeywords {
+		if strings.Index(k, keyword) != -1 || strings.Index(keyword, k) != -1 {
+			return k, true
+		}
+	}
+	return "", false
+}
 
 func appendPayloadTmp(tempMap map[string]fuzzTypes.PayloadTemp, pluginStrings []string, appendType int,
 	genType string) {
@@ -40,6 +51,15 @@ func appendPayloadTmp(tempMap map[string]fuzzTypes.PayloadTemp, pluginStrings []
 		var oldPlGen = fuzzTypes.PlGen{}
 		var oldProc []fuzzTypes.Plugin
 		_, keyExist := tempMap[keyword]
+		if !keyExist {
+			k, isOverlap := keywordOverlap(keyword)
+			if isOverlap {
+				fmt.Fprintf(os.Stderr, "one keyword you added is one another's substring (%s and %s),\n"+
+					"which will lead to template parse error in the future, now exitting...\n", k, keyword)
+				os.Exit(1)
+			}
+			globKeywords = append(globKeywords, keyword)
+		}
 		// 添加新的payload生成器
 		if appendType == appendGen {
 			// 判断键是否已经存在

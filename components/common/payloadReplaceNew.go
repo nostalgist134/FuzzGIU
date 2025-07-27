@@ -287,8 +287,8 @@ func (t *ReplaceTemplate) render3(payload string, pos int) ([]string, []int) {
 	return fields, trackPos
 }
 
-// getSplitter 分隔符
-func getSplitter() string {
+// GetRandMarker 生成一个长度为12为的随机字符串
+func GetRandMarker() string {
 	dict := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	sb := strings.Builder{}
 	for i := 0; i < 12; i++ {
@@ -298,7 +298,7 @@ func getSplitter() string {
 }
 
 func req2Str(req *fuzzTypes.Req) (string, string) {
-	splitter := getSplitter()
+	splitter := GetRandMarker()
 	sb := strings.Builder{}
 	// 将结构按照顺序入string builder，并以分隔符隔开，splitter本来应该是要校验的，但是为了运行速度就不做校验了
 	sb.WriteString(req.HttpSpec.Method)
