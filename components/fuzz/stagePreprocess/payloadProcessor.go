@@ -45,10 +45,19 @@ func PayloadProcessor(payload string, plugins []fuzzTypes.Plugin) string {
 		case "base64":
 			processedPayload = base64encode(processedPayload)
 		case "suffix":
-			suffix := (p.Args[0]).(string)
-			processedPayload += suffix
+			if len(p.Args) > 0 {
+				suffix, ok := (p.Args[0]).(string)
+				if ok {
+					processedPayload += suffix
+				}
+			}
 		case "repeat":
-			processedPayload = strings.Repeat(processedPayload, p.Args[0].(int))
+			if len(p.Args) > 0 {
+				cnt, ok := p.Args[0].(int)
+				if ok {
+					processedPayload = strings.Repeat(processedPayload, cnt)
+				}
+			}
 		default:
 			p.Args = append([]any{processedPayload}, p.Args...) // payloadProcessor类型的插件中，第一个为待处理的payload
 			processedPayload = plugin.PayloadProcessor(p)

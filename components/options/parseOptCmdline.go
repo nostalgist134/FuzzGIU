@@ -23,6 +23,7 @@ func ParseOptCmdline() *Opt {
 	errHandling := &ErrorHandling{}
 	pluginSettings := &Plugin{}
 
+	flag.Usage = usage
 	// 一般性设置
 	flag.StringVar(&general.URL, "u", "", "url to giu")
 	flag.StringVar(&general.Data, "d", "", "request data")
@@ -32,25 +33,25 @@ func ParseOptCmdline() *Opt {
 	flag.IntVar(&general.Delay, "delay", 0, "delay between each job submission(millisecond)")
 	// 响应匹配器
 	flag.StringVar(&matcher.Code, "mc", "200,204,301,302,307,401,403,405,500",
-		"Match status code from response")
+		"match status code from response")
 	flag.StringVar(&matcher.Size, "ms", "", "match response size")
 	flag.StringVar(&matcher.Mode, "mmode", "or", "matcher set operator")
 	flag.StringVar(&matcher.Regex, "mr", "", "match regexp")
 	flag.StringVar(&matcher.Time, "mt", "",
-		"Match time(millisecond) to the first response byte")
+		"match time(millisecond) to the first response byte")
 	flag.StringVar(&matcher.Words, "mw", "", "match amount of words in response")
 	flag.StringVar(&matcher.Lines, "ml", "", "match amount of lines in response")
 	// 响应过滤器
 	flag.StringVar(&filter.Code, "fc", "", "filter status code from response")
 	flag.StringVar(&filter.Size, "fs", "", "filter response size")
-	flag.StringVar(&filter.Mode, "fmode", "and", "Filter set operator")
+	flag.StringVar(&filter.Mode, "fmode", "and", "filter set operator")
 	flag.StringVar(&filter.Regex, "fr", "", "filter regexp")
 	flag.StringVar(&filter.Time, "ft", "",
-		"Filter time(millisecond) to the first response byte")
+		"filter time(millisecond) to the first response byte")
 	flag.StringVar(&filter.Words, "fw", "", "filter amount of words in response")
 	flag.StringVar(&filter.Lines, "fl", "", "filter amount of lines in response")
 	// http设置
-	flag.StringVar(&http.Method, "W", "GET", "http method")
+	flag.StringVar(&http.Method, "X", "GET", "http method")
 	flag.Var(&http.Cookies, "b", "Cookies")
 	flag.Var(&http.Headers, "H", "http headers to be used")
 	flag.BoolVar(&http.HTTP2, "http2", false, "force http2")
