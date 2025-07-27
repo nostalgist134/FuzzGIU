@@ -70,7 +70,7 @@ func handleReaction(r *fuzzTypes.Reaction, fuzz1 *fuzzTypes.Fuzz, reactPlugin fu
 }
 
 // doFuzz 程序实际执行的函数 生成payload->预处理->分配->返回处理->输出
-func doFuzz(fuzz1 *fuzzTypes.Fuzz) time.Duration {
+func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 	timeStart := time.Now()
 	// 判断递归深度
 	if fuzz1.React.RecursionControl.RecursionDepth > fuzz1.React.RecursionControl.MaxRecursionDepth {
@@ -90,6 +90,10 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz) time.Duration {
 	keywords := make([]string, 0)
 	loopLen := int64(1)
 	// 计算长度(loopLen)
+	if len(fuzz1.Preprocess.PlTemp) == 0 {
+		output.Log(fmt.Sprintf("job#%d has no fuzz keyword, skip", jobId), common.OutputToWhere)
+		return time.Since(timeStart)
+	}
 	for keyword, pt := range fuzz1.Preprocess.PlTemp {
 		keywords = append(keywords, keyword)
 		// sniper模式
@@ -272,7 +276,7 @@ func DoJobs() {
 			common.OutputToWhere |= output.OutToFile
 		}
 		output.InitOutput(JQ[i], common.OutputToWhere)
-		timeLapsed := doFuzz(JQ[i])
+		timeLapsed := doFuzz(JQ[i], i)
 		toWhereShadow = common.OutputToWhere
 		// 如果下一个任务仍然使用同样文件以及同样输出格式，则不结束文件输出，追加到同一文件
 		if i+1 < len(JQ) && JQ[i+1].React.OutSettings.OutputFile == JQ[i].React.OutSettings.OutputFile &&

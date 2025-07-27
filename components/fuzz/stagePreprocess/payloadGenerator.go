@@ -62,7 +62,7 @@ func reverse(chars []rune) {
 }
 
 // 非递归实现字符串全排列，返回所有不重复的排列，maxlen控制最大返回数量，-1表示无限制
-func permute(s string, maxlen int) []string {
+func permute(s string, maxLen int) []string {
 	chars := []rune(s)
 	// 先排序得到最小字典序的初始排列
 	sort.Slice(chars, func(i, j int) bool {
@@ -74,7 +74,7 @@ func permute(s string, maxlen int) []string {
 	result = append(result, string(chars))
 
 	// 检查是否达到最大长度限制
-	if maxlen != -1 && len(result) >= maxlen {
+	if maxLen != -1 && len(result) >= maxLen {
 		return result
 	}
 
@@ -95,7 +95,7 @@ func permute(s string, maxlen int) []string {
 
 		result = append(result, string(chars))
 
-		if maxlen >= 0 && len(result) >= maxlen {
+		if maxLen >= 0 && len(result) >= maxLen {
 			break
 		}
 	}
