@@ -105,7 +105,7 @@ func usage() {
 	when fuzzGIU is executed without any args, it will init and create plugin directory "./plugin" to refer to plugins. 
 	there are 5 types of plugins can be used on current version: Preprocessor, PayloadGenerator, PayloadProcessor, 
 	RequestSender and Reactor. every plugin is of shared library format of current operating system, fuzzGIU will try to 
-	find plugin by name at ./plugin/pluginType, make sure you put the plugin file to the right directory. you can find 
-	the usage of each type of plugin on https://github.com/nostalgist134/FuzzGIU/wiki. if you want to develop your own
-	plugin, go check https://github.com/nostalgist134/FuzzGIUPluginKit, have fun :)`)
+	find plugin by plugin type and name at ./plugin/pluginType, make sure you put the plugin file to the right 
+	directory. you can find the usage of each type of plugin on https://github.com/nostalgist134/FuzzGIU/wiki. if you 
+	want to develop your own plugin, go check https://github.com/nostalgist134/FuzzGIUPluginKit, have fun :)`)
 }
