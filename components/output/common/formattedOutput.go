@@ -83,6 +83,9 @@ func nativeOutputMsg(obj *OutObj, ignoreError bool, verbosity int) []byte {
 func coloredNativeOutputMsg(obj *OutObj, ignoreError bool, verbosity int) []byte {
 	bb := bytes.Buffer{}
 	respFirstLine := bytes.Split(obj.Response.RawResponse, []byte{'\n'})[0]
+	if len(respFirstLine) == 0 {
+		respFirstLine = []byte{'[', 'n', 'i', 'l', ']'}
+	}
 	writeFmtStr := func(title string, val string) {
 		if val == "" {
 			return
@@ -129,7 +132,7 @@ func coloredNativeOutputMsg(obj *OutObj, ignoreError bool, verbosity int) []byte
 	case 3:
 		j, _ := json.Marshal(obj.Request)
 		bb.Write(j)
-		bb.Write([]byte("\n    |\n    V\n"))
+		bb.WriteString("\n    |\n    V\n")
 		bb.Write(obj.Response.RawResponse)
 		bb.WriteByte('\n')
 	}

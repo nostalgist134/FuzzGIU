@@ -26,19 +26,23 @@ var SendMetaPool = sync.Pool{
 // Wp 协程池指针
 var Wp *wp.WorkerPool
 
-// trySubmit 尝试提交任务，若提交失败，则
+// trySubmit 尝试提交任务，若提交失败，则先从队列中取出一个结果并处理，再提交
 func trySubmit(task wp.Task, fuzz1 *fuzzTypes.Fuzz, reactPlugin fuzzTypes.Plugin) bool {
-	jobStop := false
 	for !Wp.Submit(task, time.Millisecond*10) {
-		if r := Wp.GetSingleResult(); r != nil {
-			jobStop = handleReaction(r, fuzz1, reactPlugin)
+		// 将结果队列全部消耗而不是取一个，避免陷入handleReaction->trySubmit->handleReaction->...的无限递归
+		for r := Wp.GetSingleResult(); r != nil; r = Wp.GetSingleResult() {
+			// 若确定jobStop，就可以不用再取结果了，直接返回上一层直到doFuzz，然后退出
+			if jobStop := handleReaction(r, fuzz1, reactPlugin); jobStop {
+				return jobStop
+			}
 		}
 	}
-	return jobStop
+	return false
 }
 
 // handleReaction 根据fuzz设置处理反应
 func handleReaction(r *fuzzTypes.Reaction, fuzz1 *fuzzTypes.Fuzz, reactPlugin fuzzTypes.Plugin) bool {
+	defer common.PutReaction(r)
 	stopJob := false
 	if r.Flag&fuzzTypes.ReactAddJob != 0 && r.NewJob != nil {
 		k, p := stageReact.GetReactTraceInfo(r)
