@@ -26,6 +26,7 @@ var SendMetaPool = sync.Pool{
 // Wp 协程池指针
 var Wp *wp.WorkerPool
 
+// trySubmit 尝试提交任务，若提交失败，则
 func trySubmit(task wp.Task, fuzz1 *fuzzTypes.Fuzz, reactPlugin fuzzTypes.Plugin) bool {
 	jobStop := false
 	for !Wp.Submit(task, time.Millisecond*10) {
@@ -45,7 +46,8 @@ func handleReaction(r *fuzzTypes.Reaction, fuzz1 *fuzzTypes.Fuzz, reactPlugin fu
 			output.Log(fmt.Sprintf("task with %s:%s added job", k, p), common.OutputToWhere)
 		}
 		JQ.AddJob(r.NewJob)
-		output.SetJobCounter(output.GetCounterSingle(3) + 1)
+		// job 总数加1
+		output.SetJobCounter(output.GetCounterSingle(output.TotalJob) + 1)
 	}
 	if r.Flag&fuzzTypes.ReactStopJob != 0 {
 		output.Log("job stopped by react", common.OutputToWhere)
@@ -69,10 +71,9 @@ func handleReaction(r *fuzzTypes.Reaction, fuzz1 *fuzzTypes.Fuzz, reactPlugin fu
 			output.AddTaskCounter()
 			return reaction
 		}
+		stopJob = trySubmit(newTask, fuzz1, reactPlugin)
 		// task总数加1
-		output.SetTaskCounter(output.GetCounterSingle(1) + 1)
-		//CurrentWp.Submit(newTask)
-		trySubmit(newTask, fuzz1, reactPlugin)
+		output.SetTaskCounter(output.GetCounterSingle(output.TotalTask) + 1)
 	}
 	if r.Flag&fuzzTypes.ReactExit != 0 {
 		output.FinishOutput(common.OutputToWhere)
@@ -239,8 +240,10 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 				return reaction
 			}
 		}
-		//CurrentWp.Submit(task)
-		trySubmit(task, fuzz1, reactPlugin)
+		if trySubmit(task, fuzz1, reactPlugin) {
+			Wp.Clear()
+			return time.Since(timeStart)
+		}
 		time.Sleep(time.Millisecond * time.Duration(fuzz1.Misc.Delay))
 		maxTry := 8192
 		for {

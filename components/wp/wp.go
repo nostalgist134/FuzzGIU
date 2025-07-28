@@ -65,7 +65,6 @@ func (p *WorkerPool) worker() {
 			return
 		default:
 		}
-
 		// 检查状态并决定是否等待
 		p.mu.Lock()
 		switch p.status {
@@ -87,12 +86,7 @@ func (p *WorkerPool) worker() {
 					continue
 				}
 				result := task()
-				// 非阻塞发送结果，避免通道满时阻塞worker
-				select {
-				case p.results <- result:
-				default:
-					// 可以在这里添加结果处理失败的逻辑
-				}
+				p.results <- result
 				p.wg.Done()
 			case <-p.quit:
 				return
