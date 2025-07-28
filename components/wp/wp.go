@@ -11,8 +11,8 @@ import (
 1.statStop->statRunning 可行，但是管道要重建
 2.statStop->statPause 不可行
 3.statRunning->statStop 可行，关闭管道
-4.statRunning->statPause 可行，通过条件变量通知
-5.statPause->statRunning 可行，通过条件变量通知
+4.statRunning->statPause 可行，向pause管道发信息
+5.statPause->statRunning 可行，向resume管道发信息
 6.statPause->statStop 可行，因为waitforresume会根据quit管道进行退出
 */
 
@@ -31,9 +31,10 @@ type WorkerPool struct {
 
 	wg     sync.WaitGroup
 	quit   chan struct{}
+	pause  chan struct{}
+	resume chan struct{}
 	status int8
 	mu     sync.Mutex
-	cond   *sync.Cond // 新增条件变量
 }
 
 var CurrentWp *WorkerPool
@@ -42,9 +43,9 @@ var CurrentWp *WorkerPool
 func New(concurrency int) *WorkerPool {
 	CurrentWp = &WorkerPool{
 		concurrency: concurrency,
+		pause:       make(chan struct{}),
+		resume:      make(chan struct{}),
 	}
-	// 初始化条件变量，使用现有mutex作为锁
-	CurrentWp.cond = sync.NewCond(&CurrentWp.mu)
 	return CurrentWp
 }
 
@@ -67,31 +68,13 @@ func (p *WorkerPool) Start() {
 	}
 }
 
-func (p *WorkerPool) pauseWait() {
-	// 检查是否需要暂停
-	p.mu.Lock()
-	for p.status == statPause {
-		// 等待恢复信号
-		p.cond.Wait()
-		// 被唤醒后检查是否需要退出
-		select {
-		case <-p.quit:
-			p.mu.Unlock()
-			return
-		default:
-		}
-	}
-	p.mu.Unlock()
-}
-
 func (p *WorkerPool) worker() {
 	for {
 		select {
 		case <-p.quit:
 			return
-		default:
-			p.pauseWait()
-		// 处理任务
+		case <-p.pause:
+			p.waitForResume()
 		case task, ok := <-p.tasks:
 			if !ok {
 				continue
@@ -99,6 +82,19 @@ func (p *WorkerPool) worker() {
 			result := task()
 			p.results <- result
 			p.wg.Done()
+		}
+	}
+}
+
+func (p *WorkerPool) waitForResume() {
+	for {
+		select {
+		case <-p.resume:
+			return
+		case <-p.quit:
+			return
+		default:
+			time.Sleep(50 * time.Millisecond)
 		}
 	}
 }
@@ -172,8 +168,9 @@ func (p *WorkerPool) Pause() {
 	defer p.mu.Unlock()
 	if p.status == statRunning {
 		p.status = statPause
-		// 唤醒所有worker让它们进入等待状态
-		p.cond.Broadcast()
+		for i := 0; i < p.concurrency; i++ {
+			p.pause <- struct{}{}
+		}
 	}
 }
 
@@ -183,8 +180,9 @@ func (p *WorkerPool) Resume() {
 	defer p.mu.Unlock()
 	if p.status == statPause {
 		p.status = statRunning
-		// 唤醒所有等待的worker
-		p.cond.Broadcast()
+		for i := 0; i < p.concurrency; i++ {
+			p.resume <- struct{}{}
+		}
 	}
 }
 
