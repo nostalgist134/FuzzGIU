@@ -330,14 +330,26 @@ func ReplacePayloadsByTemplate(t *ReplaceTemplate, payloads []string, sniperPos 
 	} else {
 		fields = t.renderNew(payloads)
 	}
-	newReq := GetNewReq(nil)
+	newReq := GetNewReq()
 	newReq.HttpSpec.Method = fields[0]
 	newReq.URL = fields[1]
 	newReq.HttpSpec.Version = fields[2]
 	i := 0
-	newReq.HttpSpec.Headers = make([]string, 0)
+	// GetNewReq获取的Req结构http头可能是已经分配好的，因此可以拿来复用
+	for ; i < len(fields)-4 && i < len(newReq.HttpSpec.Headers); i++ {
+		newReq.HttpSpec.Headers[i] = fields[3+i]
+	}
+	// 预分配的头如果为nil则新建
+	if newReq.HttpSpec.Headers == nil {
+		newReq.HttpSpec.Headers = make([]string, 0)
+	}
+	// 原有的字符串切片不够用了就append
 	for ; i < len(fields)-4; i++ {
 		newReq.HttpSpec.Headers = append(newReq.HttpSpec.Headers, fields[3+i])
+	}
+	// 若预分配的头长于模板解析出的头，则截断
+	if len(newReq.HttpSpec.Headers) > len(fields)-4 {
+		newReq.HttpSpec.Headers = newReq.HttpSpec.Headers[:len(fields)-4]
 	}
 	newReq.Data = fields[3+i]
 	return newReq
@@ -352,14 +364,26 @@ func ReplacePayloadTrackTemplate(t *ReplaceTemplate, payload string, sniperPos i
 	} else {
 		fields, track = t.render2(payload)
 	}
-	newReq := GetNewReq(nil)
+	newReq := GetNewReq()
 	newReq.HttpSpec.Method = fields[0]
 	newReq.URL = fields[1]
 	newReq.HttpSpec.Version = fields[2]
 	i := 0
-	newReq.HttpSpec.Headers = make([]string, 0)
+	// GetNewReq获取的Req结构http头可能是已经分配好的，因此可以拿来复用
+	for ; i < len(fields)-4 && i < len(newReq.HttpSpec.Headers); i++ {
+		newReq.HttpSpec.Headers[i] = fields[3+i]
+	}
+	// 预分配的头如果为nil则新建
+	if newReq.HttpSpec.Headers == nil {
+		newReq.HttpSpec.Headers = make([]string, 0)
+	}
+	// 原有的字符串切片不够用了就append
 	for ; i < len(fields)-4; i++ {
 		newReq.HttpSpec.Headers = append(newReq.HttpSpec.Headers, fields[3+i])
+	}
+	// 若预分配的头长于模板解析出的头，则截断
+	if len(newReq.HttpSpec.Headers) > len(fields)-4 {
+		newReq.HttpSpec.Headers = newReq.HttpSpec.Headers[:len(fields)-4]
 	}
 	newReq.Data = fields[3+i]
 	return newReq, track

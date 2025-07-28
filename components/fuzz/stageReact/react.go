@@ -101,7 +101,7 @@ func React(fuzz1 *fuzzTypes.Fuzz, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 	reactPlugin fuzzTypes.Plugin, keywordsUsed []string, payloadEachKeyword []string,
 	recursionPos []int) *fuzzTypes.Reaction {
 	defer common.PutReq(reqSend)
-	reaction := new(fuzzTypes.Reaction)
+	reaction := common.GetNewReaction()
 	var recursionJob *fuzzTypes.Fuzz = nil
 	/*
 		递归模式通过向任务列表添加新任务完成，新任务的req结构由当前任务的React.RecursionControl控制
@@ -147,10 +147,8 @@ func React(fuzz1 *fuzzTypes.Fuzz, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 	}
 	// reactor插件调用
 	if fuzz1.React.Reactor != "" {
-		/*reqJson, _ := json.Marshal(reqSend)
-		respJson, _ := json.Marshal(resp)
-		reaction = (plugin.Call(plugin.PTypeReactor, reactPlugin, reqJson, respJson)).(*fuzzTypes.Reaction)*/
-		reaction = plugin.Reactor(reactPlugin, reqSend, resp)
+		common.PutReaction(reaction)
+		reaction = plugin.React(reactPlugin, reqSend, resp)
 	}
 	// 添加递归任务（如果自定义reactor没有添加）
 	if reaction.NewJob == nil && recursionJob != nil {

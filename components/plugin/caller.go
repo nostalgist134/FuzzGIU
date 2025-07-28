@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"encoding/json"
+	"github.com/nostalgist134/FuzzGIU/components/common"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"strings"
 	"unsafe"
@@ -119,8 +120,8 @@ func SendRequest(p fuzzTypes.Plugin, m *fuzzTypes.SendMeta) *fuzzTypes.Resp {
 	return resp
 }
 
-// Reactor 返回*reaction
-func Reactor(p fuzzTypes.Plugin, req *fuzzTypes.Req, resp *fuzzTypes.Resp) *fuzzTypes.Reaction {
+// React 返回*reaction
+func React(p fuzzTypes.Plugin, req *fuzzTypes.Req, resp *fuzzTypes.Resp) *fuzzTypes.Reaction {
 	reqJson, err := json.Marshal(req)
 	if err != nil {
 		panic(err)
@@ -130,7 +131,7 @@ func Reactor(p fuzzTypes.Plugin, req *fuzzTypes.Req, resp *fuzzTypes.Resp) *fuzz
 		panic(err)
 	}
 	reactionJson := parseJson(callSharedLib(p, RelPathReactor, reqJson, respJson))
-	reaction := new(fuzzTypes.Reaction)
+	reaction := common.GetNewReaction()
 	err = json.Unmarshal(reactionJson, reaction)
 	if err != nil {
 		panic(err)

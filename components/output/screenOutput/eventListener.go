@@ -48,13 +48,13 @@ func eventListener() {
 		case "q":
 			return
 		case "p":
-			if wp.Wp != nil {
-				wp.Wp.Pause()
+			if wp.CurrentWp != nil {
+				wp.CurrentWp.Pause()
 				screenOutput.counterFrame.render(titlePausedCounter)
 			}
 		case "r":
-			if wp.Wp != nil {
-				wp.Wp.Resume()
+			if wp.CurrentWp != nil {
+				wp.CurrentWp.Resume()
 				screenOutput.counterFrame.render(titleCounter)
 			}
 		case "<Resize>":

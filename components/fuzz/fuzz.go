@@ -26,6 +26,16 @@ var SendMetaPool = sync.Pool{
 // Wp 协程池指针
 var Wp *wp.WorkerPool
 
+func trySubmit(task wp.Task, fuzz1 *fuzzTypes.Fuzz, reactPlugin fuzzTypes.Plugin) bool {
+	jobStop := false
+	for !Wp.Submit(task, time.Millisecond*10) {
+		if r := Wp.GetSingleResult(); r != nil {
+			jobStop = handleReaction(r, fuzz1, reactPlugin)
+		}
+	}
+	return jobStop
+}
+
 // handleReaction 根据fuzz设置处理反应
 func handleReaction(r *fuzzTypes.Reaction, fuzz1 *fuzzTypes.Fuzz, reactPlugin fuzzTypes.Plugin) bool {
 	stopJob := false
@@ -61,7 +71,8 @@ func handleReaction(r *fuzzTypes.Reaction, fuzz1 *fuzzTypes.Fuzz, reactPlugin fu
 		}
 		// task总数加1
 		output.SetTaskCounter(output.GetCounterSingle(1) + 1)
-		Wp.Submit(newTask)
+		//CurrentWp.Submit(newTask)
+		trySubmit(newTask, fuzz1, reactPlugin)
 	}
 	if r.Flag&fuzzTypes.ReactExit != 0 {
 		output.FinishOutput(common.OutputToWhere)
@@ -193,6 +204,7 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 					processedPayloads[j] = stagePreprocess.PayloadProcessor(payloadEachKeyword[j], plugins)
 				}
 				send.Request = common.ReplacePayloadsByTemplate(reqTemplate, processedPayloads, -1)
+				send.Request.HttpSpec.ForceHttps = fuzz1.Send.Request.HttpSpec.ForceHttps
 				resp := stageSend.SendRequest(send)
 				reaction := stageReact.React(fuzz1, send.Request, resp, reactPlugin,
 					keywords, processedPayloads, nil)
@@ -227,7 +239,8 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 				return reaction
 			}
 		}
-		Wp.Submit(task)
+		//CurrentWp.Submit(task)
+		trySubmit(task, fuzz1, reactPlugin)
 		time.Sleep(time.Millisecond * time.Duration(fuzz1.Misc.Delay))
 		maxTry := 8192
 		for {

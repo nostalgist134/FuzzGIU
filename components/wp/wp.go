@@ -6,6 +6,22 @@ import (
 	"time"
 )
 
+/*
+状态转移规则:
+1.statStop->statRunning 可行，但是管道要重建
+2.statStop->statPause 不可行
+3.statRunning->statStop 可行，关闭管道
+4.statRunning->statPause 可行，通过条件变量通知
+5.statPause->statRunning 可行，通过条件变量通知
+6.statPause->statStop 可行，因为waitforresume会根据quit管道进行退出
+*/
+
+const (
+	statStop    = 0
+	statRunning = 1
+	statPause   = 2
+)
+
 type Task func() *fuzzTypes.Reaction
 
 type WorkerPool struct {
@@ -15,32 +31,57 @@ type WorkerPool struct {
 
 	wg     sync.WaitGroup
 	quit   chan struct{}
-	pause  chan struct{}
-	resume chan struct{}
-	paused bool
+	status int8
 	mu     sync.Mutex
+	cond   *sync.Cond // 新增条件变量
 }
 
-var Wp *WorkerPool
+var CurrentWp *WorkerPool
 
 // New 创建一个新的协程池
 func New(concurrency int) *WorkerPool {
-	Wp = &WorkerPool{
-		tasks:       make(chan Task, 8192),
-		results:     make(chan *fuzzTypes.Reaction, 8192),
+	CurrentWp = &WorkerPool{
 		concurrency: concurrency,
-		quit:        make(chan struct{}),
-		pause:       make(chan struct{}),
-		resume:      make(chan struct{}),
 	}
-	return Wp
+	// 初始化条件变量，使用现有mutex作为锁
+	CurrentWp.cond = sync.NewCond(&CurrentWp.mu)
+	return CurrentWp
 }
 
 // Start 启动所有 worker
 func (p *WorkerPool) Start() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.status == statRunning {
+		return
+	}
+	// 从停止状态恢复时，重新创建管道
+	if p.status == statStop {
+		p.tasks = make(chan Task, 8192)
+		p.results = make(chan *fuzzTypes.Reaction, 8192)
+		p.quit = make(chan struct{})
+	}
+	p.status = statRunning
 	for i := 0; i < p.concurrency; i++ {
 		go p.worker()
 	}
+}
+
+func (p *WorkerPool) pauseWait() {
+	// 检查是否需要暂停
+	p.mu.Lock()
+	for p.status == statPause {
+		// 等待恢复信号
+		p.cond.Wait()
+		// 被唤醒后检查是否需要退出
+		select {
+		case <-p.quit:
+			p.mu.Unlock()
+			return
+		default:
+		}
+	}
+	p.mu.Unlock()
 }
 
 func (p *WorkerPool) worker() {
@@ -48,9 +89,13 @@ func (p *WorkerPool) worker() {
 		select {
 		case <-p.quit:
 			return
-		case <-p.pause:
-			p.waitForResume()
-		case task := <-p.tasks:
+		default:
+			p.pauseWait()
+		// 处理任务
+		case task, ok := <-p.tasks:
+			if !ok {
+				continue
+			}
 			result := task()
 			p.results <- result
 			p.wg.Done()
@@ -58,23 +103,28 @@ func (p *WorkerPool) worker() {
 	}
 }
 
-func (p *WorkerPool) waitForResume() {
-	for {
-		select {
-		case <-p.resume:
-			return
-		case <-p.quit:
-			return
-		default:
-			time.Sleep(50 * time.Millisecond)
-		}
-	}
-}
-
 // Submit 添加任务
-func (p *WorkerPool) Submit(task Task) {
+func (p *WorkerPool) Submit(task Task, timeout time.Duration) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.status != statRunning {
+		return false
+	}
 	p.wg.Add(1)
-	p.tasks <- task
+	if timeout < 0 {
+		// 无限等待
+		p.tasks <- task
+		return true
+	}
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case p.tasks <- task:
+		return true
+	case <-timer.C:
+		p.wg.Done() // 撤销加进去的任务计数
+		return false
+	}
 }
 
 // Wait 等待协程池若干时间（maxTime设为负值则不限时间），如果等待完成返回true，否则返回false
@@ -83,34 +133,47 @@ func (p *WorkerPool) Wait(maxTime time.Duration) bool {
 		p.wg.Wait()
 		return true
 	}
-	waitDone := make(chan struct{})
+	done := make(chan struct{})
 	go func() {
 		p.wg.Wait()
-		close(waitDone)
+		close(done)
 	}()
 	select {
-	case <-waitDone:
+	case <-done:
 		return true
 	case <-time.After(maxTime):
 		return false
 	}
 }
 
-// Stop 停止所有 worker
+// Stop 关闭管道，停止所有 worker
 func (p *WorkerPool) Stop() {
+	// 如果已经关闭则退出
+	p.mu.Lock()
+	if p.status == statStop {
+		p.mu.Unlock()
+		return
+	}
+	p.mu.Unlock()
+	// 清空管道中的数据
+	p.Clear()
+	// 关闭管道
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	close(p.quit)
-	close(p.results) // 关闭结果通道，避免 GetResChan 中泄露
+	close(p.tasks)
+	close(p.results)
+	p.status = statStop
 }
 
 // Pause 暂停调度
 func (p *WorkerPool) Pause() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if !p.paused {
-		p.paused = true
-		for i := 0; i < p.concurrency; i++ {
-			p.pause <- struct{}{}
-		}
+	if p.status == statRunning {
+		p.status = statPause
+		// 唤醒所有worker让它们进入等待状态
+		p.cond.Broadcast()
 	}
 }
 
@@ -118,16 +181,17 @@ func (p *WorkerPool) Pause() {
 func (p *WorkerPool) Resume() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.paused {
-		p.paused = false
-		for i := 0; i < p.concurrency; i++ {
-			p.resume <- struct{}{}
-		}
+	if p.status == statPause {
+		p.status = statRunning
+		// 唤醒所有等待的worker
+		p.cond.Broadcast()
 	}
 }
 
 func (p *WorkerPool) Resize(size int) {
-	if size == p.concurrency || size < 0 {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if size == p.concurrency || size < 0 || p.status == statStop {
 		return
 	} else {
 		if size > p.concurrency {
@@ -155,12 +219,20 @@ func (p *WorkerPool) GetSingleResult() *fuzzTypes.Reaction {
 
 // Clear 清空任务队列
 func (p *WorkerPool) Clear() {
+	p.mu.Lock()
+	if p.status == statStop {
+		p.mu.Unlock()
+		return
+	}
+	p.mu.Unlock()
+
 	p.Pause()
 	defer p.Resume()
 	for {
 		select {
 		case <-p.tasks:
 			p.wg.Done()
+		case <-p.results:
 		default:
 			return
 		}
