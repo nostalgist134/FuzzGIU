@@ -60,8 +60,6 @@ func callSharedLib(plugin fuzzTypes.Plugin, relPath string, jsons ...[]byte) uin
 		switch v := arg.(type) {
 		case int:
 			args = append(args, uintptr(v))
-		case float32:
-			args = append(args, uintptr(math.Float32bits(v)))
 		case float64:
 			args = append(args, uintptr(math.Float64bits(v)))
 		case bool:

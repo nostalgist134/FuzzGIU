@@ -31,53 +31,8 @@ func bytes2Strings(ptrBytes uintptr) []string {
 	return ret
 }
 
-// Call 根据类型调用插件函数，接收plugin类型字符串以及plugin结构体以及jsonData（用于preprocessor和reactor），
-// 返回类型为any，在各个插件处理模块中转换
-// reqSender: json->*SendMeta *Resp
-/*func Call(pluginType string, p Plugin, jsonData []byte, jsonData2 []byte) any {
-	switch pluginType {
-	case PTypePlGen:
-		ptrPayload := callSharedLibOld(p, RelPathPlGen, nil, nil)
-		payloads := bytes2Strings(ptrPayload)
-		return payloads
-	case PTypePreProc:
-		fuzzJson := parseJson(callSharedLibOld(p, RelPathPreprocessor, jsonData, nil))
-		newFuzz := new(fuzzTypes.Fuzz)
-		err := json.Unmarshal(fuzzJson, newFuzz)
-		if err != nil {
-			panic(err)
-		}
-		return newFuzz
-	case PTypePlProc:
-		sb := strings.Builder{}
-		ptrPayloads := (*string)(unsafe.Pointer(callSharedLibOld(p, RelPathPlProc, nil, nil)))
-		sb.WriteString(*ptrPayloads)
-		// 使用strings.builder将返回的string复制到主程序，避免gc回收问题
-		ret := sb.String()
-		return ret
-	case PTypeReactor:
-		reactionJson := parseJson(callSharedLibOld(p, RelPathReactor, jsonData, jsonData2))
-		reaction := new(fuzzTypes.Reaction)
-		err := json.Unmarshal(reactionJson, reaction)
-		if err != nil {
-			panic(err)
-		}
-		return reaction
-	case PTypeReqSender: // requestSender类型返回*resp
-		respJson := parseJson(callSharedLibOld(p, RelPathReqSender, jsonData, nil))
-		resp := new(fuzzTypes.Resp)
-		err := json.Unmarshal(respJson, resp)
-		if err != nil {
-			panic(err)
-		}
-		return resp
-	default:
-		return nil
-	}
-}*/
-
-// PreProcessor 返回指向preprocessor处理后新生成的*Fuzz
-func PreProcessor(p fuzzTypes.Plugin, fuzz1 *fuzzTypes.Fuzz) *fuzzTypes.Fuzz {
+// Preprocess 返回指向preprocessor处理后新生成的*Fuzz
+func Preprocess(p fuzzTypes.Plugin, fuzz1 *fuzzTypes.Fuzz) *fuzzTypes.Fuzz {
 	fuzzJson, err := json.Marshal(fuzz1)
 	fuzzJson = parseJson(callSharedLib(p, RelPathPreprocessor, fuzzJson))
 	newFuzz := new(fuzzTypes.Fuzz)

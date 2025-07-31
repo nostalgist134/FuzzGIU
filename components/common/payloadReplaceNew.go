@@ -335,7 +335,7 @@ func ReplacePayloadsByTemplate(t *ReplaceTemplate, payloads []string, sniperPos 
 	newReq.URL = fields[1]
 	newReq.HttpSpec.Version = fields[2]
 	i := 0
-	// GetNewReq获取的Req结构http头可能是已经分配好的，因此可以拿来复用
+	// GetNewReq获取的Req结构http头可能是已经分配好的，可以复用
 	for ; i < len(fields)-4 && i < len(newReq.HttpSpec.Headers); i++ {
 		newReq.HttpSpec.Headers[i] = fields[3+i]
 	}
@@ -369,7 +369,7 @@ func ReplacePayloadTrackTemplate(t *ReplaceTemplate, payload string, sniperPos i
 	newReq.URL = fields[1]
 	newReq.HttpSpec.Version = fields[2]
 	i := 0
-	// GetNewReq获取的Req结构http头可能是已经分配好的，因此可以拿来复用
+	// GetNewReq获取的Req结构http头可能是已经分配好的，可以复用
 	for ; i < len(fields)-4 && i < len(newReq.HttpSpec.Headers); i++ {
 		newReq.HttpSpec.Headers[i] = fields[3+i]
 	}

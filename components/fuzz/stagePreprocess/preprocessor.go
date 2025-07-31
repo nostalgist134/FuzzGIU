@@ -12,7 +12,7 @@ func Preprocess(fuzz *fuzzTypes.Fuzz, preprocessors []fuzzTypes.Plugin) *fuzzTyp
 	if len(preprocessors) > 0 {
 		// 遍历预处理器链
 		for _, p := range preprocessors {
-			newFuzz = plugin2.PreProcessor(p, fuzz)
+			newFuzz = plugin2.Preprocess(p, fuzz)
 		}
 	}
 	// 生成payload
