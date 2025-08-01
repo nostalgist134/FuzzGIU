@@ -56,6 +56,7 @@ func callSharedLib(plugin fuzzTypes.Plugin, relPath string, jsons ...[]byte) uin
 		args = append(args, uintptr(unsafe.Pointer(&jsons[1][0])))
 		args = append(args, uintptr(len(jsons[1])))
 	}
+	strCache := make([]string, 0)
 	for i := 0; i < len(plugin.Args); i++ {
 		switch plugin.Args[i].(type) {
 		case int:
@@ -69,8 +70,8 @@ func callSharedLib(plugin fuzzTypes.Plugin, relPath string, jsons ...[]byte) uin
 				args = append(args, uintptr(1))
 			}
 		case string:
-			s := plugin.Args[i].(string)
-			args = append(args, uintptr(unsafe.Pointer(&s)))
+			strCache = append(strCache, plugin.Args[i].(string))
+			args = append(args, uintptr(unsafe.Pointer(&strCache[len(strCache)-1])))
 		}
 	}
 	r1, _, err := proc.Call(args...)
