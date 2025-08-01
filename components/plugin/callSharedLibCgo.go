@@ -56,20 +56,20 @@ func callSharedLib(plugin fuzzTypes.Plugin, relPath string, jsons ...[]byte) uin
 		args = append(args, uintptr(unsafe.Pointer(&jsons[1][0])))
 		args = append(args, uintptr(len(jsons[1])))
 	}
-	for _, arg := range plugin.Args {
-		switch v := arg.(type) {
+	for i := 0; i < len(plugin.Args); i++ {
+		switch plugin.Args[i].(type) {
 		case int:
-			args = append(args, uintptr(v))
+			args = append(args, uintptr(plugin.Args[i].(int)))
 		case float64:
-			args = append(args, uintptr(math.Float64bits(v)))
+			args = append(args, uintptr(math.Float64bits(plugin.Args[i].(float64))))
 		case bool:
-			if arg == false {
+			if plugin.Args[i] == false {
 				args = append(args, uintptr(0))
 			} else {
 				args = append(args, uintptr(1))
 			}
 		case string:
-			s := arg.(string)
+			s := plugin.Args[i].(string)
 			args = append(args, uintptr(unsafe.Pointer(&s)))
 		}
 	}
