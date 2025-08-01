@@ -7,6 +7,7 @@ import (
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"math"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"unsafe"
@@ -69,7 +70,10 @@ func callSharedLib(plugin fuzzTypes.Plugin, relPath string, jsons ...[]byte) uin
 				args = append(args, uintptr(1))
 			}
 		case string:
-			args = append(args, uintptr(unsafe.Pointer(&v)))
+			sb := strings.Builder{}
+			sb.WriteString(v)
+			s := sb.String()
+			args = append(args, uintptr(unsafe.Pointer(&s)))
 		}
 	}
 	r1, _, err := proc.Call(args...)

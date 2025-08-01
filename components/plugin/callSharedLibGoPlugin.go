@@ -7,7 +7,7 @@ import (
 	goPlugin "plugin"
 )
 
-func CallSharedLib(plugin fuzzTypes.Plugin, relPath string, jsons ...[]byte) uintptr {
+func callSharedLib(plugin fuzzTypes.Plugin, relPath string, jsons ...[]byte) uintptr {
 	pName := relPath + plugin.Name
 	p, err := goPlugin.Open(BaseDir + pName + binSuffix)
 	if err != nil {
