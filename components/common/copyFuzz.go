@@ -3,7 +3,6 @@ package common
 import "github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 
 // CopyFuzz 复制fuzz结构（半深复制，PlList不复制），目前只有react函数中的递归功能使用此函数
-// thoughts: 能否改为使用sync.Pool类型的
 func CopyFuzz(f *fuzzTypes.Fuzz) *fuzzTypes.Fuzz {
 	if f == nil {
 		return nil
