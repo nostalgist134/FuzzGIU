@@ -70,6 +70,7 @@ func callSharedLib(plugin fuzzTypes.Plugin, relPath string, jsons ...[]byte) uin
 				args = append(args, uintptr(1))
 			}
 		case string:
+			// 将字符串存到切片中，每个字符串的地址不同，就不会导致参数污染
 			strCache = append(strCache, plugin.Args[i].(string))
 			args = append(args, uintptr(unsafe.Pointer(&strCache[len(strCache)-1])))
 		}
