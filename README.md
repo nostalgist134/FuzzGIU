@@ -11,10 +11,11 @@ FuzzGIU 是一款基于 Go 语言开发的webfuzz工具，灵感来源于ffuf与
 ``````shell
 git clone github.com/nostalgist134/FuzzGIU.git
 cd FuzzGIU
+go get
 go build
 ``````
 
-或者到release中下载编译好的可执行文件
+或者到release中下载编译好的可执行文件（暂时还没有）
 
 # 使用须知
 
