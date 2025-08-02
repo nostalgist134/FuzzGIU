@@ -15,7 +15,7 @@ go get
 go build
 ``````
 
-或者到release中下载编译好的可执行文件（暂时还没有）
+或者到release中下载编译好的可执行文件
 
 # 使用须知
 
@@ -147,10 +147,10 @@ use plugins:
         -react fingerprint  # plugins/reactors/fingerprint.(so/dll/dylib)
 
 
-        when fuzzGIU is executed without any args, it will init and create plugin directory "./plugin" to refer to plugins.
+        when fuzzGIU is executed without any args, it will init and create plugin directory "./plugins" to refer to plugins.
         there are 5 types of plugins can be used on current version: Preprocessor, PayloadGenerator, PayloadProcessor,
         RequestSender and Reactor. every plugin is of shared library format of current operating system, fuzzGIU will try to
-        find plugin by plugin type and name at ./plugin/pluginType, make sure you put the plugin file to the right
+        find plugin by plugin type and name at ./plugins/[pluginType], make sure you put the plugin file to the right
         directory. you can find the usage of each type of plugin on https://github.com/nostalgist134/FuzzGIU/wiki. if you
         want to develop your own plugin, go check https://github.com/nostalgist134/FuzzGIUPluginKit, have fun :)
 ```
@@ -398,7 +398,20 @@ HTTPSpec struct {
 
 ### 使用插件
 
-FuzzGIU 通过插件系统扩展功能，支持自定义预处理、payload 生成、请求发送等逻辑，满足复杂场景的测试需求。插件为当前系统的共享库格式（`.so`/`.dll`/`.dylib`），需放置在`./plugin/[插件类型]/`目录下（如果这些目录没有创建，可不带任何参数运行一次工具，从而创建这些目录）。
+FuzzGIU 通过插件系统扩展功能，支持自定义预处理、payload 生成、请求发送等逻辑，满足复杂场景的测试需求。插件为当前系统的共享库格式（`.so`/`.dll`/`.dylib`），需放置在`./plugins/[插件类型]/`目录下（如果这些目录没有创建，可不带任何参数运行一次工具，从而创建这些目录）。
+
+```powershell
+PS H:\tools\fuzz\FuzzGIU> .\FuzzGIU.exe
+Checking/initializing environment...
+Checking directory ./plugins/......Created.
+Checking directory ./plugins/payloadGenerators/......Created.
+Checking directory ./plugins/payloadProcessors/......Created.
+Checking directory ./plugins/preprocessors/......Created.
+Checking directory ./plugins/requestSenders/......Created.
+Checking directory ./plugins/reactors/......Created.
+Done.
+For help, use -h flag
+```
 
 #### 插件类型与作用
 
