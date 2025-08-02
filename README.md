@@ -440,3 +440,10 @@ FuzzGIU 通过插件系统扩展功能，支持自定义预处理、payload 生�
 ##### 插件开发与扩展
 
 若内置组件无法满足需求，可基于[FuzzGIUPluginKit](https://github.com/nostalgist134/FuzzGIUPluginKit)开发自定义插件，遵循工具定义的接口规范，实现特定逻辑后编译为动态链接库即可使用。
+
+#### 特别感谢
+
+特别致敬 [@ffuf](https://github.com/ffuf/ffuf) 项目，其理念与实现为本工具提供了重要启发，没有ffuf团队对于此类工具的探索，就没有这个项目。
+
+特别感谢[@xch-space](https://github.com/xch-space)提供的关于项目名称的灵感。
+
