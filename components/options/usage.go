@@ -11,9 +11,9 @@ func getSection(name string) string {
 	switch {
 	case name == "u" || name == "d" || name == "r" || name == "t" || name == "timeout" || name == "delay":
 		return "general"
-	case strings.HasPrefix(name, "m"):
+	case strings.HasPrefix(name, "m") && name != "mode":
 		return "matcher"
-	case strings.HasPrefix(name, "f"):
+	case strings.HasPrefix(name, "f") && name != "fmt":
 		return "filter"
 	case name == "X" || name == "b" || name == "H" || name == "http2" || name == "F" || name == "s" || name == "x":
 		return "HTTP"
@@ -73,6 +73,8 @@ func usage() {
 	exampleUsage("fuzz URL", "-u http://test.com/FUZZ -w dict.txt::FUZZ",
 		"-u http://test.com/MILAOGIU -w dict.txt  # use default keyword")
 	exampleUsage("fuzz HTTP data", "-u http://test.com -w dict.txt::FUZZ -d \"test=FUZZ\"")
+	exampleUsage("use filters and matchers",
+		"-w http://test.com/FUZZ -w dic.txt::FUZZ -mc 407 -fc 403-406 \\\n\t-ms 123-154 -fs 10-100,120")
 	exampleUsage("use embedded payload processor to process payload",
 		"-u http://test.com -w dict.txt::FUZZ -d \"test=FUZZ\" "+
 			"\\\n\t-pl-processor suffix(\".txt\"),base64::FUZZ  # base64 encode")
@@ -81,9 +83,7 @@ func usage() {
 			"-pl-gen int(0,100,10)::FUZZ  # generate integer 0~100 with base 10")
 	exampleUsage("use multiple fuzz keywords and keyword process mode",
 		"-u http://FUZZ1/FUZZ2 -w dic1.txt::FUZZ1 \\\n\t-w dic2.txt::FUZZ2  # default mode is \"clusterbomb\"",
-		"-u http://FUZZ3/FUZZ4 -w dic3.txt::FUZZ3 \\\n\t-w dic4.txt::FUZZ4 -m pitchfork-cycle")
-	exampleUsage("use filters and matchers",
-		"-w http://test.com/FUZZ -w dic.txt::FUZZ -mc 407 -fc 403-406 \\\n\t-ms 123-154 -fs 10-100,120")
+		"-u http://FUZZ3/FUZZ4 -w dic3.txt::FUZZ3 \\\n\t-w dic4.txt::FUZZ4 -mode pitchfork-cycle")
 	fmt.Println("refer to flag help information as above" +
 		" or https://github.com/nostalgist134/FuzzGIU/wiki for more usages")
 	fmt.Println("\nADVANCED USAGES:")

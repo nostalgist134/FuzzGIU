@@ -33,13 +33,21 @@ func ranges2String(ranges []fuzzTypes.Range) string {
 
 // match2Lines 将fuzzTypes.Match结构转化为行
 func match2Lines(m *fuzzTypes.Match) []string {
-	return []string{
+	ret := []string{
 		"CODE  : " + ranges2String(m.Code),
 		"LINES : " + ranges2String(m.Lines),
 		"WORDS : " + ranges2String(m.Words),
 		"SIZE  : " + ranges2String(m.Size),
 		"REGEX : " + m.Regex,
-		"TIME  : " + fmt.Sprintf("%d-%d(ms)", m.Time.Lower.Milliseconds(), m.Time.Upper.Milliseconds())}
+	}
+	if m.Time.Lower.Milliseconds() != m.Time.Upper.Milliseconds() {
+		ret = append(ret,
+			"TIME  : "+fmt.Sprintf("%d-%d(ms)", m.Time.Lower.Milliseconds(), m.Time.Upper.Milliseconds()))
+	} else {
+		ret = append(ret, "TIME  : -")
+	}
+	ret = append(ret, "MODE  : "+m.Mode)
+	return ret
 }
 
 // recCtrl2Lines 将递归设置转化为string切片

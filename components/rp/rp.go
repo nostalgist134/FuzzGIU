@@ -1,4 +1,4 @@
-package wp
+package rp
 
 import (
 	"sync"
@@ -8,14 +8,14 @@ import (
 )
 
 const (
-	statStop    = 0
-	statRunning = 1
-	statPause   = 2
+	StatStop    = 0
+	StatRunning = 1
+	StatPause   = 2
 )
 
 type Task func() *fuzzTypes.Reaction
 
-type WorkerPool struct {
+type RoutinePool struct {
 	tasks       chan Task
 	results     chan *fuzzTypes.Reaction
 	concurrency int
@@ -27,37 +27,37 @@ type WorkerPool struct {
 	cond   *sync.Cond
 }
 
-var CurrentWp *WorkerPool
+var CurrentRp *RoutinePool
 
 // New 创建一个新的协程池
-func New(concurrency int) *WorkerPool {
-	wp := &WorkerPool{
+func New(concurrency int) *RoutinePool {
+	wp := &RoutinePool{
 		concurrency: concurrency,
 	}
 	wp.cond = sync.NewCond(&wp.mu)
-	CurrentWp = wp
-	return CurrentWp
+	CurrentRp = wp
+	return CurrentRp
 }
 
 // Start 启动所有 worker
-func (p *WorkerPool) Start() {
+func (p *RoutinePool) Start() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.status == statRunning {
+	if p.status == StatRunning {
 		return
 	}
-	if p.status == statStop {
+	if p.status == StatStop {
 		p.tasks = make(chan Task, 8192)
 		p.results = make(chan *fuzzTypes.Reaction, 8192)
 		p.quit = make(chan struct{})
 	}
-	p.status = statRunning
+	p.status = StatRunning
 	for i := 0; i < p.concurrency; i++ {
 		go p.worker()
 	}
 }
 
-func (p *WorkerPool) worker() {
+func (p *RoutinePool) worker() {
 	for {
 		// 先检查退出信号
 		select {
@@ -68,14 +68,14 @@ func (p *WorkerPool) worker() {
 		// 检查状态并决定是否等待
 		p.mu.Lock()
 		switch p.status {
-		case statStop:
+		case StatStop:
 			p.mu.Unlock()
 			return
-		case statPause:
+		case StatPause:
 			// 处于暂停状态，等待唤醒
 			p.cond.Wait()
 			p.mu.Unlock()
-		case statRunning:
+		case StatRunning:
 			// 处于运行状态，释放锁并尝试获取任务
 			p.mu.Unlock()
 
@@ -97,11 +97,11 @@ func (p *WorkerPool) worker() {
 	}
 }
 
-func (p *WorkerPool) waitForResume() {
+func (p *RoutinePool) waitForResume() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	for p.status == statPause {
+	for p.status == StatPause {
 		select {
 		case <-p.quit:
 			return
@@ -112,10 +112,10 @@ func (p *WorkerPool) waitForResume() {
 }
 
 // Submit 添加任务
-func (p *WorkerPool) Submit(task Task, timeout time.Duration) bool {
+func (p *RoutinePool) Submit(task Task, timeout time.Duration) bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.status != statRunning {
+	if p.status != StatRunning {
 		return false
 	}
 	p.wg.Add(1)
@@ -135,7 +135,7 @@ func (p *WorkerPool) Submit(task Task, timeout time.Duration) bool {
 }
 
 // Wait 等待协程池若干时间
-func (p *WorkerPool) Wait(maxTime time.Duration) bool {
+func (p *RoutinePool) Wait(maxTime time.Duration) bool {
 	if maxTime < 0 {
 		p.wg.Wait()
 		return true
@@ -154,9 +154,9 @@ func (p *WorkerPool) Wait(maxTime time.Duration) bool {
 }
 
 // Stop 关闭管道，停止所有 worker
-func (p *WorkerPool) Stop() {
+func (p *RoutinePool) Stop() {
 	p.mu.Lock()
-	if p.status == statStop {
+	if p.status == StatStop {
 		p.mu.Unlock()
 		return
 	}
@@ -169,34 +169,34 @@ func (p *WorkerPool) Stop() {
 	close(p.quit)
 	close(p.tasks)
 	close(p.results)
-	p.status = statStop
+	p.status = StatStop
 	p.cond.Broadcast()
 }
 
 // Pause 暂停调度
-func (p *WorkerPool) Pause() {
+func (p *RoutinePool) Pause() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.status == statRunning {
-		p.status = statPause
+	if p.status == StatRunning {
+		p.status = StatPause
 		p.cond.Broadcast()
 	}
 }
 
 // Resume 恢复调度
-func (p *WorkerPool) Resume() {
+func (p *RoutinePool) Resume() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.status == statPause {
-		p.status = statRunning
+	if p.status == StatPause {
+		p.status = StatRunning
 		p.cond.Broadcast()
 	}
 }
 
-func (p *WorkerPool) Resize(size int) {
+func (p *RoutinePool) Resize(size int) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if size == p.concurrency || size < 0 || p.status == statStop {
+	if size == p.concurrency || size < 0 || p.status == StatStop {
 		return
 	}
 	if size > p.concurrency {
@@ -212,7 +212,7 @@ func (p *WorkerPool) Resize(size int) {
 }
 
 // GetSingleResult 获取单个任务结果
-func (p *WorkerPool) GetSingleResult() *fuzzTypes.Reaction {
+func (p *RoutinePool) GetSingleResult() *fuzzTypes.Reaction {
 	select {
 	case r := <-p.results:
 		return r
@@ -221,10 +221,17 @@ func (p *WorkerPool) GetSingleResult() *fuzzTypes.Reaction {
 	}
 }
 
-// Clear 清空任务队列
-func (p *WorkerPool) Clear() {
+func (p *RoutinePool) Status() int8 {
 	p.mu.Lock()
-	if p.status == statStop {
+	defer p.mu.Unlock()
+	s := p.status
+	return s
+}
+
+// Clear 清空任务队列
+func (p *RoutinePool) Clear() {
+	p.mu.Lock()
+	if p.status == StatStop {
 		p.mu.Unlock()
 		return
 	}

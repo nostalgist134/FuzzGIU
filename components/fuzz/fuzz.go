@@ -9,9 +9,10 @@ import (
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/nostalgist134/FuzzGIU/components/output"
 	"github.com/nostalgist134/FuzzGIU/components/plugin"
-	"github.com/nostalgist134/FuzzGIU/components/wp"
+	"github.com/nostalgist134/FuzzGIU/components/rp"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -23,14 +24,19 @@ var SendMetaPool = sync.Pool{
 	New: func() any { return new(fuzzTypes.SendMeta) },
 }
 
-// Wp 协程池指针
-var Wp *wp.WorkerPool
+// Rp 协程池指针
+var Rp *rp.RoutinePool
 
 // trySubmit 尝试提交任务，若提交失败，则先从队列中取出一个结果并处理，再提交
-func trySubmit(task wp.Task, fuzz1 *fuzzTypes.Fuzz, reactPlugin fuzzTypes.Plugin) bool {
-	for !Wp.Submit(task, time.Millisecond*10) {
+func trySubmit(task rp.Task, fuzz1 *fuzzTypes.Fuzz, reactPlugin fuzzTypes.Plugin) bool {
+	for !Rp.Submit(task, time.Millisecond*10) {
+		// 若处于暂停状态，则不消耗结果
+		if Rp.Status() == rp.StatPause {
+			time.Sleep(10 * time.Millisecond)
+			continue
+		}
 		// 将结果队列全部消耗而不是取一个，避免陷入handleReaction->trySubmit->handleReaction->...的无限递归
-		for r := Wp.GetSingleResult(); r != nil; r = Wp.GetSingleResult() {
+		for r := Rp.GetSingleResult(); r != nil; r = Rp.GetSingleResult() {
 			// 若确定jobStop，就可以不用再取结果了，直接返回上一层直到doFuzz，然后退出
 			if jobStop := handleReaction(r, fuzz1, reactPlugin); jobStop {
 				return jobStop
@@ -99,11 +105,11 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 	}
 
 	// 初始化协程池
-	if Wp == nil {
-		Wp = wp.New(fuzz1.Misc.PoolSize)
-		Wp.Start()
+	if Rp == nil {
+		Rp = rp.New(fuzz1.Misc.PoolSize)
+		Rp.Start()
 	} else {
-		Wp.Resize(fuzz1.Misc.PoolSize)
+		Rp.Resize(fuzz1.Misc.PoolSize)
 	}
 
 	fuzz1 = stagePreprocess.Preprocess(fuzz1, fuzz1.Preprocess.Preprocessors)
@@ -155,6 +161,13 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 	var reactPlugin fuzzTypes.Plugin
 	if fuzz1.React.Reactor != "" {
 		reactPlugin = plugin.ParsePluginsStr(fuzz1.React.Reactor)[0]
+		if strings.Contains(reactPlugin.Name, "../") || strings.Contains(reactPlugin.Name, "/..") {
+			if common.OutputToWhere&output.OutToScreen != 0 {
+				output.ScreenClose()
+				fmt.Fprintln(os.Stderr, "still not clever enough")
+				os.Exit(1)
+			}
+		}
 	}
 	// payload处理插件
 	var plProcessorPlugins = make([][]fuzzTypes.Plugin, len(keywords))
@@ -245,7 +258,7 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 			}
 		}
 		if trySubmit(task, fuzz1, reactPlugin) {
-			Wp.Clear()
+			Rp.Clear()
 			return time.Since(timeStart)
 		}
 		time.Sleep(time.Millisecond * time.Duration(fuzz1.Misc.Delay))
@@ -254,7 +267,7 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 			if maxTry == 0 {
 				break
 			}
-			if r := Wp.GetSingleResult(); r != nil {
+			if r := Rp.GetSingleResult(); r != nil {
 				jobStop = handleReaction(r, fuzz1, reactPlugin)
 				if jobStop {
 					return time.Since(timeStart)
@@ -265,17 +278,17 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 			maxTry--
 		}
 	}
-	for !Wp.Wait(time.Millisecond * 10) {
-		for r := Wp.GetSingleResult(); r != nil; r = Wp.GetSingleResult() {
+	for !Rp.Wait(time.Millisecond * 10) {
+		for r := Rp.GetSingleResult(); r != nil; r = Rp.GetSingleResult() {
 			if handleReaction(r, fuzz1, reactPlugin) {
-				Wp.Clear()
+				Rp.Clear()
 				return time.Since(timeStart)
 			}
 		}
 	}
-	for r := Wp.GetSingleResult(); r != nil; r = Wp.GetSingleResult() {
+	for r := Rp.GetSingleResult(); r != nil; r = Rp.GetSingleResult() {
 		if handleReaction(r, fuzz1, reactPlugin) {
-			Wp.Clear()
+			Rp.Clear()
 			return time.Since(timeStart)
 		}
 	}

@@ -24,6 +24,24 @@ func keywordOverlap(keyword string) (string, bool) {
 	return "", false
 }
 
+func hasPathTraverse(plugins []fuzzTypes.Plugin) bool {
+	for _, p := range plugins {
+		// 统一分隔符
+		pName := strings.Replace(p.Name, "\\", "/", -1)
+		if strings.Contains(pName, "../") || strings.Contains(pName, "/..") {
+			return true
+		}
+	}
+	return false
+}
+
+func quitIfPathTraverse(p []fuzzTypes.Plugin) {
+	if hasPathTraverse(p) {
+		fmt.Fprintln(os.Stderr, "path traverse huh? so clever, but not clever enough")
+		os.Exit(1)
+	}
+}
+
 func appendPayloadTmp(tempMap map[string]fuzzTypes.PayloadTemp, pluginStrings []string, appendType int,
 	genType string) {
 	/*
@@ -48,6 +66,7 @@ func appendPayloadTmp(tempMap map[string]fuzzTypes.PayloadTemp, pluginStrings []
 		}
 		pluginExpr := tmp[:indSep]
 		p := plugin.ParsePluginsStr(pluginExpr)
+		quitIfPathTraverse(p)
 		var oldPlGen = fuzzTypes.PlGen{}
 		var oldProc []fuzzTypes.Plugin
 		_, keyExist := tempMap[keyword]
@@ -274,6 +293,7 @@ func opt2fuzz(opt *options.Opt) *fuzzTypes.Fuzz {
 		}
 	}
 	fuzz.Preprocess.Preprocessors = plugin.ParsePluginsStr(sb.String())
+	quitIfPathTraverse(fuzz.Preprocess.Preprocessors)
 	fuzz.React.Reactor = opt.Plugin.Reactors
 	// opt.RecursionControl
 	if opt.RecursionControl.Recursion {

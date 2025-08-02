@@ -44,7 +44,7 @@ func ParseOptCmdline() *Opt {
 	// 响应过滤器
 	flag.StringVar(&filter.Code, "fc", "", "filter status code from response")
 	flag.StringVar(&filter.Size, "fs", "", "filter response size")
-	flag.StringVar(&filter.Mode, "fmode", "and", "filter set operator")
+	flag.StringVar(&filter.Mode, "fmode", "or", "filter set operator")
 	flag.StringVar(&filter.Regex, "fr", "", "filter regexp")
 	flag.StringVar(&filter.Time, "ft", "",
 		"filter time(millisecond) to the first response byte")

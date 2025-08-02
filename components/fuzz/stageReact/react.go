@@ -27,47 +27,30 @@ func matchResponse(resp *fuzzTypes.Resp, m *fuzzTypes.Match) bool {
 		len(m.Regex) == 0 && m.Time.Upper == m.Time.Lower {
 		return false
 	}
-	mode := func(cond bool) bool {
-		if m.Mode == "and" {
-			return !cond
-		}
-		return cond
+	whenToRet := false
+	if m.Mode == "or" {
+		whenToRet = true
 	}
-	retVal := true
-	if m.Mode == "and" {
-		retVal = false
+	if len(m.Size) != 0 && valInRanges(resp.Size, m.Size) == whenToRet {
+		return whenToRet
 	}
-	if len(m.Size) != 0 {
-		if mode(valInRanges(resp.Size, m.Size)) {
-			return retVal
-		}
+	if len(m.Words) != 0 && valInRanges(resp.Words, m.Words) == whenToRet {
+		return whenToRet
 	}
-	if len(m.Words) != 0 {
-		if mode(valInRanges(resp.Words, m.Words)) {
-			return retVal
-		}
+	if len(m.Code) != 0 && resp.HttpResponse != nil && valInRanges(resp.HttpResponse.StatusCode, m.Code) == whenToRet {
+		return whenToRet
 	}
-	if len(m.Code) != 0 {
-		if mode(resp.HttpResponse != nil && valInRanges(resp.HttpResponse.StatusCode, m.Code)) {
-			return retVal
-		}
+	if len(m.Lines) != 0 && valInRanges(resp.Lines, m.Lines) == whenToRet {
+		return whenToRet
 	}
-	if len(m.Lines) != 0 {
-		if mode(valInRanges(resp.Lines, m.Lines)) {
-			return retVal
-		}
+	if len(m.Regex) != 0 && common.RegexMatch(resp.RawResponse, m.Regex) == whenToRet {
+		return whenToRet
 	}
-	if len(m.Regex) != 0 {
-		if mode(common.RegexMatch(resp.RawResponse, m.Regex)) {
-			return retVal
-		}
+	if m.Time.Upper != m.Time.Lower &&
+		(resp.ResponseTime < m.Time.Upper && resp.ResponseTime >= m.Time.Lower) == whenToRet {
+		return whenToRet
 	}
-	if m.Time.Upper != m.Time.Lower {
-		if mode(resp.ResponseTime < m.Time.Upper && resp.ResponseTime >= m.Time.Lower) {
-			return retVal
-		}
-	}
-	return !retVal
+	return !whenToRet
 }
 
 func insertRecursionMarker(recKeyword string, splitter string,
@@ -143,6 +126,7 @@ func React(fuzz1 *fuzzTypes.Fuzz, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 	}
 	// reactDns调用
 	if strings.Index(fuzz1.Send.Request.URL, "dns://") == 0 {
+		common.PutReaction(reaction)
 		reaction = reactDns(reqSend, resp)
 	}
 	// reactor插件调用

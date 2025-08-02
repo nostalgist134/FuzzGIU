@@ -3,7 +3,7 @@ package output
 import (
 	"fmt"
 	ui "github.com/gizak/termui/v3"
-	"github.com/nostalgist134/FuzzGIU/components/wp"
+	"github.com/nostalgist134/FuzzGIU/components/rp"
 	"os"
 )
 
@@ -48,13 +48,13 @@ func eventListener() {
 		case "q":
 			return
 		case "p":
-			if wp.CurrentWp != nil {
-				wp.CurrentWp.Pause()
+			if rp.CurrentRp != nil {
+				rp.CurrentRp.Pause()
 				screenOutput.counterFrame.render(titlePausedCounter)
 			}
 		case "r":
-			if wp.CurrentWp != nil {
-				wp.CurrentWp.Resume()
+			if rp.CurrentRp != nil {
+				rp.CurrentRp.Resume()
 				screenOutput.counterFrame.render(titleCounter)
 			}
 		case "<Resize>":
