@@ -102,10 +102,10 @@ func usage() {
 		"-u http://test.com/FUZZ -w dict.txt::FUZZ "+
 			"\\\n\t-react fingerprint  # plugins/reactors/fingerprint.(so/dll/dylib)")
 	fmt.Printf(`
-	when fuzzGIU is executed without any args, it will init and create plugin directory "./plugin" to refer to plugins. 
+	when fuzzGIU is executed without any args, it will init and create plugin directory "./plugins" to refer to plugins. 
 	there are 5 types of plugins can be used on current version: Preprocessor, PayloadGenerator, PayloadProcessor, 
 	RequestSender and Reactor. every plugin is of shared library format of current operating system, fuzzGIU will try to 
-	find plugin by plugin type and name at ./plugin/pluginType, make sure you put the plugin file to the right 
+	find plugin by plugin type and name at ./plugins/[pluginType], make sure you put the plugin file to the right 
 	directory. you can find the usage of each type of plugin on https://github.com/nostalgist134/FuzzGIU/wiki. if you 
 	want to develop your own plugin, go check https://github.com/nostalgist134/FuzzGIUPluginKit, have fun :)`)
 }
