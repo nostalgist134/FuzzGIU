@@ -70,22 +70,27 @@ func FinishOutput(toWhere int32) {
 	}
 }
 
+// SetTaskCounter 设置task总数
 func SetTaskCounter(total int64) {
 	common.SetTaskCounter(total)
 }
 
+// SetJobCounter 设置job总数
 func SetJobCounter(total int64) {
 	common.SetJobCounter(total)
 }
 
+// AddJobCounter job数加1
 func AddJobCounter() {
 	common.AddJobCounter()
 }
 
+// AddTaskCounter task数加1
 func AddTaskCounter() {
 	common.AddTaskCounter()
 }
 
+// ClearTaskCounter task数清0（不是总数）
 func ClearTaskCounter() {
 	common.ClearTaskCounter()
 }
