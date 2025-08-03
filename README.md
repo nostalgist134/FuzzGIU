@@ -23,7 +23,7 @@ go build
 
 # 使用方法
 
-fuzzGIU完整的帮助信息如下
+执行 `FuzzGIU -h` 可查看完整的命令行帮助信息：
 
 ```powershell
 PS H:\tools\fuzz\FuzzGIU> .\FuzzGIU.exe -h
@@ -157,37 +157,51 @@ use plugins:
 
 ## 快速使用
 
-以下是一些常见的使用示例
+- **URL 路径 Fuzz:**
 
-``````powershell
-SIMPLE USAGES:
-fuzz URL:
-    H:\tools\fuzz\FuzzGIU\FuzzGIU.exe -u http://test.com/FUZZ -w dict.txt::FUZZ
+  ```powershell
+  # 指定关键字
+  .\FuzzGIU.exe -u "http://test.com/FUZZ" -w "directory_list.txt::FUZZ"
+  # 使用默认关键字 "MILAOGIU"
+  .\FuzzGIU.exe -u "http://test.com/MILAOGIU" -w "directory_list.txt"
+  ```
 
-    H:\tools\fuzz\FuzzGIU\FuzzGIU.exe -u http://test.com/MILAOGIU -w dict.txt  # use default keyword
+- **HTTP 请求体 Fuzz:**
 
-fuzz HTTP data:
-    H:\tools\fuzz\FuzzGIU\FuzzGIU.exe -u http://test.com -w dict.txt::FUZZ -d "test=FUZZ"
+  ```powershell
+  .\FuzzGIU.exe -u "http://test.com/login" -d "username=admin&password=FUZZ" -w "passwords.txt::FUZZ"
+  ```
 
-use filters and matchers:
-    H:\tools\fuzz\FuzzGIU\FuzzGIU.exe -w http://test.com/FUZZ -w dic.txt::FUZZ -mc 407 -fc 403-406 \
-        -ms 123-154 -fs 10-100,120 # match code 407, size 123~154; filter code 403~406, size 10~100,120
+- **使用匹配器 (Matcher) 和过滤器 (Filter):**
 
-use embedded payload processor to process payload:
-    H:\tools\fuzz\FuzzGIU\FuzzGIU.exe -u http://test.com -w dict.txt::FUZZ -d "test=FUZZ" \
-        -pl-processor suffix(".txt"),base64::FUZZ  # base64 encode
+  ```powershell
+  .\FuzzGIU.exe -u "http://test.com/FUZZ" -w "fuzz_dict.txt::FUZZ" -mc 200,301 -fc 403,404 -ms "1000-2000" -fs "0-500,5000"
+  # 解释: 匹配状态码 200 或 301，且响应大小在 1000-2000 字节之间；过滤状态码 403 或 404，以及响应大小在 0-500 字节或大于 5000 字节的结果。
+  ```
 
-use embedded payload generators:
-    H:\tools\fuzz\FuzzGIU\FuzzGIU.exe -u http://test.com/FUZZ \
-        -pl-gen int(0,100,10)::FUZZ  # generate integer 0~100 with base 10
+- **使用内置 Payload 处理器:**
 
-use multiple fuzz keywords and keyword process mode:
-    H:\tools\fuzz\FuzzGIU\FuzzGIU.exe -u http://FUZZ1/FUZZ2 -w dic1.txt::FUZZ1 \
-        -w dic2.txt::FUZZ2  # default mode is "clusterbomb"
+  ```powershell
+  .\FuzzGIU.exe -u "http://test.com/download" -w "filenames.txt::FUZZ" -d "file=FUZZ" -pl-processor "suffix('.bak'),base64::FUZZ"
+  # 效果: 对每个 payload 先添加 '.bak' 后缀，再进行 Base64 编码。
+  ```
 
-    H:\tools\fuzz\FuzzGIU\FuzzGIU.exe -u http://FUZZ3/FUZZ4 -w dic3.txt::FUZZ3 \
-        -w dic4.txt::FUZZ4 -mode pitchfork-cycle
-``````
+- **使用内置 Payload 生成器:**
+
+  ```powershell
+  .\FuzzGIU.exe -u "http://test.com/user?id=FUZZ" -pl-gen "int(1,100)::FUZZ"
+  # 效果: 生成数字 1 到 99 作为 payload 替换 FUZZ。
+  ```
+
+- **多关键字与处理模式:**
+
+  ```powershell
+  # Clusterbomb 模式 (默认): 遍历所有组合
+  .\FuzzGIU.exe -u "http://FUZZHOST/FUZZPATH" -w "subdomains.txt::FUZZHOST" -w "paths.txt::FUZZPATH"
+  
+  # Pitchfork-Cycle 模式: 列表循环对齐
+  .\FuzzGIU.exe -u "http://FUZZUSER:FUZZPASS@test.com" -w "usernames.txt::FUZZUSER" -w "passwords.txt::FUZZPASS" -mode "pitchfork-cycle"
+  ```
 
 ### 窗口界面操作
 
@@ -195,7 +209,15 @@ use multiple fuzz keywords and keyword process mode:
 
 ![termui窗口](https://raw.githubusercontent.com/nostalgist134/FuzzGIU/main/imgs/fuzzGIU%20window.PNG)
 
-在logo下方有4个小窗口，依次显示：**当前fuzz任务的全部信息**、**计数器**、**输出**以及**日志记录**。可以通过w/s键上下选中某个窗口，然后上/下键或者j/k键滑动查看窗口中的信息，选中的窗口边框会变蓝。按下p/r键可以暂停/恢复任务的执行，若任务暂停了，计数器的标题会改变。
+在logo下方有4个小窗口，依次显示：**当前fuzz任务的全部信息**、**计数器**、**输出**以及**日志记录**。
+
+**界面操作：**
+
+- **`W`/`S` 键**：上下移动焦点，选中窗口边框变蓝。
+- **`↑`/`↓` 或 `J`/`K` 键**：在选中窗口内滚动内容。
+- **`P` 键**：暂停任务执行（计数器标题会变化）。
+- **`R` 键**：恢复暂停的任务。
+- **`Q` 键**：随时退出程序。
 
 单个任务执行完毕后以及所有任务执行完毕后，在日志窗口会有提示。所有任务执行完毕后程序不会自动退出，按下q键可以退出，在任务执行的过程中也可随时按下q键退出。
 
@@ -240,11 +262,11 @@ Req struct {
 2. 文件内容为json格式的Req请求对象，会将文件内容反序列化生成Req结构。
 3. 文件内容不是以上两者，会将文件的内容全部填充到Req结构的`Data`成员中。
 
-需要注意的是，**命令行参数也可指定这一结构中的成员值，且命令行参数指定的成员值优先级比**`-r`**参数所指定的更高，因此若在这一参数之外还有用别的命令行参数指定成员值，这里指定的值会被覆盖**。
+需要注意，**其它命令行参数也可指定这一结构中的成员值，且指定优先级比本参数更高，因此若在此之外还有用别的命令行参数指定成员值，这里指定的值会被覆盖**。
 
 ### `-delay`
 
-参数指定工具每次提交请求任务之后，以毫秒为单位的等待时间，防止请求速度过快导致触发可能的防御机制。
+参数指定工具每次提交请求任务之后，以毫秒为单位的等待时间，防止请求速度过快导致触发可能的防御机制或者资源占用过多。
 
 ### `-t`
 
@@ -252,7 +274,7 @@ Req struct {
 
 ### `-timeout`
 
-指定每个fuzz请求等待响应的最大时间（单位：秒）。注意**这个参数对于自定义的请求发送模块不是强制的**，工具只会把这一参数包装到请求发送相关的元信息中，如何处理这个参数取决于请求发送器插件的行为。
+指定每个fuzz请求等待响应的最大时间（单位：秒）。**注意：** 对于自定义请求发送插件 (`RequestSender`)，工具只会把这一参数包装到请求发送相关的元信息中，是否遵守此超时取决于插件实现。
 
 ### `-f`(Filter)、`-m`(Matcher)系列参数
 
@@ -269,8 +291,13 @@ Req struct {
 ``````
 
 所有以**数字**作为单位的条件都**使用形如**`a-b,c,d-e,f,...`**的数字-横杠表达式**指定其**闭区间**范围，时间条件除外；返回包的正则匹配表达式为字符串，这个条件是**真的会按照正则表达式规则去匹配的**；时间条件使用单个时间（虽然没什么意义，因为基本不会遇到正好和单个时间匹配的包）或者**以逗号隔开的时间范围**来表示，时间条件的区间是**下闭上开**的，也就是说指定`-ft a,b`则对时间的匹配是在**a<=t<b**的范围内。
-使用`-f(m)mode`参数指定当多个条件出现时，总条件的连接方式。支持两种方式：**or**与**and**。默认情况下过滤和匹配均使用`or`模式，即当多个过滤（匹配）条件出现时，只要有一个为真，就算过滤（匹配）。`and`模式则要求全部条件都为真才算过滤（匹配）。
-工具遵循的输出规则为：**仅当结果视为不过滤（**`-f`**系列总条件不满足），且匹配条件（**`-m`**系列总条件满足），或者请求过程中发生错误时才会输出**。
+
+**逻辑模式 (`-mmode`/`-fmode`):**
+
+- `or` (默认)：任意一个条件满足即视为匹配/过滤。
+- `and`：所有条件都必须满足才视为匹配/过滤。
+
+**输出规则：** 仅当结果**未通过过滤器** (`-f*` 总条件不满足) **且** **通过匹配器** (`-m*` 总条件满足) **或** 请求过程中发生错误时，结果才会被输出。
 
 ### `-retry`系列参数
 
@@ -338,31 +365,22 @@ HTTPSpec struct {
 前3种模式均用于处理出现多个不同关键字的场景，`clusterbomb`模式会枚举不同关键字对应的payload列表的所有组合（基本上和burp suite里面的同名模式是一样的）；`pitchfork`模式对每个关键字payload列表使用相同的下标，遍历到最短的payload列表结束为止；`pitchfork-cycle`模式则是`pitchfork`模式的改进版本，其迭代过程中每个关键字的列表下标仍然同步更新，但是较短的列表结束后，下标会从0再开始，循环往复，直到遍历到最长的列表结束。
 `sniper`模式用于且仅能用于单个关键字在请求中出现多次的情况，这个模式下，工具会根据关键字出现的位置依次将特定位置的关键字替换为payload列表中的payload，并将其它位置的关键字替换为空。
 
-`-pl-gen`参数用来指定fuzz关键字的payload生成器，注意，目前`-pl-gen`**与**`-w`**选项是互斥的，也就是说现在暂不支持同时使用payload生成器和字典来对某个关键字生成payload**。`-pl-gen`参数的使用方法与`-w`参数类似，使用`::`符号关联payload生成器列表和关键字。各个payload生成器间通过逗号隔开，单个payload生成器**伪函数调用表达式**来指定。
+`-pl-gen`参数用来指定fuzz关键字的payload生成器，注意，目前`-pl-gen`**与**`-w`**选项是互斥的，也就是说现在暂不支持同时使用payload生成器和字典来对某个关键字生成payload**。`-pl-gen`参数的使用方法与`-w`参数类似，使用`::`符号关联payload生成器列表和关键字。各个payload生成器间通过逗号隔开，单个payload生成器[**伪函数调用表达式**](#插件传参)来指定。
 
----
+目前工具内置2种payload生成器：
 
-## 伪函数调用表达式的写法规则
+- `int(lower, upper, base)`: 生成 `[lower, upper)` 范围内指定 `base` 进制 (通常为 10) 的数字字符串。e.g., `int(1, 100, 10)` 生成 "1" 到 "99"。
+- `permute(s, maxLen)`: 生成字符串 `s` 的所有排列组合，最多 `maxLen` 个结果。e.g., `permute("abc", 10)`。
 
-1. 伪函数表达式的格式为：函数名([参数1, 参数2, 参数3, ...])。函数名即为使用的插件的名字。若参数列表为空，则括号也可省略
-2. 参数支持4种类型：`int`、`float64`、`bool`、`string`
-3. 字符串参数使用单引号或者双引号括起来，两种都是可接受的，但是必须配对
-4. `bool`型参数使用全小写的`true`和`false`
-5. `int`型参数支持两种进制，10进制和16进制，默认按照10进制数算，但是如果无法解析为10进制（含有字母），则尝试解析为16进制数；也可显式指定16进制数，在数字前面加上`0x`前缀即可
+`-pl-processor`参数用于指定fuzz关键字的对应payload使用的处理器，同样使用[**伪函数调用表达式**](#插件传参)进行调用，使用`::`符号与关键字进行关联。对单个fuzz关键字也可指定多个处理器，会按照顺序依次调用，每个处理器处理后的payload会作为下一个处理器的输入。
+内置的payload处理器有6种如下：
 
----
-
-所有的插件均通过这个规则调用，`-h`显示的帮助信息的示例用法中有若干调用示例。
-
-目前工具内置2种payload生成器，`int`和`permute`。
-`int`生成器用来生成一个范围内的所有整数字符串。参数列表为`int(lower int, upper int, base int)`，`lower`参数为生成范围的下界（闭区间），`upper`为上界（开区间），`base`参数指定生成的数字的进制表示。
-`permute`生成器用来生成一个字符串的所有排列。参数列表为`permute(s string, maxLen int)`，`s`参数为要排列的字符串，`maxLen`参数为生成排列列表的最大长度。
-
-`-pl-processor`参数用于指定fuzz关键字的对应payload使用的处理器，同样使用伪函数调用表达式进行调用，使用`::`符号与关键字进行关联。对单个fuzz关键字也可指定多个处理器，会按照顺序依次调用，每个处理器处理后的payload会作为下一个处理器的输入。
-内置的payload处理器有6种：`base64`、`urlencode`、`addslashes`、`stripslashes`、`suffix`和`repeat`。前3种处理器通过名字就可看出来做什么的，就不赘述。
-`stripslashes`处理器会将payload开头的斜杆`/`去除，并且将payload中所有的2个以上连续的斜杆都换为单个斜杆。
-`suffix`处理器会为payload添加后缀，接收一个`string`类型参数作为添加的后缀。
-`repeat`处理器会简单地将payload重复多次，接收一个`int`类型参数表示重复的次数。
+- `base64`: Base64 编码 payload。
+- `urlencode`: URL 编码 payload。
+- `addslashes`: 添加反斜杠转义特殊字符 (如 `'` -> `\'`)。
+- `stripslashes`: 去除开头的 `/` 并将连续多个 `/` 替换为单个 `/`。
+- `suffix(s)`: 给 payload 添加后缀 `s`。e.g., `suffix(".php")`。
+- `repeat(n)`: 将 payload 重复 `n` 次。e.g., `repeat(3)` 将 "a" 变为 "aaa"。
 
 ## 进阶用法
 
@@ -413,10 +431,30 @@ Done.
 For help, use -h flag
 ```
 
+#### 插件传参
+
+fuzzGIU的插件调用遵循以下的被称为伪函数调用表达式的规则：
+
+1. 伪函数表达式的格式为：`fn_0([arg0, arg1, arg2, ...]),fn_1([arg0, arg1, ...]),...`。函数名`fn_n`即为使用的插件的名字，不同的函数间通过`,`隔开。若某个函数的参数列表为空，则括号也可省略
+2. 参数支持4种类型：`int`、`float64`、`bool`、`string`
+3. 字符串参数使用单引号或者双引号括起来，两种都是可接受的，但是必须配对
+4. `bool`型参数使用全小写的`true`和`false`
+5. `int`型参数支持两种进制，10进制和16进制，默认按照10进制数算，但是如果无法解析为10进制（含有字母），则尝试解析为16进制数；也可显式指定16进制数，在数字前面加上`0x`前缀即可
+6. 默认参数：部分插件调用时传入默认参数，这些参数可能是fuzz过程中使用的结构体或者数据，调用语句中无需指定，工具会根据上下文自动处理，不同插件的默认参数参考[插件类型与作用](#插件类型与作用)章节。
+7. 自定义参数：在默认参数之外，插件开发者可以在插件中指定任意不违反操作系统限制的数量的自定义参数，扩展插件的功能，这些参数实际上就是通过规则1中的参数列表传入
+
+无论是内置的组件还是自定义的插件都根据这一规则来进行调用。
+
 #### 插件类型与作用
 
 1. **Preprocessor（预处理插件）**
-   在 fuzz 任务启动前对请求参数、字典等进行预处理（如动态生成字典、修改请求模板）。
+
+   + **作用**：在 fuzz 任务启动前对请求参数、字典等进行预处理（如动态生成字典、修改请求模板）
+
+   + **默认参数**：`*fuzzTypes.Fuzz`->当前使用的fuzz任务结构体
+   + **返回值**：`*fuzzTypes.Fuzz`->处理后的fuzz任务
+
+   + **复合行为**：若指定了多个预处理插件，在插件链上每一个插件的返回任务都会作为默认参数传递给下一个插件。
 
    ```powershell
    # 使用job_dispatch预处理插件优化任务调度
@@ -424,7 +462,12 @@ For help, use -h flag
    ```
 
 2. **PayloadGenerator（payload 生成器插件）**
-   替代字典（`-w`）动态生成 payload，适用于规则化、定制化的测试场景（如 SQL 注入、XSS 测试用例）。
+
+   + **作用**：替代字典（`-w`）动态生成 payload，适用于规则化、定制化的测试场景（如 SQL 注入、XSS 测试用例）。
+   + **默认参数**：无
+   + **返回值**：`[]string`切片->生成的payload
+   + **复合行为**：可对单个关键字指定多个payload生成器，每个生成器生成的payload都会添加到总列表中
+
    示例：`sqli`插件生成 SQL 注入测试 payload：
 
    ```powershell
@@ -433,7 +476,12 @@ For help, use -h flag
    ```
 
 3. **PayloadProcessor（payload 处理器插件）**
-   对生成的 payload 进行二次处理（如加密、编码），满足目标系统的格式要求。
+
+   + **作用**：对生成的 payload 进行二次处理（如加密、编码），满足目标系统的格式要求。
+   + **默认参数**：`string`->要处理的payload，从关键字对应的payload列表中取出
+   + **返回值**：`string`->处理后的payload
+   + **复合行为**：若指定了多个payload处理器，则插件链上每个插件返回的处理后的payload都会作为默认参数传递给下一插件
+
    示例：`AES`插件对密码 payload 进行 AES 加密：
 
    ```powershell
@@ -442,7 +490,13 @@ For help, use -h flag
    ```
 
 4. **RequestSender（请求发送插件）**
-   扩展工具支持的协议（如 SSH、FTP、Redis 等），当 URL 的 scheme 不在默认支持的`http/https`、`ws/wss`、`dns`范围内时，工具会自动调用对应插件。
+
+   + **作用**：扩展工具支持的协议
+   + **默认参数**：`*fuzzTypes.SendMeta`->一个包含了请求本身和请求相关设置的上下文结构
+   + **返回值**：`*fuzzTypes.Resp`->发送请求后接收到的响应结构
+   + **复合行为**：本插件不支持复合调用
+   + **其它注意事项**：这类插件通过`-u`指定的url的scheme字段隐式调用，当`-u`指定的scheme不在工具预置支持的协议范围内，工具就会根据其scheme在`./plugins/requestSenders`目录中寻找对应名字的动态链接库。由于调用过程中不涉及伪函数表达式，因此此类插件无法接收自定义参数。
+
    示例：`ssh`插件用于 SSH 弱口令测试：
 
    ```powershell
@@ -451,7 +505,12 @@ For help, use -h flag
    ```
 
 5. **Reactor（响应处理器插件）**
-   对响应结果进行自定义分析（如指纹识别、漏洞特征匹配），并输出结构化结果。
+
+   + **作用**：对请求和响应结果进行综合性的自定义分析（如指纹识别、漏洞特征匹配），并输出结构化结果。
+   + **默认参数**：`*fuzzTypes.Req`->请求结构体、`*fuzzTypes.Resp`->响应结构体
+   + **返回值**：`*fuzzTypes.Reaction`->结构化的响应结果
+   + **复合行为**：本插件不支持复合调用
+
    示例：`fingerprint`插件识别目标服务器的中间件版本：
 
    ```powershell
@@ -465,6 +524,6 @@ For help, use -h flag
 
 # 特别感谢
 
-特别致敬 [@ffuf](https://github.com/ffuf/ffuf) 项目，其理念与实现为本工具提供了重要启发，没有ffuf团队对于此类工具的探索，就没有这个项目。
+特别致敬 [@ffuf](https://github.com/ffuf/ffuf) 项目，其理念与实现为本工具提供了重要启发，没有ffuf团队对于此类工具的探索，就没有当前项目。
 
 特别感谢[@xch-space](https://github.com/xch-space)对项目命名提供的灵感。
