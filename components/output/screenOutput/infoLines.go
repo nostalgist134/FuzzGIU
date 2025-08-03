@@ -64,7 +64,9 @@ func recCtrl2Lines(recCtrl *struct {
 		"MAX_DEPTH : " + strconv.Itoa(recCtrl.MaxRecursionDepth),
 		"KEYWORD   : " + recCtrl.Keyword,
 		"CODES     : " + ranges2String(recCtrl.StatCodes),
-		"REGEX     : " + recCtrl.Regex}
+		"REGEX     : " + recCtrl.Regex,
+		"REC_SPLIT : " + recCtrl.Splitter,
+	}
 }
 
 // genInfoLines 将Fuzz结构转化为字符串切片

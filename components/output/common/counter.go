@@ -12,7 +12,9 @@ func init() {
 		for {
 			start := atomic.LoadInt64(&globCounter.taskCounter.count)
 			time.Sleep(1 * time.Second)
-			atomic.StoreInt32(&globCounter.rate, int32(atomic.LoadInt64(&globCounter.taskCounter.count)-start))
+			if rateNow := int32(atomic.LoadInt64(&globCounter.taskCounter.count) - start); rateNow >= 0 {
+				atomic.StoreInt32(&globCounter.rate, rateNow)
+			}
 		}
 	}()
 }

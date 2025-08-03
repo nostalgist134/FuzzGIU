@@ -5,6 +5,7 @@ import (
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"math/rand"
 	"strings"
+	"sync"
 )
 
 // GetKeywordNum 获取一个关键字在req结构中出现的次数
@@ -120,6 +121,18 @@ type ReplaceTemplate struct {
 	placeholders []int // placeholders 存储每个片段后关键字在关键字列表的下标列表，特殊情况：下标值为0，代表分隔符
 }
 
+var stringBuilders = sync.Pool{New: func() any { return new(strings.Builder) }}
+
+func getStringBuilder() *strings.Builder {
+	newSb := (stringBuilders.Get()).(*strings.Builder)
+	return newSb
+}
+
+func putStringBuilder(sb *strings.Builder) {
+	sb.Reset()
+	stringBuilders.Put(sb)
+}
+
 func (t *ReplaceTemplate) parse(s string, keywords []string) {
 	t.fragments = make([]string, 0)
 	keywordsOccur := getKeywordsOccurrences(s, keywords)
@@ -148,7 +161,8 @@ func (t *ReplaceTemplate) parse(s string, keywords []string) {
 
 // renderNew 对模板进行渲染，返回通过分隔符分隔的fields切片
 func (t *ReplaceTemplate) renderNew(payloads []string) []string {
-	sb := strings.Builder{}
+	sb := getStringBuilder()
+	defer putStringBuilder(sb)
 	fields := make([]string, 0)
 	i := 0
 	for ; i < len(t.placeholders); i++ {
@@ -171,7 +185,8 @@ func (t *ReplaceTemplate) render1New(payload string, pos int) []string {
 		payload = ""
 	}
 	fields := make([]string, 0)
-	sb := strings.Builder{}
+	sb := getStringBuilder()
+	defer putStringBuilder(sb)
 	i := 0
 	j := 0
 	for ; j < pos && i < len(t.placeholders); j++ {
@@ -201,7 +216,8 @@ func (t *ReplaceTemplate) render1New(payload string, pos int) []string {
 func (t *ReplaceTemplate) render2(payload string) ([]string, []int) {
 	fields := make([]string, 0)
 	trackPos := make([]int, 0)
-	sb := strings.Builder{}
+	sb := getStringBuilder()
+	defer putStringBuilder(sb)
 	i := 0
 	trackPosInd := -1
 	fieldHasPayload := false
@@ -246,7 +262,8 @@ func (t *ReplaceTemplate) render3(payload string, pos int) ([]string, []int) {
 	var field string
 	fields := make([]string, 0)
 	trackPos := make([]int, 0)
-	sb := strings.Builder{}
+	sb := getStringBuilder()
+	defer putStringBuilder(sb)
 	i := 0
 	j := 0
 	for ; j < pos && i < len(t.placeholders); j++ {
@@ -290,7 +307,8 @@ func (t *ReplaceTemplate) render3(payload string, pos int) ([]string, []int) {
 // GetRandMarker 生成一个长度为12为的随机字符串
 func GetRandMarker() string {
 	dict := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	sb := strings.Builder{}
+	sb := getStringBuilder()
+	defer putStringBuilder(sb)
 	for i := 0; i < 12; i++ {
 		sb.WriteByte(dict[rand.Intn(len(dict))])
 	}
@@ -299,7 +317,8 @@ func GetRandMarker() string {
 
 func req2Str(req *fuzzTypes.Req) (string, string) {
 	splitter := GetRandMarker()
-	sb := strings.Builder{}
+	sb := getStringBuilder()
+	defer putStringBuilder(sb)
 	// 将结构按照顺序入string builder，并以分隔符隔开，splitter本来应该是要校验的，但是为了运行速度就不做校验了
 	sb.WriteString(req.HttpSpec.Method)
 	sb.WriteString(splitter)

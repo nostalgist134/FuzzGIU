@@ -77,7 +77,7 @@ func ParseOptCmdline() *Opt {
 	flag.IntVar(&recursionControl.RecursionDepth, "rec-depth", 2, "recursion depth(when recursion "+
 		"is enabled)")
 	flag.StringVar(&recursionControl.RecursionStatus, "rec-code",
-		"200", "Recursion status code(http protocol only)")
+		"", "Recursion status code(http protocol only)")
 	flag.StringVar(&recursionControl.RecursionRegex, "rec-regex", "", "recursion when matched regex")
 	flag.StringVar(&recursionControl.RecursionSplitter, "rec-splitter", "/",
 		"splitter to be used to split recursion positions")
