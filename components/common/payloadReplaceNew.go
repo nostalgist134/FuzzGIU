@@ -42,30 +42,30 @@ func getKeywordsOccurrences(s string, keywords []string) [][]int {
 	return ret
 }
 
-// Node 表示堆中的元素
-type Node struct {
+// heapNode 表示堆中的元素
+type heapNode struct {
 	value    int // 数值大小
 	arrayIdx int // 所在数组编号
 	idx      int // 在该数组中的索引
 }
 
-// PriorityQueue 实现 heap.Interface，并按 value 从小到大排序
-type PriorityQueue []Node
+// priorityQueue 实现 heap.Interface，并按 value 从小到大排序
+type priorityQueue []heapNode
 
-func (pq *PriorityQueue) Len() int { return len(*pq) }
+func (pq *priorityQueue) Len() int { return len(*pq) }
 
-func (pq *PriorityQueue) Less(i, j int) bool {
+func (pq *priorityQueue) Less(i, j int) bool {
 	return (*pq)[i].value < (*pq)[j].value // 小顶堆
 }
 
-func (pq *PriorityQueue) Swap(i, j int) {
+func (pq *priorityQueue) Swap(i, j int) {
 	(*pq)[i], (*pq)[j] = (*pq)[j], (*pq)[i]
 }
-func (pq *PriorityQueue) Push(x interface{}) {
-	*pq = append(*pq, x.(Node))
+func (pq *priorityQueue) Push(x interface{}) {
+	*pq = append(*pq, x.(heapNode))
 }
 
-func (pq *PriorityQueue) Pop() interface{} {
+func (pq *priorityQueue) Pop() interface{} {
 	old := *pq
 	n := len(old)
 	node := old[n-1]
@@ -81,12 +81,12 @@ type record struct {
 
 // mergeK 返回排序值 + 所属数组下标，all credits to ChatGPT
 func mergeK(arrays [][]int) []record {
-	pq := &PriorityQueue{}
+	pq := &priorityQueue{}
 	heap.Init(pq)
 	// 初始化堆，把每个数组的第一个元素加入堆
 	for i, arr := range arrays {
 		if len(arr) > 0 {
-			heap.Push(pq, Node{
+			heap.Push(pq, heapNode{
 				value:    arr[0],
 				arrayIdx: i,
 				idx:      0,
@@ -96,7 +96,7 @@ func mergeK(arrays [][]int) []record {
 
 	var result []record
 	for pq.Len() > 0 {
-		node := heap.Pop(pq).(Node)
+		node := heap.Pop(pq).(heapNode)
 		result = append(result, record{
 			KeywordIndex: node.value,
 			ArrayIdx:     node.arrayIdx,
@@ -105,7 +105,7 @@ func mergeK(arrays [][]int) []record {
 		// 如果该数组还有下一个元素，继续压入堆
 		nextIdx := node.idx + 1
 		if nextIdx < len(arrays[node.arrayIdx]) {
-			heap.Push(pq, Node{
+			heap.Push(pq, heapNode{
 				value:    arrays[node.arrayIdx][nextIdx],
 				arrayIdx: node.arrayIdx,
 				idx:      nextIdx,

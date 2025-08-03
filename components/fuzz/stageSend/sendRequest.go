@@ -37,9 +37,8 @@ func SendRequest(meta *fuzzTypes.SendMeta) *fuzzTypes.Resp {
 		retResp.ErrMsg = err.Error()
 		return retResp
 	}
-
 	switch u.Scheme {
-	case "http", "https":
+	case "http", "https", "":
 		resp, sendErr := sendRequestHttp(meta.Request, meta.Timeout, meta.HttpFollowRedirects,
 			meta.Retry, meta.RetryCode, meta.RetryRegex, meta.Proxy)
 		if sendErr != nil && resp != nil && resp.ErrMsg == "" {
