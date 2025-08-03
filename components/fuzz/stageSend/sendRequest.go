@@ -29,15 +29,23 @@ import (
 	}
 }*/
 
-func SendRequest(meta *fuzzTypes.SendMeta) *fuzzTypes.Resp {
-	u, err := url.Parse(meta.Request.URL)
+// SendRequest 根据SendMeta请求上下文发送请求
+func SendRequest(meta *fuzzTypes.SendMeta, scheme string) *fuzzTypes.Resp {
+	var uScheme string
 	var retResp *fuzzTypes.Resp
-	if err != nil { // 无法解析URL
-		retResp = &fuzzTypes.Resp{}
-		retResp.ErrMsg = err.Error()
-		return retResp
+	// 若请求使用的scheme已经成功预解析，就不必再调用url.Parse
+	if scheme != "" {
+		uScheme = scheme
+	} else {
+		u, err := url.Parse(meta.Request.URL)
+		if err != nil { // 无法解析URL
+			retResp = &fuzzTypes.Resp{}
+			retResp.ErrMsg = err.Error()
+			return retResp
+		}
+		uScheme = u.Scheme
 	}
-	switch u.Scheme {
+	switch uScheme {
 	case "http", "https", "":
 		resp, sendErr := sendRequestHttp(meta.Request, meta.Timeout, meta.HttpFollowRedirects,
 			meta.Retry, meta.RetryCode, meta.RetryRegex, meta.Proxy)
@@ -50,7 +58,7 @@ func SendRequest(meta *fuzzTypes.SendMeta) *fuzzTypes.Resp {
 	case "dns":
 		retResp = sendRequestDns(meta.Request, meta.Timeout)
 	default:
-		p := fuzzTypes.Plugin{Name: u.Scheme}
+		p := fuzzTypes.Plugin{Name: uScheme}
 		retResp = plugin.SendRequest(p, meta)
 	}
 	if retResp == nil {

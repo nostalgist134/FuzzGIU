@@ -11,6 +11,7 @@ import (
 	"github.com/nostalgist134/FuzzGIU/components/plugin"
 	"github.com/nostalgist134/FuzzGIU/components/rp"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -46,6 +47,22 @@ func trySubmit(task rp.Task, fuzz1 *fuzzTypes.Fuzz, reactPlugin fuzzTypes.Plugin
 	return false
 }
 
+// tryGetUrlScheme 尝试获取url scheme，若整个fuzz过程中url的scheme不会变化（不包含任何fuzz keyword）则可将其缓存
+// 从而避免在SendRequest中反复调用url.Parse消耗资源
+func tryGetUrlScheme(req *fuzzTypes.Req, keywords []string) string {
+	u, err := url.Parse(req.URL)
+	if err != nil {
+		return ""
+	}
+	scheme := u.Scheme
+	for _, k := range keywords {
+		if strings.Index(scheme, k) != -1 {
+			return ""
+		}
+	}
+	return scheme
+}
+
 // handleReaction 根据fuzz设置处理反应
 func handleReaction(r *fuzzTypes.Reaction, fuzz1 *fuzzTypes.Fuzz, reactPlugin fuzzTypes.Plugin) bool {
 	defer common.PutReaction(r)
@@ -73,7 +90,7 @@ func handleReaction(r *fuzzTypes.Reaction, fuzz1 *fuzzTypes.Fuzz, reactPlugin fu
 			newSend.RetryCode = fuzz1.Send.RetryCode
 			newSend.HttpFollowRedirects = fuzz1.Send.HttpFollowRedirects
 			newSend.Request = r.NewReq
-			resp := stageSend.SendRequest(newSend)
+			resp := stageSend.SendRequest(newSend, "")
 			reaction := stageReact.React(fuzz1, newSend.Request, resp, reactPlugin,
 				[]string{""}, []string{fmt.Sprintf("add via react by %s:%s", k, p)}, nil)
 			SendMetaPool.Put(newSend)
@@ -176,6 +193,8 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 	for i, keyword := range keywords {
 		plProcessorPlugins[i] = fuzz1.Preprocess.PlTemp[keyword].Processors
 	}
+	// 预解析url的scheme
+	uScheme := tryGetUrlScheme(&fuzz1.Send.Request, keywords)
 	// 主循环
 	for i := int64(0); i < loopLen; i++ {
 		send := (SendMetaPool.Get()).(*fuzzTypes.SendMeta)
@@ -223,7 +242,7 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 				}
 				send.Request = common.ReplacePayloadsByTemplate(reqTemplate, processedPayloads, -1)
 				send.Request.HttpSpec.ForceHttps = fuzz1.Send.Request.HttpSpec.ForceHttps
-				resp := stageSend.SendRequest(send)
+				resp := stageSend.SendRequest(send, uScheme)
 				reaction := stageReact.React(fuzz1, send.Request, resp, reactPlugin,
 					keywords, processedPayloads, nil)
 				SendMetaPool.Put(send)
@@ -249,7 +268,7 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 				} else { // 只启用sniper
 					send.Request = common.ReplacePayloadsByTemplate(reqTemplate, []string{payload}, int(i/curInd))
 				}
-				resp := stageSend.SendRequest(send)
+				resp := stageSend.SendRequest(send, uScheme)
 				reaction := stageReact.React(fuzz1, send.Request, resp, reactPlugin,
 					[]string{keyword}, []string{processedPayload}, recPos)
 				SendMetaPool.Put(send)
