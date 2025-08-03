@@ -137,7 +137,7 @@ use plugins:
     H:\tools\fuzz\FuzzGIU\FuzzGIU.exe -u http://test.com -D "name=admin&pass=PASS" -w dict.txt::PASS \
         -pl-processor AES("1234567890abcdef")::PASS  # will search ./plugins/payloadProcessors/AES.(so/dll/dylib)
 
-    H:\tools\fuzz\FuzzGIU\FuzzGIU.exe -w user.txt::NAME -w pass.txt::PASS \
+    H:\tools\fuzz\FuzzGIU\FuzzGIU.exe -w user.txt::USER -w pass.txt::PASS \
         -u ssh://USER:PASS@test.com:22  # ./plugins/requestSenders/ssh.(so/dll/dylib)
 
     H:\tools\fuzz\FuzzGIU\FuzzGIU.exe -u http://test.com/FUZZ -w dict.txt::FUZZ \
@@ -161,62 +161,73 @@ use plugins:
 
   ```powershell
   # 指定关键字
-  .\FuzzGIU.exe -u "http://test.com/FUZZ" -w "directory_list.txt::FUZZ"
+  .\FuzzGIU.exe -u http://test.com/FUZZ -w directory_list.txt::FUZZ
   # 使用默认关键字 "MILAOGIU"
-  .\FuzzGIU.exe -u "http://test.com/MILAOGIU" -w "directory_list.txt"
+  .\FuzzGIU.exe -u http://test.com/MILAOGIU -w directory_list.txt
   ```
 
 - **HTTP 请求体 Fuzz:**
 
   ```powershell
-  .\FuzzGIU.exe -u "http://test.com/login" -d "username=admin&password=FUZZ" -w "passwords.txt::FUZZ"
+  .\FuzzGIU.exe -u http://test.com/login -d username=admin&password=FUZZ -w passwords.txt::FUZZ
   ```
 
 - **使用匹配器 (Matcher) 和过滤器 (Filter):**
 
   ```powershell
-  .\FuzzGIU.exe -u "http://test.com/FUZZ" -w "fuzz_dict.txt::FUZZ" -mc 200,301 -fc 403,404 -ms "1000-2000" -fs "0-500,5000"
-  # 解释: 匹配状态码 200 或 301，且响应大小在 1000-2000 字节之间；过滤状态码 403 或 404，以及响应大小在 0-500 字节或大于 5000 字节的结果。
+  # 匹配状态码200或301，且响应大小在1000-2000字节之间；过滤状态码403或404，以及响应大小在0-500字节或5000字节的结果
+  .\FuzzGIU.exe -u http://test.com/FUZZ -w fuzz_dict.txt::FUZZ -mc 200,301 -fc 403,404 -ms 1000-2000 -fs 0-500,5000
   ```
 
 - **使用内置 Payload 处理器:**
 
   ```powershell
-  .\FuzzGIU.exe -u "http://test.com/download" -w "filenames.txt::FUZZ" -d "file=FUZZ" -pl-processor "suffix('.bak'),base64::FUZZ"
-  # 效果: 对每个 payload 先添加 '.bak' 后缀，再进行 Base64 编码。
+  # 对每个 payload 先添加 '.bak' 后缀，再进行 Base64 编码。
+  .\FuzzGIU.exe -u http://test.com/download -w filenames.txt::FUZZ -d file=FUZZ -pl-processor suffix('.bak'),base64::FUZZ
   ```
 
 - **使用内置 Payload 生成器:**
 
   ```powershell
-  .\FuzzGIU.exe -u "http://test.com/user?id=FUZZ" -pl-gen "int(1,100)::FUZZ"
-  # 效果: 生成数字 1 到 99 作为 payload 替换 FUZZ。
+  # 生成数字 1 到 99 作为 FUZZ 关键字使用的payload列表
+  .\FuzzGIU.exe -u http://test.com/user?id=FUZZ -pl-gen int(1,100)::FUZZ
   ```
 
-- **多关键字与处理模式:**
+- **指定关键字处理模式:**
 
   ```powershell
   # Clusterbomb 模式 (默认): 遍历所有组合
-  .\FuzzGIU.exe -u "http://FUZZHOST/FUZZPATH" -w "subdomains.txt::FUZZHOST" -w "paths.txt::FUZZPATH"
+  .\FuzzGIU.exe -u http://FUZZHOST/FUZZPATH -w subdomains.txt::FUZZHOST -w paths.txt::FUZZPATH
   
   # Pitchfork-Cycle 模式: 列表循环对齐
-  .\FuzzGIU.exe -u "http://FUZZUSER:FUZZPASS@test.com" -w "usernames.txt::FUZZUSER" -w "passwords.txt::FUZZPASS" -mode "pitchfork-cycle"
+  .\FuzzGIU.exe -u http://FUZZUSER:FUZZPASS@test.com -w usernames.txt::FUZZUSER -w passwords.txt::FUZZPASS -mode pitchfork-cycle
+  
+  # sniper 模式: 接收单个关键字，根据其出现在请求中的位置依次替换为payload，其它位置替换为空
+  .\fuzzGIU.exe -u http://test.com/FUZZ -d user=FUZZ -H Header: FUZZ -w dic.txt::FUZZ -mode sniper
   ```
 
 ### 窗口界面操作
 
-通过上面的这些命令运行后，若未指定`-ns`选项，工具会打开一个termui窗口如下图所示。
+通过命令运行fuzzGIU后，若未指定`-ns`选项，工具会打开一个如下图所示的窗口
 
 ![termui窗口](https://raw.githubusercontent.com/nostalgist134/FuzzGIU/main/imgs/fuzzGIU%20window.PNG)
 
-在logo下方有4个小窗口，依次显示：**当前fuzz任务的全部信息**、**计数器**、**输出**以及**日志记录**。
+在logo下方有4个窗口，依次显示如下内容：
+
+- **GLOBAL_INFORMATION: ** 当前fuzz任务的信息
+
+- **PROGRESS: **计数器，包含当前任务的进度、总进度、请求发送速率以及消耗时间
+
+- **OUTPUT: **输出窗口，符合输出条件的结果会在此处输出
+
+- **LOGS: **日志窗口
 
 **界面操作：**
 
 - **`W`/`S` 键**：上下移动焦点，选中窗口边框变蓝。
 - **`↑`/`↓` 或 `J`/`K` 键**：在选中窗口内滚动内容。
-- **`P` 键**：暂停任务执行（计数器标题会变化）。
-- **`R` 键**：恢复暂停的任务。
+- **`L` 键**：锁定/取消锁定输出窗口，默认情况下，输出窗口总会聚焦在最后一个输出上，按下此键可取消锁定，从而自由移动。
+- **`P`/`R` 键**：暂停/恢复任务执行（计数器标题会变化）。
 - **`Q` 键**：随时退出程序。
 
 单个任务执行完毕后以及所有任务执行完毕后，在日志窗口会有提示。所有任务执行完毕后程序不会自动退出，按下q键可以退出，在任务执行的过程中也可随时按下q键退出。
@@ -227,7 +238,7 @@ use plugins:
 
 ### `-u`
 
-`-u`用于指定fuzz的url，用法`-u scheme://url_body/path/`，工具自带的scheme有3种，`http/https`、`ws/wss`以及`dns`，第一种自不用多言，第二种是websocket协议，但是这个功能纯粹是我当时为了水过毕设加的，**没有经过测试，小心使用**。第三种`dns`协议并**不是用来对dns协议进行fuzz的，而是用来做域名枚举的，这个包我也没怎么测试过**。若工具检测到了不属于这3种的scheme，会**自动在插件目录中寻找RequestSender类型的插件，并使用插件来发送请求**，具体信息可在下文插件功能部分查看。
+`-u`用于指定fuzz的url，用法`-u scheme://url_body/path/`，工具自带的scheme有3种：`http/https`、`ws/wss`以及`dns`。第一种自不用多言，第二种是websocket协议，但是这个功能纯粹是我当时为了水过毕设加的，**没有经过测试，小心使用**。第三种`dns`协议并**不是用来对dns协议进行fuzz的，而是用来做域名枚举的，这个包我也没怎么测试过**。若工具检测到了不属于这3种的scheme，会**自动在插件目录中寻找RequestSender类型的插件，并使用插件来发送请求**，具体信息可在下文[使用插件](#使用插件)部分查看。
 
 ### `-w`
 
@@ -365,14 +376,14 @@ HTTPSpec struct {
 前3种模式均用于处理出现多个不同关键字的场景，`clusterbomb`模式会枚举不同关键字对应的payload列表的所有组合（基本上和burp suite里面的同名模式是一样的）；`pitchfork`模式对每个关键字payload列表使用相同的下标，遍历到最短的payload列表结束为止；`pitchfork-cycle`模式则是`pitchfork`模式的改进版本，其迭代过程中每个关键字的列表下标仍然同步更新，但是较短的列表结束后，下标会从0再开始，循环往复，直到遍历到最长的列表结束。
 `sniper`模式用于且仅能用于单个关键字在请求中出现多次的情况，这个模式下，工具会根据关键字出现的位置依次将特定位置的关键字替换为payload列表中的payload，并将其它位置的关键字替换为空。
 
-`-pl-gen`参数用来指定fuzz关键字的payload生成器，注意，目前`-pl-gen`**与**`-w`**选项是互斥的，也就是说现在暂不支持同时使用payload生成器和字典来对某个关键字生成payload**。`-pl-gen`参数的使用方法与`-w`参数类似，使用`::`符号关联payload生成器列表和关键字。各个payload生成器间通过逗号隔开，单个payload生成器[**伪函数调用表达式**](#插件传参)来指定。
+`-pl-gen`参数用来指定fuzz关键字的payload生成器，注意，目前`-pl-gen`**与**`-w`**选项是互斥的，也就是说现在暂不支持同时使用payload生成器和字典来对某个关键字生成payload**。`-pl-gen`参数的使用方法与`-w`参数类似，使用`::`符号关联payload生成器列表和关键字。各个payload生成器间通过逗号隔开，单个payload生成器[伪函数调用表达式](#插件调用)来指定。
 
 目前工具内置2种payload生成器：
 
 - `int(lower, upper, base)`: 生成 `[lower, upper)` 范围内指定 `base` 进制 (通常为 10) 的数字字符串。e.g., `int(1, 100, 10)` 生成 "1" 到 "99"。
 - `permute(s, maxLen)`: 生成字符串 `s` 的所有排列组合，最多 `maxLen` 个结果。e.g., `permute("abc", 10)`。
 
-`-pl-processor`参数用于指定fuzz关键字的对应payload使用的处理器，同样使用[**伪函数调用表达式**](#插件传参)进行调用，使用`::`符号与关键字进行关联。对单个fuzz关键字也可指定多个处理器，会按照顺序依次调用，每个处理器处理后的payload会作为下一个处理器的输入。
+`-pl-processor`参数用于指定fuzz关键字的对应payload使用的处理器，同样使用[伪函数调用表达式](#插件调用)进行调用，使用`::`符号与关键字进行关联。对单个fuzz关键字也可指定多个处理器，会按照顺序依次调用，每个处理器处理后的payload会作为下一个处理器的输入。
 内置的payload处理器有6种如下：
 
 - `base64`: Base64 编码 payload。
@@ -431,7 +442,7 @@ Done.
 For help, use -h flag
 ```
 
-#### 插件传参
+#### 插件调用
 
 fuzzGIU的插件调用遵循以下的被称为伪函数调用表达式的规则：
 
@@ -440,7 +451,7 @@ fuzzGIU的插件调用遵循以下的被称为伪函数调用表达式的规则�
 3. 字符串参数使用单引号或者双引号括起来，两种都是可接受的，但是必须配对
 4. `bool`型参数使用全小写的`true`和`false`
 5. `int`型参数支持两种进制，10进制和16进制，默认按照10进制数算，但是如果无法解析为10进制（含有字母），则尝试解析为16进制数；也可显式指定16进制数，在数字前面加上`0x`前缀即可
-6. 默认参数：部分插件调用时传入默认参数，这些参数可能是fuzz过程中使用的结构体或者数据，调用语句中无需指定，工具会根据上下文自动处理，不同插件的默认参数参考[插件类型与作用](#插件类型与作用)章节。
+6. 默认参数：部分插件调用时传入默认参数，这些参数可能是fuzz过程中使用的结构体或者数据，调用语句中无需指定，工具会根据上下文自动处理，不同插件的默认参数参考下文[插件类型与作用](#插件类型与作用)章节。
 7. 自定义参数：在默认参数之外，插件开发者可以在插件中指定任意不违反操作系统限制的数量的自定义参数，扩展插件的功能，这些参数实际上就是通过规则1中的参数列表传入
 
 无论是内置的组件还是自定义的插件都根据这一规则来进行调用。
@@ -485,8 +496,8 @@ fuzzGIU的插件调用遵循以下的被称为伪函数调用表达式的规则�
    示例：`AES`插件对密码 payload 进行 AES 加密：
 
    ```powershell
-   # 对密码字典中的payload用AES加密后发送（密钥为1234567890abcdef）
-   .\FuzzGIU.exe -u http://test.com/login -d "user=admin&pass=PASS" -w pass.txt::PASS -pl-processor AES("1234567890abcdef")::PASS
+   # 对密码字典中的payload先用AES加密（密钥为1234567890abcdef），再用base64编码
+   .\FuzzGIU.exe -u http://test.com/login -d "user=admin&pass=PASS" -w pass.txt::PASS -pl-processor AES("1234567890abcdef"),base64::PASS
    ```
 
 4. **RequestSender（请求发送插件）**
