@@ -25,11 +25,6 @@ func (r *screenOutputRegion) clearRenderBuffer() {
 
 // render 渲染outputRegion对象，如果title不为空，则渲染标题
 func (r *screenOutputRegion) render(title string, unlock ...bool) {
-	screenOutput.renderMu.Lock()
-	defer screenOutput.renderMu.Unlock()
-	if !outputHasInit.Load() {
-		return
-	}
 	if len(unlock) == 0 || !unlock[0] {
 		r.mu.Lock()
 		defer r.mu.Unlock()
@@ -46,6 +41,11 @@ func (r *screenOutputRegion) render(title string, unlock ...bool) {
 	r.clearRenderBuffer()
 	truncateLines(r.renderBuffer, r.lines, r.lineInd, r.maxRenderLines, r.BottomCorner.X-r.TopCorner.X)
 	r.Pg.Text = lines2Text(r.renderBuffer)
+	screenOutput.renderMu.Lock()
+	defer screenOutput.renderMu.Unlock()
+	if !outputHasInit.Load() {
+		return
+	}
 	ui.Render(r.Pg)
 }
 

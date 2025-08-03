@@ -301,6 +301,7 @@ func (jq *JobQueue) AddJob(fuzz *fuzzTypes.Fuzz) {
 
 func DoJobs() {
 	output.SetJobCounter(int64(len(JQ)))
+	defer output.ScreenClose()
 	i := 0
 	toWhereShadow := int32(0)
 	for ; i < len(JQ); i++ {

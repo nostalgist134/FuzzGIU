@@ -95,7 +95,7 @@ func usage() {
 		"-u http://test.com -D \"name=admin&pass=PASS\" -w dict.txt::PASS "+
 			"\\\n\t-pl-processor AES(\"1234567890abcdef\")::PASS  "+
 			"# will search ./plugins/payloadProcessors/AES.(so/dll/dylib)",
-		"-w user.txt::NAME -w pass.txt::PASS"+
+		"-w user.txt::USER -w pass.txt::PASS"+
 			" \\\n\t-u ssh://USER:PASS@test.com:22  # ./plugins/requestSenders/ssh.(so/dll/dylib)",
 		"-u http://test.com/FUZZ -w dict.txt::FUZZ "+
 			"\\\n\t-preproc job_dispatch  # ./plugins/preprocessors/job_dispatch.(so/dll/dylib)",
