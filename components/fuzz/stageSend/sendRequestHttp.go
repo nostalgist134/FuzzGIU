@@ -92,6 +92,8 @@ func initHttpCli(proxy string, timeout int, redirect bool, httpVer string,
 			return nil, err
 		}
 		tr.Proxy = http.ProxyURL(proxyUrl)
+	} else {
+		tr.Proxy = nil
 	}
 	cli.Transport = tr
 
