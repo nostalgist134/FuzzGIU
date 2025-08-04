@@ -51,15 +51,18 @@ func main() {
 
 func debug() {
 	req := &fuzzTypes.Req{
-		URL: "http://GIU.com/",
+		URL: "htGIUtp://GIU.com/",
 		HttpSpec: fuzzTypes.HTTPSpec{
-			Method: "METHOD",
+			Headers: []string{"GIU: aa"},
 		},
-		Data: "DDD",
+		Data: "ddd",
 	}
-	t := common.ParseReqTemplate(req, []string{"GIU", "METHOD", "DDD"})
+	t := common.ParseReqTemplate(req, []string{"GIU"})
 	fmt.Println(t)
-	newReq := common.ReplacePayloadsByTemplate(t, []string{"giuagiua", "POST", "data=1"}, -1)
-	j, _ := json.MarshalIndent(newReq, "", "  ")
-	print(string(j))
+	for i := 0; i < 3; i++ {
+		newReq, track := common.ReplacePayloadTrackTemplate(t, "AAA", i)
+		j, _ := json.MarshalIndent(newReq, "", "  ")
+		fmt.Println(string(j))
+		fmt.Println(track)
+	}
 }

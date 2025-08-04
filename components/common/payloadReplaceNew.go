@@ -143,6 +143,7 @@ func (t *ReplaceTemplate) parse(s string, keywords []string) {
 		t.fragments = append(t.fragments, "")
 		t.placeholders = append(t.placeholders, mergedOccur[0].KeywordInSlice)
 		i++
+		// 及时将sInd更新，修复了关键字出现在开头时模板解析异常的问题
 		sInd = len(keywords[mergedOccur[0].KeywordInSlice])
 	}
 	for ; i < len(mergedOccur); i++ {
@@ -180,6 +181,7 @@ func (t *ReplaceTemplate) renderNew(payloads []string) []string {
 	return fields
 }
 
+// render1New 用于sniper模式的渲染函数
 func (t *ReplaceTemplate) render1New(payload string, pos int) []string {
 	// 不知道怎么回事，这里的下标是从1开始算的
 	if pos < 0 || pos > len(t.placeholders) {
@@ -190,7 +192,7 @@ func (t *ReplaceTemplate) render1New(payload string, pos int) []string {
 	defer putStringBuilder(sb)
 	i := 0
 	j := 0
-	for ; j < pos && i < len(t.placeholders); j++ {
+	for ; j <= pos && i < len(t.placeholders); j++ {
 		sb.WriteString(t.fragments[i])
 		if t.placeholders[i] == 0 {
 			j--
@@ -267,7 +269,7 @@ func (t *ReplaceTemplate) render3(payload string, pos int) ([]string, []int) {
 	defer putStringBuilder(sb)
 	i := 0
 	j := 0
-	for ; j < pos && i < len(t.placeholders); j++ {
+	for ; j <= pos && i < len(t.placeholders); j++ {
 		sb.WriteString(t.fragments[i])
 		if t.placeholders[i] == 0 {
 			j--
@@ -344,7 +346,7 @@ func ParseReqTemplate(req *fuzzTypes.Req, keywords []string) *ReplaceTemplate {
 func ReplacePayloadsByTemplate(t *ReplaceTemplate, payloads []string, sniperPos int) *fuzzTypes.Req {
 	var fields []string
 	if sniperPos >= 0 {
-		fields = t.render1New(payloads[0], sniperPos+1)
+		fields = t.render1New(payloads[0], sniperPos)
 	} else {
 		fields = t.renderNew(payloads)
 	}
@@ -377,8 +379,8 @@ func ReplacePayloadTrackTemplate(t *ReplaceTemplate, payload string, sniperPos i
 	var fields []string
 	var track []int
 
-	if sniperPos > 0 {
-		fields, track = t.render3(payload, sniperPos+1)
+	if sniperPos >= 0 {
+		fields, track = t.render3(payload, sniperPos)
 	} else {
 		fields, track = t.render2(payload)
 	}
