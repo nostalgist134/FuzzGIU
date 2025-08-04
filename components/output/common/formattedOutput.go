@@ -73,7 +73,7 @@ func nativeOutputMsg(obj *OutObj, ignoreError bool, verbosity int) []byte {
 		writeFmtStr("REQ_DATA", obj.Request.Data)
 		bb.WriteString(fmt.Sprintf(" └> %s\n", string(respFirstLine)))
 	case 3:
-		j, _ := json.Marshal(obj.Request)
+		j, _ := json.MarshalIndent(obj.Request, "", "  ")
 		bb.Write(j)
 		bb.Write([]byte("\n    |\n    V\n"))
 		bb.Write(obj.Response.RawResponse)
@@ -133,7 +133,7 @@ func coloredNativeOutputMsg(obj *OutObj, ignoreError bool, verbosity int) []byte
 		writeFmtStr("REQ_DATA", obj.Request.Data)
 		bb.WriteString(fmt.Sprintf(" [└>](fg:green) [%s](fg:cyan)\n", string(respFirstLine)))
 	case 3:
-		j, _ := json.Marshal(obj.Request)
+		j, _ := json.MarshalIndent(obj.Request, "", "  ")
 		bb.Write(j)
 		bb.WriteString("\n    |\n    V\n")
 		bb.Write(obj.Response.RawResponse)

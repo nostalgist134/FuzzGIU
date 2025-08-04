@@ -76,8 +76,8 @@ func (pq *priorityQueue) Pop() interface{} {
 
 // record 结果结构体，包含数值和其来源数组下标
 type record struct {
-	KeywordIndex int // 关键字在原字符串中的下标
-	ArrayIdx     int // 关键字在occur二维数组中的下标
+	KeywordInReq   int // 关键字在Req字符串中的下标
+	KeywordInSlice int // 关键字在传入的关键字切片中的下标
 }
 
 // mergeK 返回排序值 + 所属数组下标，all credits to ChatGPT
@@ -99,8 +99,8 @@ func mergeK(arrays [][]int) []record {
 	for pq.Len() > 0 {
 		node := heap.Pop(pq).(heapNode)
 		result = append(result, record{
-			KeywordIndex: node.value,
-			ArrayIdx:     node.arrayIdx,
+			KeywordInReq:   node.value,
+			KeywordInSlice: node.arrayIdx,
 		})
 
 		// 如果该数组还有下一个元素，继续压入堆
@@ -138,17 +138,18 @@ func (t *ReplaceTemplate) parse(s string, keywords []string) {
 	keywordsOccur := getKeywordsOccurrences(s, keywords)
 	mergedOccur := mergeK(keywordsOccur)
 	i := 0
-	if mergedOccur[0].KeywordIndex == 0 { // 特殊情况：关键字出现在字符串开头，使用空字符串
+	sInd := 0                             // req字符串的下标
+	if mergedOccur[0].KeywordInReq == 0 { // 特殊情况：关键字出现在字符串开头，使用空字符串
 		t.fragments = append(t.fragments, "")
-		t.placeholders = append(t.placeholders, mergedOccur[0].ArrayIdx)
+		t.placeholders = append(t.placeholders, mergedOccur[0].KeywordInSlice)
 		i++
+		sInd = len(keywords[mergedOccur[0].KeywordInSlice])
 	}
-	sInd := 0
 	for ; i < len(mergedOccur); i++ {
-		t.fragments = append(t.fragments, s[sInd:mergedOccur[i].KeywordIndex])
+		t.fragments = append(t.fragments, s[sInd:mergedOccur[i].KeywordInReq])
 		// placeholders数组标记了在关键字对应的下标出现的是哪一个关键字
-		t.placeholders = append(t.placeholders, mergedOccur[i].ArrayIdx)
-		sInd = mergedOccur[i].KeywordIndex + len(keywords[mergedOccur[i].ArrayIdx])
+		t.placeholders = append(t.placeholders, mergedOccur[i].KeywordInSlice)
+		sInd = mergedOccur[i].KeywordInReq + len(keywords[mergedOccur[i].KeywordInSlice])
 	}
 	if sInd < len(s) {
 		t.fragments = append(t.fragments, s[sInd:])

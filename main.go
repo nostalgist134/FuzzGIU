@@ -1,8 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/nostalgist134/FuzzGIU/components/common"
 	"github.com/nostalgist134/FuzzGIU/components/fuzz"
+	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/nostalgist134/FuzzGIU/components/options"
 	"github.com/nostalgist134/FuzzGIU/components/plugin"
 	"os"
@@ -37,6 +40,8 @@ func main() {
 		fmt.Println("For help, use -h flag")
 		return
 	}
+	/*debug()
+	return*/
 	fuzz1 := opt2fuzz(opts)
 	/*fuzz.Debug(fuzz1)
 	return*/
@@ -45,9 +50,16 @@ func main() {
 }
 
 func debug() {
-	pluginStr := "pay(14214,\"wa     2223\",false,3.6,0x114514),zwa(0xff,true,'6663ffa'),qw"
-	p := plugin.ParsePluginsStr(pluginStr)
-	fmt.Printf("%v\n", p)
-	fmt.Printf("%v\n", p[0].Args[0].(int))
-	os.Exit(0)
+	req := &fuzzTypes.Req{
+		URL: "http://GIU.com/",
+		HttpSpec: fuzzTypes.HTTPSpec{
+			Method: "METHOD",
+		},
+		Data: "DDD",
+	}
+	t := common.ParseReqTemplate(req, []string{"GIU", "METHOD", "DDD"})
+	fmt.Println(t)
+	newReq := common.ReplacePayloadsByTemplate(t, []string{"giuagiua", "POST", "data=1"}, -1)
+	j, _ := json.MarshalIndent(newReq, "", "  ")
+	print(string(j))
 }
