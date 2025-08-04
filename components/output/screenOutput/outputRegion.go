@@ -39,7 +39,7 @@ func (r *screenOutputRegion) render(title string, unlock ...bool) {
 	}
 	// 将要渲染的各行按照最大长度截断后再渲染
 	r.clearRenderBuffer()
-	truncateLines(r.renderBuffer, r.lines, r.lineInd, r.maxRenderLines, r.BottomCorner.X-r.TopCorner.X)
+	truncateLines(r.renderBuffer, r.lines, r.lineInd, r.maxRenderLines, r.BottomCorner.X-r.TopCorner.X+10)
 	r.Pg.Text = lines2Text(r.renderBuffer)
 	screenOutput.renderMu.Lock()
 	defer screenOutput.renderMu.Unlock()

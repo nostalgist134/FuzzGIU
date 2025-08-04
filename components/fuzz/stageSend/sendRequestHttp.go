@@ -100,17 +100,14 @@ func initHttpCli(proxy string, timeout int, redirect bool, httpVer string,
 		if !redirect {
 			return http.ErrUseLastResponse
 		}
-		if len(via) > 0 {
-			// 获取最终的 URL
-			lastURL := via[len(via)-1].URL.String()
-
-			// 如果不是第一次重定向，在之前的 URL 后添加 -> 分隔符
-			if len(*redirectChain) > 0 {
-				*redirectChain = *redirectChain + "->" + lastURL
+		for i, r := range via {
+			if i == 0 && len(*redirectChain) == 0 {
+				*redirectChain += r.URL.String()
 			} else {
-				*redirectChain = lastURL
+				*redirectChain += "->" + r.URL.String()
 			}
 		}
+		*redirectChain += "->" + req.URL.String()
 		return nil
 	}
 

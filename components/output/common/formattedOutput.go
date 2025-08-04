@@ -7,6 +7,9 @@ import (
 	"fmt"
 )
 
+var coloredSplit = "[----------------------------------------------------------------------------------------------------](fg:red)"
+var split = "----------------------------------------------------------------------------------------------------"
+
 func outObj2Json(obj *OutObj) []byte {
 	outObjJson, err := json.Marshal(obj)
 	if err != nil {
@@ -76,7 +79,7 @@ func nativeOutputMsg(obj *OutObj, ignoreError bool, verbosity int) []byte {
 		bb.Write(obj.Response.RawResponse)
 		bb.WriteByte('\n')
 	}
-	bb.WriteString("--------------------------------------------------------------------------------")
+	bb.WriteString(split)
 	return bb.Bytes()
 }
 
@@ -136,7 +139,7 @@ func coloredNativeOutputMsg(obj *OutObj, ignoreError bool, verbosity int) []byte
 		bb.Write(obj.Response.RawResponse)
 		bb.WriteByte('\n')
 	}
-	bb.WriteString("[--------------------------------------------------------------------------------](fg:red)")
+	bb.WriteString(coloredSplit)
 	return bb.Bytes()
 }
 

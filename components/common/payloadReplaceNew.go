@@ -307,8 +307,7 @@ func (t *ReplaceTemplate) render3(payload string, pos int) ([]string, []int) {
 // GetRandMarker 生成一个长度为12为的随机字符串
 func GetRandMarker() string {
 	dict := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	sb := getStringBuilder()
-	defer putStringBuilder(sb)
+	sb := strings.Builder{}
 	for i := 0; i < 12; i++ {
 		sb.WriteByte(dict[rand.Intn(len(dict))])
 	}
@@ -317,8 +316,7 @@ func GetRandMarker() string {
 
 func req2Str(req *fuzzTypes.Req) (string, string) {
 	splitter := GetRandMarker()
-	sb := getStringBuilder()
-	defer putStringBuilder(sb)
+	sb := strings.Builder{}
 	// 将结构按照顺序入string builder，并以分隔符隔开，splitter本来应该是要校验的，但是为了运行速度就不做校验了
 	sb.WriteString(req.HttpSpec.Method)
 	sb.WriteString(splitter)
