@@ -160,6 +160,20 @@ func containRetryCode(code int, retryCodes []string) bool {
 	return false
 }
 
+func countWords(data []byte) int {
+	count := 0
+	inWord := false
+	for _, b := range data {
+		if b == ' ' || b == '\n' || b == '\t' || b == '\r' || b == '\f' || b == '\v' {
+			inWord = false
+		} else if !inWord {
+			inWord = true
+			count++
+		}
+	}
+	return count
+}
+
 // http发包函数
 func sendRequestHttp(request *fuzzTypes.Req, timeout int, httpRedirect bool, retry int,
 	retryCode, retryRegex, proxy string) (*fuzzTypes.Resp, error) {
@@ -236,7 +250,7 @@ func sendRequestHttp(request *fuzzTypes.Req, timeout int, httpRedirect bool, ret
 		if rawResp[len(rawResp)-1] != '\n' {
 			resp.Lines++
 		}
-		resp.Words = len(bytes.Fields(rawResp))
+		resp.Words = countWords(rawResp)
 		resp.Size = len(rawResp)
 	}
 	// 关闭HttpResponse的body，因为rawResponse已经记录body了，这个成员之后不会再用
