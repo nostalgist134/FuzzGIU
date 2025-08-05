@@ -21,10 +21,10 @@ func CopyFuzz(f *fuzzTypes.Fuzz) *fuzzTypes.Fuzz {
 			PlList:     nil, // PlList可以不复制，因为执行doFuzz会重新走一遍生成
 		}
 	}
+	newFuzz.Preprocess.ReqTemplate = f.Preprocess.ReqTemplate
+	newFuzz.Preprocess.ReqTemplate.HttpSpec.Headers = append([]string{}, f.Preprocess.ReqTemplate.HttpSpec.Headers...)
 
 	// 拷贝 Send
-	newFuzz.Send.Request = f.Send.Request
-	newFuzz.Send.Request.HttpSpec.Headers = append([]string{}, f.Send.Request.HttpSpec.Headers...)
 	newFuzz.Send.Proxies = append([]string{}, f.Send.Proxies...)
 	newFuzz.Send.Retry = f.Send.Retry
 

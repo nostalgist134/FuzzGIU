@@ -202,8 +202,8 @@ func parseRequestFile(fileName string) (req *fuzzTypes.Req, raw []byte, err erro
 func opt2fuzz(opt *options.Opt) *fuzzTypes.Fuzz {
 	fuzz := new(fuzzTypes.Fuzz)
 	// opt.General
-	fuzz.Send.Request.URL = opt.General.URL
-	fuzz.Send.Request.Data = opt.General.Data
+	fuzz.Preprocess.ReqTemplate.URL = opt.General.URL
+	fuzz.Preprocess.ReqTemplate.Data = opt.General.Data
 	fuzz.Send.Timeout = opt.General.Timeout
 	fuzz.Misc.PoolSize = opt.General.RoutinePoolSize
 	fuzz.Misc.Delay = opt.General.Delay
@@ -215,11 +215,11 @@ func opt2fuzz(opt *options.Opt) *fuzzTypes.Fuzz {
 	if opt.General.ReqFile != "" {
 		req, raw, err = parseRequestFile(opt.General.ReqFile)
 		if req != nil {
-			fuzz.Send.Request = *req
+			fuzz.Preprocess.ReqTemplate = *req
 			// -u指定的url优先级更高
-			fuzz.Send.Request.URL = opt.General.URL
+			fuzz.Preprocess.ReqTemplate.URL = opt.General.URL
 		} else { // 如果不是json或http，则将其视作data
-			fuzz.Send.Request.Data = string(raw)
+			fuzz.Preprocess.ReqTemplate.Data = string(raw)
 		}
 	}
 	if err != nil || opt.General.ReqFile == "" {
@@ -230,17 +230,17 @@ func opt2fuzz(opt *options.Opt) *fuzzTypes.Fuzz {
 				fmt.Printf("error when parsing request file %s: %v, skipping\n", opt.General.ReqFile, err)
 			}
 		}
-		fuzz.Send.Request.HttpSpec.ForceHttps = opt.HTTP.HTTPS
+		fuzz.Preprocess.ReqTemplate.HttpSpec.ForceHttps = opt.HTTP.HTTPS
 
 		if opt.HTTP.HTTP2 == true {
-			fuzz.Send.Request.HttpSpec.Version = "2"
+			fuzz.Preprocess.ReqTemplate.HttpSpec.Version = "2"
 		} else {
-			fuzz.Send.Request.HttpSpec.Version = "1.1"
+			fuzz.Preprocess.ReqTemplate.HttpSpec.Version = "1.1"
 		}
 
-		fuzz.Send.Request.HttpSpec.Headers = make([]string, 0)
+		fuzz.Preprocess.ReqTemplate.HttpSpec.Headers = make([]string, 0)
 		for _, h := range opt.HTTP.Headers {
-			fuzz.Send.Request.HttpSpec.Headers = append(fuzz.Send.Request.HttpSpec.Headers, h)
+			fuzz.Preprocess.ReqTemplate.HttpSpec.Headers = append(fuzz.Preprocess.ReqTemplate.HttpSpec.Headers, h)
 		}
 
 		if len(opt.HTTP.Cookies) > 0 {
@@ -252,14 +252,14 @@ func opt2fuzz(opt *options.Opt) *fuzzTypes.Fuzz {
 					cookies.WriteString("; ")
 				}
 			}
-			fuzz.Send.Request.HttpSpec.Headers = append(fuzz.Send.Request.HttpSpec.Headers, cookies.String())
+			fuzz.Preprocess.ReqTemplate.HttpSpec.Headers = append(fuzz.Preprocess.ReqTemplate.HttpSpec.Headers, cookies.String())
 		}
 
 		fuzz.Send.Proxies = opt.HTTP.Proxies
 
 		fuzz.Send.HttpFollowRedirects = opt.HTTP.FollowRedirect
 
-		fuzz.Send.Request.HttpSpec.Method = opt.HTTP.Method
+		fuzz.Preprocess.ReqTemplate.HttpSpec.Method = opt.HTTP.Method
 	}
 	// opt.Filter
 	setMatch(&fuzz.React.Filter, opt.Filter)

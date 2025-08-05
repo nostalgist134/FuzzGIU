@@ -72,8 +72,8 @@ func recCtrl2Lines(recCtrl *struct {
 // genInfoLines 将Fuzz结构转化为字符串切片
 func genInfoLines(globInfo *fuzzTypes.Fuzz) []string {
 	infoLines := []string{
-		globInfo.Send.Request.URL,
-		globInfo.Send.Request.Data,
+		globInfo.Preprocess.ReqTemplate.URL,
+		globInfo.Preprocess.ReqTemplate.Data,
 		strconv.Itoa(globInfo.Misc.PoolSize),
 		strconv.Itoa(globInfo.Misc.Delay),
 		strconv.Itoa(globInfo.Send.Timeout),

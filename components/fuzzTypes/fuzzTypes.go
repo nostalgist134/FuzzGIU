@@ -109,10 +109,10 @@ type (
 			PlTemp        map[string]PayloadTemp `json:"pl_temp,omitempty"`
 			Preprocessors []Plugin               `json:"preprocessors,omitempty"` // 使用的自定义预处理器
 			Mode          string                 `json:"mode,omitempty"`          // 出现多个payload关键字时处理的模式
+			ReqTemplate   Req                    `json:"request_tmpl,omitempty"`  // 含有fuzz关键字的请求模板
 		} `json:"preprocess,omitempty"`
 		// 发包阶段的设置
 		Send struct {
-			Request             Req      `json:"request,omitempty"`               // 发送的请求
 			Proxies             []string `json:"proxies,omitempty"`               // 使用的代理
 			HttpFollowRedirects bool     `json:"http_follow_redirects,omitempty"` // 是否重定向
 			Retry               int      `json:"retry,omitempty"`                 // 错误重试次数

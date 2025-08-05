@@ -145,7 +145,7 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 			// 如果采用递归扫描或者sniper模式，则只使用一个关键词
 			loopLen = int64(len(pt.PlList))
 			if fuzz1.Preprocess.Mode == "sniper" {
-				loopLen *= int64(common.GetKeywordNum(&fuzz1.Send.Request, keyword))
+				loopLen *= int64(common.GetKeywordNum(&fuzz1.Preprocess.ReqTemplate, keyword))
 			}
 			break
 		}
@@ -173,7 +173,7 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 	// 任务
 	var task func() *fuzzTypes.Reaction
 	// req模板解析
-	reqTemplate := common.ParseReqTemplate(&fuzz1.Send.Request, keywords)
+	reqTemplate := common.ParseReqTemplate(&fuzz1.Preprocess.ReqTemplate, keywords)
 	// 反应器插件
 	var reactPlugin fuzzTypes.Plugin
 	if fuzz1.React.Reactor != "" {
@@ -194,7 +194,7 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 		plProcessorPlugins[i] = fuzz1.Preprocess.PlTemp[keyword].Processors
 	}
 	// 预解析url的scheme
-	uScheme := tryGetUrlScheme(&fuzz1.Send.Request, keywords)
+	uScheme := tryGetUrlScheme(&fuzz1.Preprocess.ReqTemplate, keywords)
 	// 主循环
 	for i := int64(0); i < loopLen; i++ {
 		send := (SendMetaPool.Get()).(*fuzzTypes.SendMeta)
@@ -241,7 +241,7 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 					processedPayloads[j] = stagePreprocess.PayloadProcessor(payloadEachKeyword[j], plugins)
 				}
 				send.Request = common.ReplacePayloadsByTemplate(reqTemplate, processedPayloads, -1)
-				send.Request.HttpSpec.ForceHttps = fuzz1.Send.Request.HttpSpec.ForceHttps
+				send.Request.HttpSpec.ForceHttps = fuzz1.Preprocess.ReqTemplate.HttpSpec.ForceHttps
 				resp := stageSend.SendRequest(send, uScheme)
 				reaction := stageReact.React(fuzz1, send.Request, resp, reactPlugin,
 					keywords, processedPayloads, nil)
@@ -268,6 +268,7 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 				} else { // 只启用sniper
 					send.Request = common.ReplacePayloadsByTemplate(reqTemplate, []string{payload}, int(i/curInd))
 				}
+				send.Request.HttpSpec.ForceHttps = fuzz1.Preprocess.ReqTemplate.HttpSpec.ForceHttps
 				resp := stageSend.SendRequest(send, uScheme)
 				reaction := stageReact.React(fuzz1, send.Request, resp, reactPlugin,
 					[]string{keyword}, []string{processedPayload}, recPos)
@@ -355,11 +356,11 @@ func Debug(fuzz1 *fuzzTypes.Fuzz) {
 		kw = k
 		break
 	}
-	r := fuzz1.Send.Request
+	r := fuzz1.Preprocess.ReqTemplate
 	t := common.ParseReqTemplate(&r, []string{kw})
 	newReq, trackPos := common.ReplacePayloadTrackTemplate(t, "1milaogiu", -1)
 	resp := &fuzzTypes.Resp{HttpResponse: &http.Response{StatusCode: 404}}
 	fmt.Println(newReq, trackPos)
 	reaction := stageReact.React(fuzz1, newReq, resp, fuzzTypes.Plugin{}, []string{}, []string{}, trackPos)
-	fmt.Println(reaction.NewJob.Send.Request)
+	fmt.Println(reaction.NewJob.Preprocess.ReqTemplate)
 }

@@ -104,28 +104,28 @@ func React(fuzz1 *fuzzTypes.Fuzz, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 		recursionJob.Preprocess.Mode = ""
 		// 递归深度=当前深度+1
 		recursionJob.React.RecursionControl.RecursionDepth++
-		recursionJob.Send.Request = *reqSend
+		recursionJob.Preprocess.ReqTemplate = *reqSend
 		currentPos := 0
 		// HttpSpec.Method
-		recursionJob.Send.Request.HttpSpec.Method, currentPos = insertRecursionMarker(recKeyword, splitter,
-			recursionJob.Send.Request.HttpSpec.Method, recursionPos, 0)
+		recursionJob.Preprocess.ReqTemplate.HttpSpec.Method, currentPos = insertRecursionMarker(recKeyword, splitter,
+			recursionJob.Preprocess.ReqTemplate.HttpSpec.Method, recursionPos, 0)
 		// URL
-		recursionJob.Send.Request.URL, currentPos = insertRecursionMarker(recKeyword, splitter,
-			recursionJob.Send.Request.URL, recursionPos, currentPos)
+		recursionJob.Preprocess.ReqTemplate.URL, currentPos = insertRecursionMarker(recKeyword, splitter,
+			recursionJob.Preprocess.ReqTemplate.URL, recursionPos, currentPos)
 		// HttpSpec.Version
-		recursionJob.Send.Request.HttpSpec.Version, currentPos = insertRecursionMarker(recKeyword, splitter,
-			recursionJob.Send.Request.HttpSpec.Version, recursionPos, currentPos)
+		recursionJob.Preprocess.ReqTemplate.HttpSpec.Version, currentPos = insertRecursionMarker(recKeyword, splitter,
+			recursionJob.Preprocess.ReqTemplate.HttpSpec.Version, recursionPos, currentPos)
 		// HttpSpec.Headers
-		for i := 0; i < len(recursionJob.Send.Request.HttpSpec.Headers); i++ {
-			recursionJob.Send.Request.HttpSpec.Headers[i], currentPos = insertRecursionMarker(recKeyword, splitter,
-				recursionJob.Send.Request.HttpSpec.Headers[i], recursionPos, currentPos)
+		for i := 0; i < len(recursionJob.Preprocess.ReqTemplate.HttpSpec.Headers); i++ {
+			recursionJob.Preprocess.ReqTemplate.HttpSpec.Headers[i], currentPos = insertRecursionMarker(recKeyword, splitter,
+				recursionJob.Preprocess.ReqTemplate.HttpSpec.Headers[i], recursionPos, currentPos)
 		}
 		// Data
-		recursionJob.Send.Request.Data, _ = insertRecursionMarker(recKeyword, splitter,
-			recursionJob.Send.Request.Data, recursionPos, currentPos)
+		recursionJob.Preprocess.ReqTemplate.Data, _ = insertRecursionMarker(recKeyword, splitter,
+			recursionJob.Preprocess.ReqTemplate.Data, recursionPos, currentPos)
 	}
 	// reactDns调用
-	if strings.Index(fuzz1.Send.Request.URL, "dns://") == 0 {
+	if strings.Index(fuzz1.Preprocess.ReqTemplate.URL, "dns://") == 0 {
 		common.PutReaction(reaction)
 		reaction = reactDns(reqSend, resp)
 	}
