@@ -113,7 +113,7 @@ func handleReaction(r *fuzzTypes.Reaction, fuzz1 *fuzzTypes.Fuzz, reactPlugin fu
 	return stopJob
 }
 
-// doFuzz 程序实际执行的函数 生成payload->预处理->分配->返回处理->输出
+// doFuzz 程序实际执行的函数
 func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 	timeStart := time.Now()
 	// 判断递归深度
