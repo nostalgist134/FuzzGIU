@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/nostalgist134/FuzzGIU/components/fuzz/stageSend"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/nostalgist134/FuzzGIU/components/options"
 	"github.com/nostalgist134/FuzzGIU/components/plugin"
@@ -199,6 +200,7 @@ func parseRequestFile(fileName string) (req *fuzzTypes.Req, raw []byte, err erro
 	return
 }
 
+// opt2fuzz 将opt结构转化为fuzz结构
 func opt2fuzz(opt *options.Opt) *fuzzTypes.Fuzz {
 	fuzz := new(fuzzTypes.Fuzz)
 	// opt.General
@@ -207,7 +209,7 @@ func opt2fuzz(opt *options.Opt) *fuzzTypes.Fuzz {
 	fuzz.Send.Timeout = opt.General.Timeout
 	fuzz.Misc.PoolSize = opt.General.RoutinePoolSize
 	fuzz.Misc.Delay = opt.General.Delay
-	// opt.HTTP
+	// opt.Request
 	var req *fuzzTypes.Req
 	var raw []byte
 	var err error
@@ -230,36 +232,36 @@ func opt2fuzz(opt *options.Opt) *fuzzTypes.Fuzz {
 				fmt.Printf("error when parsing request file %s: %v, skipping\n", opt.General.ReqFile, err)
 			}
 		}
-		fuzz.Preprocess.ReqTemplate.HttpSpec.ForceHttps = opt.HTTP.HTTPS
+		fuzz.Preprocess.ReqTemplate.HttpSpec.ForceHttps = opt.Request.HTTPS
 
-		if opt.HTTP.HTTP2 == true {
+		if opt.Request.HTTP2 == true {
 			fuzz.Preprocess.ReqTemplate.HttpSpec.Version = "2"
 		} else {
 			fuzz.Preprocess.ReqTemplate.HttpSpec.Version = "1.1"
 		}
 
 		fuzz.Preprocess.ReqTemplate.HttpSpec.Headers = make([]string, 0)
-		for _, h := range opt.HTTP.Headers {
+		for _, h := range opt.Request.Headers {
 			fuzz.Preprocess.ReqTemplate.HttpSpec.Headers = append(fuzz.Preprocess.ReqTemplate.HttpSpec.Headers, h)
 		}
 
-		if len(opt.HTTP.Cookies) > 0 {
+		if len(opt.Request.Cookies) > 0 {
 			cookies := strings.Builder{}
 			cookies.WriteString("Cookies: ")
-			for i, cookie := range opt.HTTP.Cookies {
+			for i, cookie := range opt.Request.Cookies {
 				cookies.WriteString(cookie)
-				if i != len(opt.HTTP.Cookies)-1 {
+				if i != len(opt.Request.Cookies)-1 {
 					cookies.WriteString("; ")
 				}
 			}
 			fuzz.Preprocess.ReqTemplate.HttpSpec.Headers = append(fuzz.Preprocess.ReqTemplate.HttpSpec.Headers, cookies.String())
 		}
 
-		fuzz.Send.Proxies = opt.HTTP.Proxies
+		fuzz.Send.Proxies = opt.Request.Proxies
 
-		fuzz.Send.HttpFollowRedirects = opt.HTTP.FollowRedirect
+		fuzz.Send.HttpFollowRedirects = opt.Request.FollowRedirect
 
-		fuzz.Preprocess.ReqTemplate.HttpSpec.Method = opt.HTTP.Method
+		fuzz.Preprocess.ReqTemplate.HttpSpec.Method = opt.Request.Method
 	}
 	// opt.Filter
 	setMatch(&fuzz.React.Filter, opt.Filter)
@@ -310,5 +312,6 @@ func opt2fuzz(opt *options.Opt) *fuzzTypes.Fuzz {
 			break
 		}
 	}
+	stageSend.HTTPRandomAgent = opt.Request.RandomAgent
 	return fuzz
 }

@@ -10,25 +10,26 @@ import (
 func getSection(name string) string {
 	switch {
 	case name == "u" || name == "d" || name == "r" || name == "t" || name == "timeout" || name == "delay":
-		return "general"
+		return "GENERAL"
 	case strings.HasPrefix(name, "m") && name != "mode":
-		return "matcher"
+		return "MATCHER"
 	case strings.HasPrefix(name, "f") && name != "fmt":
-		return "filter"
-	case name == "X" || name == "b" || name == "H" || name == "http2" || name == "F" || name == "s" || name == "x":
-		return "HTTP"
+		return "FILTER"
+	case name == "X" || name == "b" || name == "H" || name == "http2" || name == "F" || name == "s" || name == "x" ||
+		name == "ra":
+		return "REQUEST"
 	case strings.HasPrefix(name, "pl") || name == "w" || name == "mode":
-		return "payload"
+		return "PAYLOAD"
 	case name == "o" || name == "fmt" || name == "v" || name == "ie" || name == "ns":
-		return "output"
+		return "OUTPUT"
 	case strings.HasPrefix(name, "rec") || name == "R":
-		return "recursion"
+		return "RECURSION"
 	case strings.HasPrefix(name, "retry"):
-		return "error handle"
+		return "ERROR HANDLE"
 	case name == "preproc" || name == "react":
-		return "plugin"
+		return "PLUGIN"
 	default:
-		return "other"
+		return "OTHER"
 	}
 }
 
@@ -53,14 +54,14 @@ func usage() {
 	})
 	// 分组打印
 	for _, section := range []string{
-		"general", "matcher", "filter", "HTTP", "payload", "output",
-		"recursion", "error handle", "plugin", "other",
+		"GENERAL", "MATCHER", "FILTER", "REQUEST", "PAYLOAD", "OUTPUT",
+		"RECURSION", "ERROR HANDLE", "PLUGIN", "OTHER",
 	} {
 		flags := grouped[section]
 		if len(flags) == 0 {
 			continue
 		}
-		fmt.Fprintf(os.Stderr, "\n[%s settings]\n", section)
+		fmt.Fprintf(os.Stderr, "\n%s OPTIONS:\n", section)
 		for _, f := range flags {
 			def := f.DefValue
 			if def != "" {
@@ -72,7 +73,7 @@ func usage() {
 	fmt.Println("\nSIMPLE USAGES:")
 	exampleUsage("fuzz URL", "-u http://test.com/FUZZ -w dict.txt::FUZZ",
 		"-u http://test.com/MILAOGIU -w dict.txt  # use default keyword")
-	exampleUsage("fuzz HTTP data", "-u http://test.com -w dict.txt::FUZZ -d \"test=FUZZ\"")
+	exampleUsage("fuzz Request data", "-u http://test.com -w dict.txt::FUZZ -d \"test=FUZZ\"")
 	exampleUsage("use filters and matchers",
 		"-w http://test.com/FUZZ -w dic.txt::FUZZ -mc 407 -fc 403-406 \\\n\t-ms 123-154 -fs 10-100,120")
 	exampleUsage("use embedded payload processor to process payload",

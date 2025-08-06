@@ -17,7 +17,7 @@ func ParseOptCmdline() *Opt {
 	output := &Output{}
 	matcher := &Match{}
 	filter := &Match{}
-	http := &Http{}
+	request := &Request{}
 	payload := &PayloadSetting{}
 	recursionControl := &RecursionControl{}
 	errHandling := &ErrorHandling{}
@@ -50,14 +50,15 @@ func ParseOptCmdline() *Opt {
 		"filter time(millisecond) to the first response byte")
 	flag.StringVar(&filter.Words, "fw", "", "filter amount of words in response")
 	flag.StringVar(&filter.Lines, "fl", "", "filter amount of lines in response")
-	// http设置
-	flag.StringVar(&http.Method, "X", "GET", "http method")
-	flag.Var(&http.Cookies, "b", "Cookies")
-	flag.Var(&http.Headers, "H", "http headers to be used")
-	flag.BoolVar(&http.HTTP2, "http2", false, "force http2")
-	flag.BoolVar(&http.FollowRedirect, "F", false, "follow redirects")
-	flag.BoolVar(&http.HTTPS, "s", false, "force https")
-	flag.Var(&http.Proxies, "x", "proxies")
+	// 请求设置
+	flag.StringVar(&request.Method, "X", "GET", "request method")
+	flag.Var(&request.Cookies, "b", "Cookies")
+	flag.Var(&request.Headers, "H", "request headers to be used")
+	flag.BoolVar(&request.HTTP2, "http2", false, "force http2")
+	flag.BoolVar(&request.FollowRedirect, "F", false, "follow redirects")
+	flag.BoolVar(&request.HTTPS, "s", false, "force https")
+	flag.Var(&request.Proxies, "x", "proxies")
+	flag.BoolVar(&request.RandomAgent, "ra", false, "http random agent")
 	// payload设置
 	flag.StringVar(&payload.Mode, "mode", "clusterbomb", "mode for keywords used, basically "+
 		"the same as those in burp suite")
@@ -77,14 +78,14 @@ func ParseOptCmdline() *Opt {
 	flag.IntVar(&recursionControl.RecursionDepth, "rec-depth", 2, "recursion depth(when recursion "+
 		"is enabled)")
 	flag.StringVar(&recursionControl.RecursionStatus, "rec-code",
-		"", "Recursion status code(http protocol only)")
+		"", "Recursion status code(request protocol only)")
 	flag.StringVar(&recursionControl.RecursionRegex, "rec-regex", "", "recursion when matched regex")
 	flag.StringVar(&recursionControl.RecursionSplitter, "rec-splitter", "/",
 		"splitter to be used to split recursion positions")
 	// 错误处理
 	flag.IntVar(&errHandling.Retry, "retry", 0, "max retries")
 	flag.StringVar(&errHandling.RetryOnStatus, "retry-code", "",
-		"retry on status code(http protocol only)")
+		"retry on status code(request protocol only)")
 	flag.StringVar(&errHandling.RetryRegex, "retry-regex", "", "retry when regex matched")
 	// 插件
 	flag.Var(&pluginSettings.Preprocessors, "preproc", "preprocessor plugin to be used")
@@ -107,7 +108,7 @@ func ParseOptCmdline() *Opt {
 		RecursionControl: recursionControl,
 		ErrorHandling:    errHandling,
 		Plugin:           pluginSettings,
-		HTTP:             http,
+		Request:          request,
 		Payload:          payload,
 	}
 }

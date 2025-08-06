@@ -11,7 +11,7 @@ type (
 		Lines string `json:"lines,omitempty"`
 		Words string `json:"words,omitempty"`
 	}
-	Http struct {
+	Request struct {
 		Headers        sliceStr `json:"header,omitempty"`
 		Method         string   `json:"method,omitempty"`
 		Cookies        sliceStr `json:"cookie,omitempty"`
@@ -19,6 +19,7 @@ type (
 		FollowRedirect bool     `json:"follow_redirect,omitempty"`
 		HTTP2          bool     `json:"http2,omitempty"`
 		HTTPS          bool     `json:"https,omitempty"`
+		RandomAgent    bool     `json:"random_agent"`
 	}
 	PayloadSetting struct {
 		Wordlists  sliceStr `json:"wordlists,omitempty"`
@@ -63,7 +64,7 @@ type (
 		Plugin           *Plugin
 		Filter           *Match
 		Matcher          *Match
-		HTTP             *Http
+		Request          *Request
 		Output           *Output
 		General          *General
 		ErrorHandling    *ErrorHandling

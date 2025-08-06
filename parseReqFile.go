@@ -34,7 +34,7 @@ func parseHttpRequest(fileName string) (*fuzzTypes.Req, error) {
 
 	// 判断协议版本是否符合预期，忽略不符合的版本
 	if !strings.HasPrefix(version, "HTTP/") {
-		return nil, fmt.Errorf("unsupported HTTP version: %q", version)
+		return nil, fmt.Errorf("unsupported Request version: %q", version)
 	}
 
 	// 读取 headers
@@ -93,9 +93,9 @@ func parseHttpRequest(fileName string) (*fuzzTypes.Req, error) {
 		}
 	}
 
-	// 如果不是合法的 HTTP 请求，返回 error
+	// 如果不是合法的 Request 请求，返回 error
 	if req.HttpSpec.Method == "" || req.URL == "" {
-		return nil, fmt.Errorf("invalid HTTP request")
+		return nil, fmt.Errorf("invalid Request request")
 	}
 
 	return req, nil

@@ -30,7 +30,15 @@ func outObj2Xml(obj *OutObj) []byte {
 
 func nativeOutputMsg(obj *OutObj, ignoreError bool, verbosity int) []byte {
 	bb := bytes.Buffer{}
-	respFirstLine := bytes.Split(obj.Response.RawResponse, []byte{'\n'})[0]
+	var respFirstLine []byte
+	if i := bytes.Index(obj.Response.RawResponse, []byte{'\n'}); i == -1 {
+		respFirstLine = obj.Response.RawResponse
+	} else {
+		respFirstLine = obj.Response.RawResponse[:i]
+	}
+	if respFirstLine[len(respFirstLine)-1] == '\r' {
+		respFirstLine = respFirstLine[:len(respFirstLine)-1]
+	}
 	writeFmtStr := func(title string, val string) {
 		if val == "" {
 			return
@@ -85,7 +93,15 @@ func nativeOutputMsg(obj *OutObj, ignoreError bool, verbosity int) []byte {
 
 func coloredNativeOutputMsg(obj *OutObj, ignoreError bool, verbosity int) []byte {
 	bb := bytes.Buffer{}
-	respFirstLine := bytes.Split(obj.Response.RawResponse, []byte{'\n'})[0]
+	var respFirstLine []byte
+	if i := bytes.Index(obj.Response.RawResponse, []byte{'\n'}); i == -1 {
+		respFirstLine = obj.Response.RawResponse
+	} else {
+		respFirstLine = obj.Response.RawResponse[:i]
+	}
+	if respFirstLine[len(respFirstLine)-1] == '\r' {
+		respFirstLine = respFirstLine[:len(respFirstLine)-1]
+	}
 	if len(respFirstLine) == 0 {
 		respFirstLine = []byte{'[', 'n', 'i', 'l', ']'}
 	}

@@ -32,7 +32,7 @@ Usage of H:\tools\fuzz\FuzzGIU\FuzzGIU.exe:
 options are shown below. when fuzzGIU is executed without any args,
 it will init and create plugin directory
 
-[general settings]
+GENERAL OPTIONS:
   -d    request data
   -delay        delay between each job submission(millisecond) (default: 0)
   -r    request file
@@ -40,7 +40,7 @@ it will init and create plugin directory
   -timeout      timeout(second) (default: 10)
   -u    url to giu
 
-[matcher settings]
+MATCHER OPTIONS:
   -mc   match status code from response (default: 200,204,301,302,307,401,403,405,500)
   -ml   match amount of lines in response
   -mmode        matcher set operator (default: or)
@@ -49,7 +49,7 @@ it will init and create plugin directory
   -mt   match time(millisecond) to the first response byte
   -mw   match amount of words in response
 
-[filter settings]
+FILTER OPTIONS:
   -fc   filter status code from response
   -fl   filter amount of lines in response
   -fmode        filter set operator (default: or)
@@ -58,41 +58,42 @@ it will init and create plugin directory
   -ft   filter time(millisecond) to the first response byte
   -fw   filter amount of words in response
 
-[HTTP settings]
+REQUEST OPTIONS:
   -F    follow redirects (default: false)
-  -H    http headers to be used
-  -X    http method (default: GET)
+  -H    request headers to be used
+  -X    request method (default: GET)
   -b    Cookies
   -http2        force http2 (default: false)
+  -ra   http random agent (default: false)
   -s    force https (default: false)
   -x    proxies
 
-[payload settings]
+PAYLOAD OPTIONS:
   -mode mode for keywords used, basically the same as those in burp suite (default: clusterbomb)
   -pl-gen       plugin payload generators
   -pl-processor payload processors
   -w    wordlists to be used for payload
 
-[output settings]
+OUTPUT OPTIONS:
   -fmt  output file format(native, xml or json. only for file output) (default: native)
   -ie   ignore errors(will not output error message) (default: false)
   -ns   native stdout (default: false)
   -o    file to output
   -v    verbosity level(native output format only) (default: 1)
 
-[recursion settings]
+RECURSION OPTIONS:
   -R    enable recursion mode(only support single fuzz keyword) (default: false)
-  -rec-code     Recursion status code(http protocol only) (default: 200)
+  -rec-code     Recursion status code(request protocol only)
   -rec-depth    recursion depth(when recursion is enabled) (default: 2)
   -rec-regex    recursion when matched regex
   -rec-splitter splitter to be used to split recursion positions (default: /)
 
-[error handle settings]
+ERROR HANDLE OPTIONS:
   -retry        max retries (default: 0)
-  -retry-code   retry on status code(http protocol only)
+  -retry-code   retry on status code(request protocol only)
   -retry-regex  retry when regex matched
 
-[plugin settings]
+PLUGIN OPTIONS:
   -preproc      preprocessor plugin to be used
   -react        reactor plugin to be used
 
@@ -102,7 +103,7 @@ fuzz URL:
 
     H:\tools\fuzz\FuzzGIU\FuzzGIU.exe -u http://test.com/MILAOGIU -w dict.txt  # use default keyword
 
-fuzz HTTP data:
+fuzz Request data:
     H:\tools\fuzz\FuzzGIU\FuzzGIU.exe -u http://test.com -w dict.txt::FUZZ -d "test=FUZZ"
 
 use filters and matchers:
@@ -123,36 +124,6 @@ use multiple fuzz keywords and keyword process mode:
 
     H:\tools\fuzz\FuzzGIU\FuzzGIU.exe -u http://FUZZ3/FUZZ4 -w dic3.txt::FUZZ3 \
         -w dic4.txt::FUZZ4 -mode pitchfork-cycle
-
-refer to flag help information as above or https://github.com/nostalgist134/FuzzGIU/wiki for more usages
-
-ADVANCED USAGES:
-recursive jobs:
-    H:\tools\fuzz\FuzzGIU\FuzzGIU.exe -u http://test.com/FUZZ -w dict.txt::FUZZ -R -rec-code 403 -rec-depth 4
-
-use plugins:
-    H:\tools\fuzz\FuzzGIU\FuzzGIU.exe -u http://test.com/?id=FUZZ \
-        -pl-gen sqli::FUZZ  # will search ./plugins/payloadGenerators/sqli.(so/dll/dylib)
-
-    H:\tools\fuzz\FuzzGIU\FuzzGIU.exe -u http://test.com -D "name=admin&pass=PASS" -w dict.txt::PASS \
-        -pl-processor AES("1234567890abcdef")::PASS  # will search ./plugins/payloadProcessors/AES.(so/dll/dylib)
-
-    H:\tools\fuzz\FuzzGIU\FuzzGIU.exe -w user.txt::USER -w pass.txt::PASS \
-        -u ssh://USER:PASS@test.com:22  # ./plugins/requestSenders/ssh.(so/dll/dylib)
-
-    H:\tools\fuzz\FuzzGIU\FuzzGIU.exe -u http://test.com/FUZZ -w dict.txt::FUZZ \
-        -preproc job_dispatch  # ./plugins/preprocessors/job_dispatch.(so/dll/dylib)
-
-    H:\tools\fuzz\FuzzGIU\FuzzGIU.exe -u http://test.com/FUZZ -w dict.txt::FUZZ \
-        -react fingerprint  # plugins/reactors/fingerprint.(so/dll/dylib)
-
-
-        when fuzzGIU is executed without any args, it will init and create plugin directory "./plugins" to refer to plugins.
-        there are 5 types of plugins can be used on current version: Preprocessor, PayloadGenerator, PayloadProcessor,
-        RequestSender and Reactor. every plugin is of shared library format of current operating system, fuzzGIU will try to
-        find plugin by plugin type and name at ./plugins/[pluginType], make sure you put the plugin file to the right
-        directory. you can find the usage of each type of plugin on https://github.com/nostalgist134/FuzzGIU/wiki. if you
-        want to develop your own plugin, go check https://github.com/nostalgist134/FuzzGIUPluginKit, have fun :)
 ```
 
 ## 快速使用
@@ -322,9 +293,9 @@ Req struct {
 
 当工具达到最大重试次数或者重试条件不满足时，工具会停止重试。
 
-### http相关参数
+### 请求设置
 
-和http fuzz相关的参数如下
+和请求设置相关的参数如下
 
 ```  shell
 -H    # http头
@@ -334,9 +305,10 @@ Req struct {
 -s    # 强制使用https
 -x    # 代理
 -F    # 跟随重定向
+-ra   # 随机ua头
 ```
 
-除`-x`与`-F`外的其它参数会依次被填充到Req结构的HTTPSpec子结构中
+除`-x`、`-F`和`-ra`外的其它参数会依次被填充到Req结构的HTTPSpec子结构中
 
 ``````go
 HTTPSpec struct {
@@ -347,7 +319,9 @@ HTTPSpec struct {
 }
 ``````
 
-`-x`、`-F`参数会被存储到一个请求发送相关的元数据当中，工具发送请求时，无论是什么协议，总会向对应的请求发送模块传递这个元信息，因此`-x`**并不局限于http协议中**（只是由于设计失误，目前这个设置参数还是归类在http设置中，详细信息可参考FuzzGIU wiki），但若使用的协议是插件，则怎么处理代理取决于协议本身的逻辑。目前内置的协议仅支持http代理，不支持socks系列。
+`-x`、`-F`参数会被存储到一个请求发送相关的元数据当中，工具发送请求时，无论是什么协议，总会向对应的请求发送模块传递这个元信息，但若使用的协议是插件，则怎么处理代理取决于协议本身的逻辑。目前内置的协议仅支持http代理，不支持socks系列。
+
+`ra`头通过设置一个全局变量来启用随机ua头。
 
 ### 输出设置
 
