@@ -2,7 +2,7 @@
 
 # 项目介绍
 
-FuzzGIU 是一款基于 Go 语言开发的web fuzzer，灵感来源于ffuf与burp intruder。，适用于Web信息收集、漏洞扫描、API 测试等场景。
+FuzzGIU 是一款基于 Go 语言开发的web fuzzer，灵感来源于`ffuf`、`burp intruder`与`yakit web fuzzer`。适用于Web信息收集、漏洞扫描、API 测试等场景。
 
 ## 安装
 
@@ -509,6 +509,14 @@ fuzzGIU的插件调用遵循以下的被称为伪函数调用表达式的规则�
 
 # 特别感谢
 
-特别致敬 [@ffuf](https://github.com/ffuf/ffuf) 项目，其理念与实现为本工具提供了重要启发，没有ffuf团队对于此类工具的探索，就没有当前项目。
+## 项目
+
++ [ffuf/ffuf: Fast web fuzzer written in Go](https://github.com/ffuf/ffuf)
++ [yaklang/yakit: Cyber Security ALL-IN-ONE Platform](https://github.com/yaklang/yakit)
++ [Burp Suite - Application Security Testing Software - PortSwigger](https://portswigger.net/burp)
+
+没有这些项目团队对于本类工具的探索与启发，就没有当前项目。
+
+## 个人
 
 特别感谢[@xch-space](https://github.com/xch-space)对项目命名提供的灵感。
