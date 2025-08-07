@@ -99,11 +99,11 @@ func coloredNativeOutputMsg(obj *OutObj, ignoreError bool, verbosity int) []byte
 	} else {
 		respFirstLine = obj.Response.RawResponse[:i]
 	}
-	if respFirstLine[len(respFirstLine)-1] == '\r' {
-		respFirstLine = respFirstLine[:len(respFirstLine)-1]
-	}
 	if len(respFirstLine) == 0 {
 		respFirstLine = []byte{'[', 'n', 'i', 'l', ']'}
+	}
+	if respFirstLine[len(respFirstLine)-1] == '\r' {
+		respFirstLine = respFirstLine[:len(respFirstLine)-1]
 	}
 	writeFmtStr := func(title string, val string) {
 		if val == "" {

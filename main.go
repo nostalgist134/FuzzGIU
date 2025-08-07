@@ -3,8 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/nostalgist134/FuzzGIU/components/common"
 	"github.com/nostalgist134/FuzzGIU/components/fuzz"
+	"github.com/nostalgist134/FuzzGIU/components/fuzz/stageSend"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/nostalgist134/FuzzGIU/components/options"
 	"github.com/nostalgist134/FuzzGIU/components/plugin"
@@ -40,8 +40,7 @@ func main() {
 		fmt.Println("For help, use -h flag")
 		return
 	}
-	/*debug()
-	return*/
+	//debug();return
 	fuzz1 := opt2fuzz(opts)
 	/*fuzz.Debug(fuzz1)
 	return*/
@@ -51,18 +50,14 @@ func main() {
 
 func debug() {
 	req := &fuzzTypes.Req{
-		URL: "htGIUtp://GIU.com/",
-		HttpSpec: fuzzTypes.HTTPSpec{
-			Headers: []string{"GIU: aa"},
-		},
-		Data: "ddd",
+		URL: "https://www.baidu.com/",
 	}
-	t := common.ParseReqTemplate(req, []string{"GIU"})
-	fmt.Println(t)
-	for i := 0; i < 3; i++ {
-		newReq, track := common.ReplacePayloadTrackTemplate(t, "AAA", i)
-		j, _ := json.MarshalIndent(newReq, "", "  ")
-		fmt.Println(string(j))
-		fmt.Println(track)
+	sendMeta := &fuzzTypes.SendMeta{
+		Request:             req,
+		HttpFollowRedirects: true,
+		Proxy:               "http://127.0.0.1:8080",
 	}
+	resp := stageSend.SendRequest(sendMeta, "https")
+	respJson, _ := json.MarshalIndent(resp, "", "  ")
+	fmt.Print(string(respJson))
 }
