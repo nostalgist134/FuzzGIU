@@ -36,6 +36,9 @@ func nativeOutputMsg(obj *OutObj, ignoreError bool, verbosity int) []byte {
 	} else {
 		respFirstLine = obj.Response.RawResponse[:i]
 	}
+	if len(respFirstLine) == 0 {
+		respFirstLine = []byte{'[', 'n', 'i', 'l', ']'}
+	}
 	if respFirstLine[len(respFirstLine)-1] == '\r' {
 		respFirstLine = respFirstLine[:len(respFirstLine)-1]
 	}
