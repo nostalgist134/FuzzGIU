@@ -387,7 +387,7 @@ HTTPSpec struct {
 - `-rec-regex`：通过正则匹配响应内容触发递归。
 - `-rec-splitter`：用于分割递归位置的分隔符（默认`/`），适用于 URL 路径、目录等层级结构的拆分。
 
-递归条件`-rec-code`与`-rec-regex`同时指定的情况下，他们间使用`or`连接。
+递归条件`-rec-code`与`-rec-regex`同时指定的情况下使用`or`连接。
 
 #### 使用场景与示例
 
