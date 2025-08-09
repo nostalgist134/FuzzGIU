@@ -36,7 +36,8 @@ it will init and create plugin directory
 
 GENERAL OPTIONS:
   -d    request data
-  -delay        delay between each job submission(millisecond) (default: 0)
+  -delay        delay between each job submission (default: 0)
+  -delay-gran   delay granularity(ns/us/ms/s (default: ms)
   -r    request file
   -t    routine pool size (default: 64)
   -timeout      timeout(second) (default: 10)
@@ -250,9 +251,9 @@ Req struct {
 
 **注意**：其它命令行参数也可指定Req结构中的成员值，且指定优先级比本参数更高，会覆盖此命令指定的值。
 
-### `-delay`
+### `-delay`、`-delay-gran`
 
-参数指定工具每次提交请求任务之后，以毫秒为单位的等待时间，防止请求速度过快导致触发可能的防御机制或者资源占用过多。
+`-delay`参数指定工具每次提交请求任务之后的等待时间（整数），`delay-gran`指定了等待时间的粒度，可选`ns`（纳秒）、`us`（微秒）、`ms`（毫秒）、`s`（秒），默认为毫秒。防止请求速度过快导致触发可能的防御机制或者资源占用过多。
 
 ### `-t`
 
