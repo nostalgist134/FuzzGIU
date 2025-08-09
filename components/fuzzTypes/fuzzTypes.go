@@ -5,10 +5,6 @@ import (
 	"time"
 )
 
-// todo:
-//  1.将match类型中的int切片替换为range类型
-//  2.将所有的插件字符串替换为插件类型
-
 type (
 	// Plugin 标记插件名和参数
 	Plugin struct {
