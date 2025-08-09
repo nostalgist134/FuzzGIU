@@ -8,7 +8,6 @@ import (
 	"github.com/nostalgist134/FuzzGIU/components/fuzz/stageSend"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/nostalgist134/FuzzGIU/components/output"
-	"github.com/nostalgist134/FuzzGIU/components/plugin"
 	"github.com/nostalgist134/FuzzGIU/components/rp"
 	"net/http"
 	"net/url"
@@ -29,7 +28,7 @@ var SendMetaPool = sync.Pool{
 var Rp *rp.RoutinePool
 
 // trySubmit 尝试提交任务，若提交失败，则先从队列中取出一个结果并处理，再提交
-func trySubmit(task rp.Task, fuzz1 *fuzzTypes.Fuzz, reactPlugin fuzzTypes.Plugin) bool {
+func trySubmit(task rp.Task, fuzz1 *fuzzTypes.Fuzz) bool {
 	for !Rp.Submit(task, time.Millisecond*10) {
 		// 若处于暂停状态，则不消耗结果
 		if Rp.Status() == rp.StatPause {
@@ -39,7 +38,7 @@ func trySubmit(task rp.Task, fuzz1 *fuzzTypes.Fuzz, reactPlugin fuzzTypes.Plugin
 		// 将结果队列全部消耗而不是取一个，避免陷入handleReaction->trySubmit->handleReaction->...的无限递归
 		for r := Rp.GetSingleResult(); r != nil; r = Rp.GetSingleResult() {
 			// 若确定jobStop，就可以不用再取结果了，直接返回上一层直到doFuzz，然后退出
-			if jobStop := handleReaction(r, fuzz1, reactPlugin); jobStop {
+			if jobStop := handleReaction(r, fuzz1); jobStop {
 				return jobStop
 			}
 		}
@@ -64,7 +63,7 @@ func tryGetUrlScheme(req *fuzzTypes.Req, keywords []string) string {
 }
 
 // handleReaction 根据fuzz设置处理反应
-func handleReaction(r *fuzzTypes.Reaction, fuzz1 *fuzzTypes.Fuzz, reactPlugin fuzzTypes.Plugin) bool {
+func handleReaction(r *fuzzTypes.Reaction, fuzz1 *fuzzTypes.Fuzz) bool {
 	defer common.PutReaction(r)
 	stopJob := false
 	if r.Flag&fuzzTypes.ReactAddJob != 0 && r.NewJob != nil {
@@ -91,14 +90,14 @@ func handleReaction(r *fuzzTypes.Reaction, fuzz1 *fuzzTypes.Fuzz, reactPlugin fu
 			newSend.HttpFollowRedirects = fuzz1.Send.HttpFollowRedirects
 			newSend.Request = r.NewReq
 			resp := stageSend.SendRequest(newSend, "")
-			reaction := stageReact.React(fuzz1, newSend.Request, resp, reactPlugin,
-				[]string{""}, []string{fmt.Sprintf("add via react by %s:%s", k, p)}, nil)
+			reaction := stageReact.React(fuzz1, newSend.Request, resp, []string{""},
+				[]string{fmt.Sprintf("add via react by %s:%s", k, p)}, nil)
 			SendMetaPool.Put(newSend)
 			// task数加1
 			output.AddTaskCounter()
 			return reaction
 		}
-		stopJob = trySubmit(newTask, fuzz1, reactPlugin)
+		stopJob = trySubmit(newTask, fuzz1)
 		// task总数加1
 		output.SetTaskCounter(output.GetCounterSingle(output.TotalTask) + 1)
 	}
@@ -174,18 +173,6 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 	var task func() *fuzzTypes.Reaction
 	// req模板解析
 	reqTemplate := common.ParseReqTemplate(&fuzz1.Preprocess.ReqTemplate, keywords)
-	// 反应器插件
-	var reactPlugin fuzzTypes.Plugin
-	if fuzz1.React.Reactor != "" {
-		reactPlugin = plugin.ParsePluginsStr(fuzz1.React.Reactor)[0]
-		if strings.Contains(reactPlugin.Name, "../") || strings.Contains(reactPlugin.Name, "/..") {
-			if common.OutputToWhere&output.OutToScreen != 0 {
-				output.ScreenClose()
-				fmt.Fprintln(os.Stderr, "still not clever enough")
-				os.Exit(1)
-			}
-		}
-	}
 	// payload处理插件
 	var plProcessorPlugins = make([][]fuzzTypes.Plugin, len(keywords))
 	// 用于接收handleReaction标记当前任务是否结束
@@ -244,8 +231,7 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 				send.Request, cacheId = common.ReplacePayloadsByTemplate(reqTemplate, processedPayloads, -1)
 				send.Request.HttpSpec.ForceHttps = fuzz1.Preprocess.ReqTemplate.HttpSpec.ForceHttps
 				resp := stageSend.SendRequest(send, uScheme)
-				reaction := stageReact.React(fuzz1, send.Request, resp, reactPlugin,
-					keywords, processedPayloads, nil)
+				reaction := stageReact.React(fuzz1, send.Request, resp, keywords, processedPayloads, nil)
 				SendMetaPool.Put(send)
 				common.ReleaseReqCache(cacheId)
 				output.AddTaskCounter()
@@ -276,26 +262,26 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 				}
 				send.Request.HttpSpec.ForceHttps = fuzz1.Preprocess.ReqTemplate.HttpSpec.ForceHttps
 				resp := stageSend.SendRequest(send, uScheme)
-				reaction := stageReact.React(fuzz1, send.Request, resp, reactPlugin,
-					[]string{keyword}, []string{processedPayload}, recPos)
+				reaction := stageReact.React(fuzz1, send.Request, resp, []string{keyword},
+					[]string{processedPayload}, recPos)
 				SendMetaPool.Put(send)
 				common.ReleaseReqCache(cacheId)
 				output.AddTaskCounter()
 				return reaction
 			}
 		}
-		if trySubmit(task, fuzz1, reactPlugin) {
+		if trySubmit(task, fuzz1) {
 			Rp.Clear()
 			return time.Since(timeStart)
 		}
-		time.Sleep(time.Millisecond * time.Duration(fuzz1.Misc.Delay))
+		time.Sleep(fuzz1.Misc.DelayGranularity * time.Duration(fuzz1.Misc.Delay))
 		maxTry := 8192
 		for {
 			if maxTry == 0 {
 				break
 			}
 			if r := Rp.GetSingleResult(); r != nil {
-				jobStop = handleReaction(r, fuzz1, reactPlugin)
+				jobStop = handleReaction(r, fuzz1)
 				if jobStop {
 					return time.Since(timeStart)
 				}
@@ -307,14 +293,14 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 	}
 	for !Rp.Wait(time.Millisecond * 10) {
 		for r := Rp.GetSingleResult(); r != nil; r = Rp.GetSingleResult() {
-			if handleReaction(r, fuzz1, reactPlugin) {
+			if handleReaction(r, fuzz1) {
 				Rp.Clear()
 				return time.Since(timeStart)
 			}
 		}
 	}
 	for r := Rp.GetSingleResult(); r != nil; r = Rp.GetSingleResult() {
-		if handleReaction(r, fuzz1, reactPlugin) {
+		if handleReaction(r, fuzz1) {
 			Rp.Clear()
 			return time.Since(timeStart)
 		}
@@ -368,6 +354,6 @@ func Debug(fuzz1 *fuzzTypes.Fuzz) {
 	newReq, trackPos, _ := common.ReplacePayloadTrackTemplate(t, "1milaogiu", -1)
 	resp := &fuzzTypes.Resp{HttpResponse: &http.Response{StatusCode: 404}}
 	fmt.Println(newReq, trackPos)
-	reaction := stageReact.React(fuzz1, newReq, resp, fuzzTypes.Plugin{}, []string{}, []string{}, trackPos)
+	reaction := stageReact.React(fuzz1, newReq, resp, []string{}, []string{}, trackPos)
 	fmt.Println(reaction.NewJob.Preprocess.ReqTemplate)
 }

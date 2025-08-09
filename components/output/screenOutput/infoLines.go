@@ -5,6 +5,7 @@ import (
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func splitLines(s string) []string {
@@ -69,19 +70,32 @@ func recCtrl2Lines(recCtrl *struct {
 	}
 }
 
+func getGranularityString(gran time.Duration) string {
+	switch gran {
+	case time.Microsecond:
+		return "us"
+	case time.Second:
+		return "s"
+	case time.Nanosecond:
+		return "ns"
+	}
+	return "ms"
+}
+
 // genInfoLines 将Fuzz结构转化为字符串切片
 func genInfoLines(globInfo *fuzzTypes.Fuzz) []string {
 	infoLines := []string{
 		globInfo.Preprocess.ReqTemplate.URL,
 		globInfo.Preprocess.ReqTemplate.Data,
 		strconv.Itoa(globInfo.Misc.PoolSize),
-		strconv.Itoa(globInfo.Misc.Delay),
+		fmt.Sprintf("%s(%s)", strconv.Itoa(globInfo.Misc.Delay),
+			getGranularityString(globInfo.Misc.DelayGranularity)),
 		strconv.Itoa(globInfo.Send.Timeout),
 		strconv.Itoa(globInfo.React.OutSettings.Verbosity),
 		globInfo.React.OutSettings.OutputFile,
 		globInfo.React.OutSettings.OutputFormat,
 		fuzzTypes.Plugins2Expr(globInfo.Preprocess.Preprocessors),
-		globInfo.React.Reactor,
+		fuzzTypes.Plugins2Expr([]fuzzTypes.Plugin{globInfo.React.Reactor}),
 		"FUZZ_KEYWORDS >"}
 
 	// globInfo部分每一个单行使用的标题

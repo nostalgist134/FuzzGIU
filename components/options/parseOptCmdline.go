@@ -30,7 +30,8 @@ func ParseOptCmdline() *Opt {
 	flag.StringVar(&general.ReqFile, "r", "", "request file")
 	flag.IntVar(&general.RoutinePoolSize, "t", 64, "routine pool size")
 	flag.IntVar(&general.Timeout, "timeout", 10, "timeout(second)")
-	flag.IntVar(&general.Delay, "delay", 0, "delay between each job submission(millisecond)")
+	flag.IntVar(&general.Delay, "delay", 0, "delay between each job submission")
+	flag.StringVar(&general.DelayGranularity, "delay-gran", "ms", "delay granularity(ns/us/ms/s")
 	// 响应匹配器
 	flag.StringVar(&matcher.Code, "mc", "200,204,301,302,307,401,403,405,500",
 		"match status code from response")
@@ -89,7 +90,7 @@ func ParseOptCmdline() *Opt {
 	flag.StringVar(&errHandling.RetryRegex, "retry-regex", "", "retry when regex matched")
 	// 插件
 	flag.Var(&pluginSettings.Preprocessors, "preproc", "preprocessor plugin to be used")
-	flag.StringVar(&pluginSettings.Reactors, "react", "", "reactor plugin to be used")
+	flag.StringVar(&pluginSettings.Reactor, "react", "", "reactor plugin to be used")
 	flag.Parse()
 	flagIsSet := make(map[string]bool)
 	flag.Visit(func(f *flag.Flag) {

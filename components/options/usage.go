@@ -9,7 +9,8 @@ import (
 
 func getSection(name string) string {
 	switch {
-	case name == "u" || name == "d" || name == "r" || name == "t" || name == "timeout" || name == "delay":
+	case name == "u" || name == "d" || name == "r" || name == "t" || name == "timeout" || name == "delay" ||
+		name == "delay-gran":
 		return "GENERAL"
 	case strings.HasPrefix(name, "m") && name != "mode":
 		return "MATCHER"

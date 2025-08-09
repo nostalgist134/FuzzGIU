@@ -35,12 +35,13 @@ type (
 		NativeStdout bool   `json:"native_stdout,omitempty"`
 	}
 	General struct {
-		URL             string `json:"url,omitempty"`
-		Data            string `json:"data,omitempty"`
-		ReqFile         string `json:"req_file,omitempty"`
-		RoutinePoolSize int    `json:"routine_pool_size,omitempty"`
-		Timeout         int    `json:"timeout,omitempty"`
-		Delay           int    `json:"delay,omitempty"`
+		URL              string `json:"url,omitempty"`
+		Data             string `json:"data,omitempty"`
+		ReqFile          string `json:"req_file,omitempty"`
+		RoutinePoolSize  int    `json:"routine_pool_size,omitempty"`
+		Timeout          int    `json:"timeout,omitempty"`
+		Delay            int    `json:"delay,omitempty"`
+		DelayGranularity string `json:"delay_granularity,omitempty"`
 	}
 	RecursionControl struct {
 		Recursion         bool   `json:"recursion,omitempty"`
@@ -57,7 +58,7 @@ type (
 	}
 	Plugin struct {
 		Preprocessors sliceStr `json:"pre_processor,omitempty"`
-		Reactors      string   `json:"reactor,omitempty"`
+		Reactor       string   `json:"reactor,omitempty"`
 	}
 	Opt struct {
 		Payload          *PayloadSetting

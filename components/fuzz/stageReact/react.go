@@ -81,8 +81,7 @@ func insertRecursionMarker(recKeyword string, splitter string,
 // patchLog#12: 添加了一个reactPlugin参数，现在reactor插件通过此参数调用，避免每次调用都解析插件字符串导致性能问题
 // reactPlugin在doFuzz函数中通过一次plugin.ParsePluginsStr解析得到
 func React(fuzz1 *fuzzTypes.Fuzz, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
-	reactPlugin fuzzTypes.Plugin, keywordsUsed []string, payloadEachKeyword []string,
-	recursionPos []int) *fuzzTypes.Reaction {
+	keywordsUsed []string, payloadEachKeyword []string, recursionPos []int) *fuzzTypes.Reaction {
 	defer common.PutReq(reqSend)
 	reaction := common.GetNewReaction()
 	var recursionJob *fuzzTypes.Fuzz = nil
@@ -130,9 +129,9 @@ func React(fuzz1 *fuzzTypes.Fuzz, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 		reaction = reactDns(reqSend, resp)
 	}
 	// reactor插件调用
-	if fuzz1.React.Reactor != "" {
+	if fuzz1.React.Reactor.Name != "" {
 		common.PutReaction(reaction)
-		reaction = plugin.React(reactPlugin, reqSend, resp)
+		reaction = plugin.React(fuzz1.React.Reactor, reqSend, resp)
 	}
 	// 添加递归任务（如果自定义reactor没有添加）
 	if reaction.NewJob == nil && recursionJob != nil {

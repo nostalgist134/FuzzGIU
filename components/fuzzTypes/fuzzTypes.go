@@ -122,7 +122,7 @@ type (
 		} `json:"send,omitempty"`
 		// 响应阶段的设置
 		React struct {
-			Reactor          string         `json:"reactors,omitempty"`        // 使用的自定义响应器
+			Reactor          Plugin         `json:"reactors,omitempty"`
 			OutSettings      OutputSettings `json:"output_settings,omitempty"` // 输出设置
 			Filter           Match          `json:"filter,omitempty"`          // 过滤
 			Matcher          Match          `json:"matcher,omitempty"`         // 匹配
@@ -137,8 +137,9 @@ type (
 		} `json:"react,omitempty"`
 		// 杂项设置
 		Misc struct {
-			PoolSize int `json:"pool_size,omitempty"` // 使用的协程池大小
-			Delay    int `json:"delay,omitempty"`     // 主循环中每次等待的时间（毫秒）
+			PoolSize         int           `json:"pool_size,omitempty"`         // 使用的协程池大小
+			Delay            int           `json:"delay,omitempty"`             // 主循环中每次等待的时间
+			DelayGranularity time.Duration `json:"delay_granularity,omitempty"` // 等待时间的粒度
 		} `json:"misc,omitempty"`
 	}
 )

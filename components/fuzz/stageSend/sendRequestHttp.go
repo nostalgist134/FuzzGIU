@@ -152,6 +152,21 @@ func initHttpCli(proxy string, timeout int, redirect bool, httpVer string,
 		forceHttp2 = true
 	}
 	tr := cli.Transport.(*http.Transport)
+	// 目前的缓解措施，如果碰到http2只能新建transport，不过这样会导致速度变得非常非常慢（差不多变为1/5）
+	if forceHttp2 {
+		tr.CloseIdleConnections()
+		tr = &http.Transport{
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+			MaxIdleConns:          100,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
+			ExpectContinueTimeout: 1 * time.Second,
+		}
+	}
 	tr.ForceAttemptHTTP2 = forceHttp2
 	// 设置代理
 	if proxy != "" {

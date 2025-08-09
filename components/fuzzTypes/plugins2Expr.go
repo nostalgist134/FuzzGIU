@@ -9,6 +9,9 @@ import (
 func Plugins2Expr(plugins []Plugin) string {
 	sb := strings.Builder{}
 	for i, p := range plugins {
+		if len(p.Args) == 0 && p.Name == "" {
+			continue
+		}
 		sb.WriteString(p.Name)
 		// 参数列表
 		if len(p.Args) != 0 {

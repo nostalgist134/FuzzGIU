@@ -200,6 +200,19 @@ func parseRequestFile(fileName string) (req *fuzzTypes.Req, raw []byte, err erro
 	return
 }
 
+func getDelayGranularity(gran string) time.Duration {
+	switch gran {
+	case "ns":
+		return time.Nanosecond
+	case "us":
+		return time.Microsecond
+	case "s":
+		return time.Second
+	default:
+		return time.Millisecond
+	}
+}
+
 // opt2fuzz 将opt结构转化为fuzz结构
 func opt2fuzz(opt *options.Opt) *fuzzTypes.Fuzz {
 	fuzz := new(fuzzTypes.Fuzz)
@@ -209,6 +222,7 @@ func opt2fuzz(opt *options.Opt) *fuzzTypes.Fuzz {
 	fuzz.Send.Timeout = opt.General.Timeout
 	fuzz.Misc.PoolSize = opt.General.RoutinePoolSize
 	fuzz.Misc.Delay = opt.General.Delay
+	fuzz.Misc.DelayGranularity = getDelayGranularity(opt.General.DelayGranularity)
 	// opt.Request
 	var req *fuzzTypes.Req
 	var raw []byte
@@ -254,7 +268,8 @@ func opt2fuzz(opt *options.Opt) *fuzzTypes.Fuzz {
 					cookies.WriteString("; ")
 				}
 			}
-			fuzz.Preprocess.ReqTemplate.HttpSpec.Headers = append(fuzz.Preprocess.ReqTemplate.HttpSpec.Headers, cookies.String())
+			fuzz.Preprocess.ReqTemplate.HttpSpec.Headers = append(fuzz.Preprocess.ReqTemplate.HttpSpec.Headers,
+				cookies.String())
 		}
 
 		fuzz.Send.Proxies = opt.Request.Proxies
@@ -296,7 +311,13 @@ func opt2fuzz(opt *options.Opt) *fuzzTypes.Fuzz {
 	}
 	fuzz.Preprocess.Preprocessors = plugin.ParsePluginsStr(sb.String())
 	quitIfPathTraverse(fuzz.Preprocess.Preprocessors)
-	fuzz.React.Reactor = opt.Plugin.Reactors
+	reactPlugin := plugin.ParsePluginsStr(opt.Plugin.Reactor)
+	if len(reactPlugin) == 0 {
+		fuzz.React.Reactor = fuzzTypes.Plugin{}
+	} else {
+		fuzz.React.Reactor = reactPlugin[0]
+	}
+	quitIfPathTraverse([]fuzzTypes.Plugin{fuzz.React.Reactor})
 	// opt.RecursionControl
 	if opt.RecursionControl.Recursion {
 		if len(fuzz.Preprocess.PlTemp) > 1 {
