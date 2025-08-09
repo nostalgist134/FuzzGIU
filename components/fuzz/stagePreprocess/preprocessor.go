@@ -17,10 +17,16 @@ func Preprocess(fuzz *fuzzTypes.Fuzz, preprocessors []fuzzTypes.Plugin) *fuzzTyp
 	}
 	// 生成payload
 	for keyword, _ := range newFuzz.Preprocess.PlTemp {
+		// 修改生成payload的逻辑：若列表已经有数据（比如通过插件手动添加的任务，可手动添加plList），则用原来的数据
+		plList := newFuzz.Preprocess.PlTemp[keyword].PlList
+		if len(plList) == 0 {
+			plList = GeneratePayloads(newFuzz.Preprocess.PlTemp[keyword].Generators)
+		}
 		newFuzz.Preprocess.PlTemp[keyword] = fuzzTypes.PayloadTemp{
 			Generators: newFuzz.Preprocess.PlTemp[keyword].Generators,
 			Processors: newFuzz.Preprocess.PlTemp[keyword].Processors,
-			PlList:     GeneratePayloads(newFuzz.Preprocess.PlTemp[keyword].Generators)}
+			PlList:     plList,
+		}
 	}
 	return newFuzz
 }
