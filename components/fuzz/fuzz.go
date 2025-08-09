@@ -240,12 +240,14 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 				for j, plugins := range plProcessorPlugins {
 					processedPayloads[j] = stagePreprocess.PayloadProcessor(payloadEachKeyword[j], plugins)
 				}
-				send.Request = common.ReplacePayloadsByTemplate(reqTemplate, processedPayloads, -1)
+				var cacheId int32
+				send.Request, cacheId = common.ReplacePayloadsByTemplate(reqTemplate, processedPayloads, -1)
 				send.Request.HttpSpec.ForceHttps = fuzz1.Preprocess.ReqTemplate.HttpSpec.ForceHttps
 				resp := stageSend.SendRequest(send, uScheme)
 				reaction := stageReact.React(fuzz1, send.Request, resp, reactPlugin,
 					keywords, processedPayloads, nil)
 				SendMetaPool.Put(send)
+				common.ReleaseReqCache(cacheId)
 				output.AddTaskCounter()
 				return reaction
 			}
@@ -256,23 +258,28 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 				processedPayload := payload
 				processedPayload = stagePreprocess.PayloadProcessor(processedPayload, plProcessorPlugins[0])
 				var recPos []int = nil
+				var cacheId int32
 				// payload替换
 				if fuzz1.Preprocess.Mode == "sniper" &&
 					fuzz1.React.RecursionControl.RecursionDepth <= fuzz1.React.RecursionControl.MaxRecursionDepth {
 					// 同时启用sniper和递归
-					send.Request, recPos = common.ReplacePayloadTrackTemplate(reqTemplate, payload, int(i/curInd))
+					send.Request, recPos, cacheId =
+						common.ReplacePayloadTrackTemplate(reqTemplate, payload, int(i/curInd))
 				} else if fuzz1.React.RecursionControl.RecursionDepth <=
 					fuzz1.React.RecursionControl.MaxRecursionDepth {
 					// 只启用递归
-					send.Request, recPos = common.ReplacePayloadTrackTemplate(reqTemplate, payload, -1)
+					send.Request, recPos, cacheId =
+						common.ReplacePayloadTrackTemplate(reqTemplate, payload, -1)
 				} else { // 只启用sniper
-					send.Request = common.ReplacePayloadsByTemplate(reqTemplate, []string{payload}, int(i/curInd))
+					send.Request, cacheId =
+						common.ReplacePayloadsByTemplate(reqTemplate, []string{payload}, int(i/curInd))
 				}
 				send.Request.HttpSpec.ForceHttps = fuzz1.Preprocess.ReqTemplate.HttpSpec.ForceHttps
 				resp := stageSend.SendRequest(send, uScheme)
 				reaction := stageReact.React(fuzz1, send.Request, resp, reactPlugin,
 					[]string{keyword}, []string{processedPayload}, recPos)
 				SendMetaPool.Put(send)
+				common.ReleaseReqCache(cacheId)
 				output.AddTaskCounter()
 				return reaction
 			}
@@ -358,7 +365,7 @@ func Debug(fuzz1 *fuzzTypes.Fuzz) {
 	}
 	r := fuzz1.Preprocess.ReqTemplate
 	t := common.ParseReqTemplate(&r, []string{kw})
-	newReq, trackPos := common.ReplacePayloadTrackTemplate(t, "1milaogiu", -1)
+	newReq, trackPos, _ := common.ReplacePayloadTrackTemplate(t, "1milaogiu", -1)
 	resp := &fuzzTypes.Resp{HttpResponse: &http.Response{StatusCode: 404}}
 	fmt.Println(newReq, trackPos)
 	reaction := stageReact.React(fuzz1, newReq, resp, fuzzTypes.Plugin{}, []string{}, []string{}, trackPos)

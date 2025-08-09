@@ -153,7 +153,6 @@ func initHttpCli(proxy string, timeout int, redirect bool, httpVer string,
 	}
 	tr := cli.Transport.(*http.Transport)
 	tr.ForceAttemptHTTP2 = forceHttp2
-
 	// 设置代理
 	if proxy != "" {
 		proxyUrl, err := url.Parse(proxy)

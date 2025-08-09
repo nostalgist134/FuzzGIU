@@ -3,9 +3,9 @@ package common
 import (
 	"container/heap"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
+	reusablebytes "github.com/nostalgist134/reusableBytes"
 	"math/rand"
 	"strings"
-	"sync"
 )
 
 // GetKeywordNum 获取一个关键字在req结构中出现的次数
@@ -119,18 +119,26 @@ func mergeK(arrays [][]int) []record {
 type ReplaceTemplate struct {
 	fragments    []string
 	placeholders []int // placeholders 存储每个片段后关键字在关键字列表的下标列表，特殊情况：下标值为0，代表分隔符
+	fieldNum     int
 }
 
-var stringBuilders = sync.Pool{New: func() any { return new(strings.Builder) }}
+var bp = new(reusablebytes.BytesPool)
 
-func getStringBuilder() *strings.Builder {
-	newSb := (stringBuilders.Get()).(*strings.Builder)
-	return newSb
+func init() {
+	bp.Init(128, 131072)
 }
 
-func putStringBuilder(sb *strings.Builder) {
-	sb.Reset()
-	stringBuilders.Put(sb)
+func (t *ReplaceTemplate) getFieldNum() int {
+	if t.fieldNum < 2 {
+		t.fieldNum = 0
+		for _, ph := range t.placeholders {
+			if ph == 0 {
+				t.fieldNum++
+			}
+		}
+		t.fieldNum++
+	}
+	return t.fieldNum
 }
 
 func (t *ReplaceTemplate) parse(s string, keywords []string) {
@@ -159,79 +167,84 @@ func (t *ReplaceTemplate) parse(s string, keywords []string) {
 		// 使得len(t.fragments)恒等于len(t.placeholders+1)，从而避免越界问题
 		t.fragments = append(t.fragments, "")
 	}
+	t.getFieldNum()
 }
 
 // renderNew 对模板进行渲染，返回通过分隔符分隔的fields切片
-func (t *ReplaceTemplate) renderNew(payloads []string) []string {
-	sb := getStringBuilder()
-	defer putStringBuilder(sb)
-	fields := make([]string, 0)
+func (t *ReplaceTemplate) renderNew(payloads []string) ([]string, int32) {
+	rb, id := bp.Get()
+	fields := make([]string, t.fieldNum)
 	i := 0
+	indField := 0
+	rb.Anchor()
 	for ; i < len(t.placeholders); i++ {
-		sb.WriteString(t.fragments[i])
+		rb.WriteString(t.fragments[i])
 		if t.placeholders[i] == 0 {
-			fields = append(fields, sb.String())
-			sb.Reset()
+			fields[indField] = rb.StringFromAnchor()
+			rb.Anchor()
+			indField++
 			continue
 		}
-		sb.WriteString(payloads[t.placeholders[i]-1])
+		rb.WriteString(payloads[t.placeholders[i]-1])
 	}
-	sb.WriteString(t.fragments[i])
-	fields = append(fields, sb.String())
-	return fields
+	rb.WriteString(t.fragments[i])
+	fields[indField] = rb.StringFromAnchor()
+	return fields, id
 }
 
 // render1New 用于sniper模式的渲染函数
-func (t *ReplaceTemplate) render1New(payload string, pos int) []string {
-	// 不知道怎么回事，这里的下标是从1开始算的
+func (t *ReplaceTemplate) render1New(payload string, pos int) ([]string, int32) {
 	if pos < 0 || pos > len(t.placeholders) {
 		payload = ""
 	}
-	fields := make([]string, 0)
-	sb := getStringBuilder()
-	defer putStringBuilder(sb)
+	fields := make([]string, t.fieldNum)
+	rb, id := bp.Get()
 	i := 0
 	j := 0
+	fieldInd := 0
+	rb.Anchor()
 	for ; j <= pos && i < len(t.placeholders); j++ {
-		sb.WriteString(t.fragments[i])
+		rb.WriteString(t.fragments[i])
 		if t.placeholders[i] == 0 {
 			j--
-			fields = append(fields, sb.String())
-			sb.Reset()
+			fields[fieldInd] = rb.StringFromAnchor()
+			fieldInd++
+			rb.Anchor()
 		}
 		i++
 	}
-	sb.WriteString(payload)
+	rb.WriteString(payload)
 	for ; i < len(t.placeholders); i++ {
-		sb.WriteString(t.fragments[i])
+		rb.WriteString(t.fragments[i])
 		if t.placeholders[i] == 0 {
-			fields = append(fields, sb.String())
-			sb.Reset()
-			continue
+			fields[fieldInd] = rb.StringFromAnchor()
+			fieldInd++
+			rb.Anchor()
 		}
 	}
-	sb.WriteString(t.fragments[i])
-	fields = append(fields, sb.String())
-	return fields
+	rb.WriteString(t.fragments[i])
+	fields[fieldInd] = rb.StringFromAnchor()
+	return fields, id
 }
 
 // render2 用于替代原先的replacePayloadAndTrack函数
-func (t *ReplaceTemplate) render2(payload string) ([]string, []int) {
-	fields := make([]string, 0)
+func (t *ReplaceTemplate) render2(payload string) ([]string, []int, int32) {
+	fields := make([]string, t.fieldNum)
 	trackPos := make([]int, 0)
-	sb := getStringBuilder()
-	defer putStringBuilder(sb)
+	rb, id := bp.Get()
 	i := 0
 	trackPosInd := -1
 	fieldHasPayload := false
+	fieldInd := 0
 	var tmp string
+	rb.Anchor()
 	for ; i < len(t.placeholders); i++ {
-		sb.WriteString(t.fragments[i])
+		rb.WriteString(t.fragments[i])
 		// 分隔符
 		if t.placeholders[i] == 0 {
-			tmp = sb.String()
-			fields = append(fields, tmp)
-			sb.Reset()
+			tmp = rb.StringFromAnchor()
+			fields[fieldInd] = tmp
+			rb.Anchor()
 			if !fieldHasPayload {
 				trackPos = append(trackPos, -(len(tmp) + 1))
 				trackPosInd++
@@ -239,72 +252,75 @@ func (t *ReplaceTemplate) render2(payload string) ([]string, []int) {
 				trackPos[trackPosInd] *= -1
 				fieldHasPayload = false
 			}
+			fieldInd++
 		} else {
-			sb.WriteString(payload)
-			tmp = sb.String()
+			rb.WriteString(payload)
+			tmp = rb.StringFromAnchor()
 			trackPos = append(trackPos, len(tmp))
 			fieldHasPayload = true
 			trackPosInd++
 		}
 	}
-	sb.WriteString(t.fragments[i])
-	fields = append(fields, sb.String())
+	rb.WriteString(t.fragments[i])
+	fields[fieldInd] = rb.StringFromAnchor()
 	if trackPos[trackPosInd] > 0 {
 		trackPos[trackPosInd] *= -1
 	}
 	if t.placeholders[i-1] == 0 {
 		trackPos = append(trackPos, -(len(fields[len(fields)-1]) + 1))
 	}
-	return fields, trackPos
+	return fields, trackPos, id
 }
 
-func (t *ReplaceTemplate) render3(payload string, pos int) ([]string, []int) {
+func (t *ReplaceTemplate) render3(payload string, pos int) ([]string, []int, int32) {
 	if pos < 0 || pos > len(t.placeholders) {
 		payload = ""
 	}
 	var field string
-	fields := make([]string, 0)
+	fields := make([]string, t.fieldNum)
 	trackPos := make([]int, 0)
-	sb := getStringBuilder()
-	defer putStringBuilder(sb)
+	rb, id := bp.Get()
 	i := 0
 	j := 0
+	fieldInd := 0
+	sniperFieldEnd := false
+	rb.Anchor()
 	for ; j <= pos && i < len(t.placeholders); j++ {
-		sb.WriteString(t.fragments[i])
+		rb.WriteString(t.fragments[i])
 		if t.placeholders[i] == 0 {
 			j--
-			field = sb.String()
-			fields = append(fields, field)
+			field = rb.StringFromAnchor()
+			fields[fieldInd] = field
 			trackPos = append(trackPos, -(len(field) + 1))
-			sb.Reset()
+			rb.Anchor()
+			fieldInd++
 		}
 		i++
 	}
-	sb.WriteString(payload)
-	field = sb.String()
+	rb.WriteString(payload)
+	field = rb.StringFromAnchor()
 	trackPos = append(trackPos, -(len(field)))
-	sniperFieldEnd := false
 	for ; i < len(t.placeholders); i++ {
-		sb.WriteString(t.fragments[i])
+		rb.WriteString(t.fragments[i])
 		if t.placeholders[i] == 0 {
-			field = sb.String()
-			fields = append(fields, field)
+			field = rb.StringFromAnchor()
+			fields[fieldInd] = field
 			if sniperFieldEnd {
 				trackPos = append(trackPos, -(len(field) + 1))
 			} else {
 				sniperFieldEnd = true
 			}
-			sb.Reset()
-			continue
+			rb.Anchor()
+			fieldInd++
 		}
 	}
-	sb.WriteString(t.fragments[i])
-	field = sb.String()
-	fields = append(fields, field)
+	rb.WriteString(t.fragments[i])
+	field = rb.StringFromAnchor()
+	fields[fieldInd] = field
 	if sniperFieldEnd {
 		trackPos = append(trackPos, -(len(field) + 1))
 	}
-	return fields, trackPos
+	return fields, trackPos, id
 }
 
 // GetRandMarker 生成一个长度为12为的随机字符串
@@ -343,12 +359,13 @@ func ParseReqTemplate(req *fuzzTypes.Req, keywords []string) *ReplaceTemplate {
 	return replaceTemp
 }
 
-func ReplacePayloadsByTemplate(t *ReplaceTemplate, payloads []string, sniperPos int) *fuzzTypes.Req {
+func ReplacePayloadsByTemplate(t *ReplaceTemplate, payloads []string, sniperPos int) (*fuzzTypes.Req, int32) {
 	var fields []string
+	var cacheId int32
 	if sniperPos >= 0 {
-		fields = t.render1New(payloads[0], sniperPos)
+		fields, cacheId = t.render1New(payloads[0], sniperPos)
 	} else {
-		fields = t.renderNew(payloads)
+		fields, cacheId = t.renderNew(payloads)
 	}
 	newReq := GetNewReq()
 	newReq.HttpSpec.Method = fields[0]
@@ -372,17 +389,18 @@ func ReplacePayloadsByTemplate(t *ReplaceTemplate, payloads []string, sniperPos 
 		newReq.HttpSpec.Headers = newReq.HttpSpec.Headers[:len(fields)-4]
 	}
 	newReq.Data = fields[3+i]
-	return newReq
+	return newReq, cacheId
 }
 
-func ReplacePayloadTrackTemplate(t *ReplaceTemplate, payload string, sniperPos int) (*fuzzTypes.Req, []int) {
+func ReplacePayloadTrackTemplate(t *ReplaceTemplate, payload string, sniperPos int) (*fuzzTypes.Req, []int, int32) {
 	var fields []string
 	var track []int
+	var id int32
 
 	if sniperPos >= 0 {
-		fields, track = t.render3(payload, sniperPos)
+		fields, track, id = t.render3(payload, sniperPos)
 	} else {
-		fields, track = t.render2(payload)
+		fields, track, id = t.render2(payload)
 	}
 	newReq := GetNewReq()
 	newReq.HttpSpec.Method = fields[0]
@@ -406,5 +424,9 @@ func ReplacePayloadTrackTemplate(t *ReplaceTemplate, payload string, sniperPos i
 		newReq.HttpSpec.Headers = newReq.HttpSpec.Headers[:len(fields)-4]
 	}
 	newReq.Data = fields[3+i]
-	return newReq, track
+	return newReq, track, id
+}
+
+func ReleaseReqCache(id int32) {
+	bp.Put(id)
 }
