@@ -38,7 +38,7 @@ func trySubmit(task rp.Task, fuzz1 *fuzzTypes.Fuzz) bool {
 		// 将结果队列全部消耗而不是取一个，避免陷入handleReaction->trySubmit->handleReaction->...的无限递归
 		for r := Rp.GetSingleResult(); r != nil; r = Rp.GetSingleResult() {
 			// 若确定jobStop，就可以不用再取结果了，直接返回上一层直到doFuzz，然后退出
-			if jobStop := handleReaction(r, fuzz1); jobStop {
+			if jobStop, _ := handleReaction(r, fuzz1); jobStop {
 				return jobStop
 			}
 		}
@@ -63,9 +63,10 @@ func tryGetUrlScheme(req *fuzzTypes.Req, keywords []string) string {
 }
 
 // handleReaction 根据fuzz设置处理反应
-func handleReaction(r *fuzzTypes.Reaction, fuzz1 *fuzzTypes.Fuzz) bool {
+func handleReaction(r *fuzzTypes.Reaction, fuzz1 *fuzzTypes.Fuzz) (bool, bool) {
 	defer common.PutReaction(r)
 	stopJob := false
+	addReq := false
 	if r.Flag&fuzzTypes.ReactAddJob != 0 && r.NewJob != nil {
 		k, p := stageReact.GetReactTraceInfo(r)
 		if k != nil && p != nil {
@@ -80,6 +81,7 @@ func handleReaction(r *fuzzTypes.Reaction, fuzz1 *fuzzTypes.Fuzz) bool {
 		stopJob = true
 	}
 	if r.Flag&fuzzTypes.ReactAddReq != 0 && r.NewReq != nil {
+		addReq = true
 		k, p := stageReact.GetReactTraceInfo(r)
 		newSend := (SendMetaPool.Get()).(*fuzzTypes.SendMeta)
 		newTask := func() *fuzzTypes.Reaction {
@@ -109,7 +111,7 @@ func handleReaction(r *fuzzTypes.Reaction, fuzz1 *fuzzTypes.Fuzz) bool {
 		fmt.Println("exit by react")
 		os.Exit(0)
 	}
-	return stopJob
+	return stopJob, addReq
 }
 
 // doFuzz 程序实际执行的函数
@@ -275,34 +277,46 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 			return time.Since(timeStart)
 		}
 		time.Sleep(fuzz1.Misc.DelayGranularity * time.Duration(fuzz1.Misc.Delay))
-		maxTry := 8192
 		for {
-			if maxTry == 0 {
-				break
-			}
 			if r := Rp.GetSingleResult(); r != nil {
-				jobStop = handleReaction(r, fuzz1)
+				jobStop, _ = handleReaction(r, fuzz1)
 				if jobStop {
 					return time.Since(timeStart)
 				}
 			} else {
 				break
 			}
-			maxTry--
 		}
 	}
-	for !Rp.Wait(time.Millisecond * 10) {
+	for {
+		canStop := true // canStop 标记了当前任务是否能够停止
+		// 循环1：跑到Rp等待不阻塞（也就是任务队列为空）为止
+		for !Rp.Wait(time.Millisecond * 10) {
+			for r := Rp.GetSingleResult(); r != nil; r = Rp.GetSingleResult() {
+				stopJob, addReq := handleReaction(r, fuzz1)
+				if stopJob {
+					Rp.Clear()
+					return time.Since(timeStart)
+				}
+				if addReq {
+					canStop = false
+				}
+			}
+		}
+		// 循环2：在确保任务队列为空之后，再把结果队列的结果全部消耗完毕
 		for r := Rp.GetSingleResult(); r != nil; r = Rp.GetSingleResult() {
-			if handleReaction(r, fuzz1) {
+			stopJob, addReq := handleReaction(r, fuzz1)
+			if stopJob {
 				Rp.Clear()
 				return time.Since(timeStart)
 			}
+			if addReq {
+				canStop = false
+			}
 		}
-	}
-	for r := Rp.GetSingleResult(); r != nil; r = Rp.GetSingleResult() {
-		if handleReaction(r, fuzz1) {
-			Rp.Clear()
-			return time.Since(timeStart)
+		// 若上面两个循环都跑完了，也没有添加新请求，这种情况下任务队列和结果队列均为空，没可能再有新请求，因此能停止任务
+		if canStop {
+			break
 		}
 	}
 	return time.Since(timeStart)
