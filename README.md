@@ -25,7 +25,7 @@ go build
 
 # 使用方法
 
-执行 `FuzzGIU -h` 可查看完整的命令行帮助信息：
+执行 `FuzzGIU -h` 即可查看完整的命令行帮助信息：
 
 ```powershell
 PS H:\tools\fuzz\FuzzGIU> .\FuzzGIU.exe -h
@@ -99,34 +99,6 @@ ERROR HANDLE OPTIONS:
 PLUGIN OPTIONS:
   -preproc      preprocessor plugin to be used
   -react        reactor plugin to be used
-
-SIMPLE USAGES:
-fuzz URL:
-    H:\tools\fuzz\FuzzGIU\FuzzGIU.exe -u http://test.com/FUZZ -w dict.txt::FUZZ
-
-    H:\tools\fuzz\FuzzGIU\FuzzGIU.exe -u http://test.com/MILAOGIU -w dict.txt  # use default keyword
-
-fuzz Request data:
-    H:\tools\fuzz\FuzzGIU\FuzzGIU.exe -u http://test.com -w dict.txt::FUZZ -d "test=FUZZ"
-
-use filters and matchers:
-    H:\tools\fuzz\FuzzGIU\FuzzGIU.exe -w http://test.com/FUZZ -w dic.txt::FUZZ -mc 407 -fc 403-406 \
-        -ms 123-154 -fs 10-100,120
-
-use embedded payload processor to process payload:
-    H:\tools\fuzz\FuzzGIU\FuzzGIU.exe -u http://test.com -w dict.txt::FUZZ -d "test=FUZZ" \
-        -pl-processor suffix(".txt"),base64::FUZZ  # base64 encode
-
-use embedded payload generators:
-    H:\tools\fuzz\FuzzGIU\FuzzGIU.exe -u http://test.com/FUZZ \
-        -pl-gen int(0,100,10)::FUZZ  # generate integer 0~100 with base 10
-
-use multiple fuzz keywords and keyword process mode:
-    H:\tools\fuzz\FuzzGIU\FuzzGIU.exe -u http://FUZZ1/FUZZ2 -w dic1.txt::FUZZ1 \
-        -w dic2.txt::FUZZ2  # default mode is "clusterbomb"
-
-    H:\tools\fuzz\FuzzGIU\FuzzGIU.exe -u http://FUZZ3/FUZZ4 -w dic3.txt::FUZZ3 \
-        -w dic4.txt::FUZZ4 -mode pitchfork-cycle
 ```
 
 ## 快速使用
@@ -170,11 +142,11 @@ use multiple fuzz keywords and keyword process mode:
 - **指定关键字处理模式:**
 
   ```powershell
-  # Clusterbomb 模式 (默认): 遍历所有组合
+  # clusterbomb 模式 (默认): 遍历所有组合
   .\FuzzGIU.exe -u http://FUZZHOST/FUZZPATH -w subdomains.txt::FUZZHOST -w paths.txt::FUZZPATH
   
-  # Pitchfork-Cycle 模式: 列表循环对齐
-  .\FuzzGIU.exe -u http://FUZZUSER:FUZZPASS@test.com -w usernames.txt::FUZZUSER -w passwords.txt::FUZZPASS -mode pitchfork-cycle
+  # pitchfork/pitchfork-Cycle模式: 列表循环对齐
+  .\FuzzGIU.exe -u http://FUZZUSER:FUZZPASS@test.com -w usernames.txt::FUZZUSER -w passwords.txt::FUZZPASS -mode pitchfork/pitchfork-cycle
   
   # sniper 模式: 接收单个关键字，根据其出现在请求中的位置依次替换为payload，其它位置替换为空
   .\fuzzGIU.exe -u http://test.com/FUZZ -d user=FUZZ -H Header: FUZZ -w dic.txt::FUZZ -mode sniper
@@ -436,7 +408,7 @@ fuzzGIU的插件调用遵循以下的被称为伪函数调用表达式的规则�
 3. 字符串参数使用单引号或者双引号括起来，两种都是可接受的，但是必须配对
 4. `bool`型参数使用全小写的`true`和`false`
 5. `int`型参数支持两种进制，10进制和16进制，默认按照10进制数算，但是如果无法解析为10进制（含有字母），则尝试解析为16进制数；也可显式指定16进制数，在数字前面加上`0x`前缀即可
-6. 默认参数：部分插件调用时传入默认参数，这些参数可能是fuzz过程中使用的**结构体**或者**数据**，调用语句中无需指定，工具会根据上下文自动处理，不同插件的默认参数参考下文 [插件类型与作用](#插件类型与作用) 章节。各个fuzz结构体的细节与作用可参考wiki中的 [相关章节](https://github.com/nostalgist134/FuzzGIU/wiki/FuzzGIU部分实现细节#模糊测试相关结构体)
+6. 默认参数：部分插件调用时传入默认参数，这些参数可能是fuzz过程中使用的**结构体**或者**数据**，调用函数表达式中无需指定，工具会根据上下文自动处理，不同插件的默认参数参考下文 [插件类型与作用](#插件类型与作用) 章节。各个fuzz结构体的细节与作用可参考wiki中的 [相关章节](https://github.com/nostalgist134/FuzzGIU/wiki/FuzzGIU部分实现细节#模糊测试相关结构体)
 7. 自定义参数：在默认参数之外，插件开发者可以在插件中指定任意不违反操作系统限制的数量的自定义参数，扩展插件的功能，这些参数实际上就是通过规则1中的参数列表传入
 
 无论是内置的组件还是自定义的插件都根据这些规则来进行带参调用。工具会将函数名作为插件名，到`./plugins/[插件类型]`目录下找到对应名字的动态链接库并调用。
