@@ -27,7 +27,7 @@ var SendMetaPool = sync.Pool{
 // Rp 协程池指针
 var Rp *rp.RoutinePool
 
-// trySubmit 尝试提交任务，若提交失败，则先从队列中取出一个结果并处理，再提交
+// trySubmit 尝试提交任务，若提交失败，则先从队列中取出所有结果并处理，再提交
 func trySubmit(task rp.Task, fuzz1 *fuzzTypes.Fuzz) bool {
 	for !Rp.Submit(task, time.Millisecond*10) {
 		// 若处于暂停状态，则不消耗结果
@@ -112,6 +112,42 @@ func handleReaction(r *fuzzTypes.Reaction, fuzz1 *fuzzTypes.Fuzz) (bool, bool) {
 		os.Exit(0)
 	}
 	return stopJob, addReq
+}
+
+// drainRp 消耗协程池中的所有任务和结果
+func drainRp(fuzz1 *fuzzTypes.Fuzz) bool {
+	for {
+		canStop := true // canStop 标记了结果是否已经消耗完毕
+		// 循环1：跑到Rp等待不阻塞（也就是任务队列为空）为止
+		for !Rp.Wait(time.Millisecond * 10) {
+			for r := Rp.GetSingleResult(); r != nil; r = Rp.GetSingleResult() {
+				stopJob, addReq := handleReaction(r, fuzz1)
+				if stopJob {
+					Rp.Clear()
+					return true
+				}
+				if addReq {
+					canStop = false
+				}
+			}
+		}
+		// 循环2：在确保任务队列为空之后，再把结果队列的结果全部消耗完毕
+		for r := Rp.GetSingleResult(); r != nil; r = Rp.GetSingleResult() {
+			stopJob, addReq := handleReaction(r, fuzz1)
+			if stopJob {
+				Rp.Clear()
+				return true
+			}
+			if addReq {
+				canStop = false
+			}
+		}
+		// 若上面两个循环都跑完了，也没有添加新请求，这种情况下任务队列和结果队列均为空，没可能再有新请求，因此视作结果消耗完毕
+		if canStop {
+			break
+		}
+	}
+	return false
 }
 
 // doFuzz 程序实际执行的函数
@@ -203,6 +239,7 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 		if fuzz1.Preprocess.Mode == "clusterbomb" && fuzz1.React.RecursionControl.MaxRecursionDepth <= 0 {
 			curInd = i
 		}
+		// 根据模式生成任务
 		if fuzz1.Preprocess.Mode != "sniper" && fuzz1.React.RecursionControl.MaxRecursionDepth <= 0 {
 			for j := 0; j < len(keywords); j++ { // 遍历keywords列表，根据i选出每个关键字对应的payload
 				switch fuzz1.Preprocess.Mode {
@@ -277,48 +314,15 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 			return time.Since(timeStart)
 		}
 		time.Sleep(fuzz1.Misc.DelayGranularity * time.Duration(fuzz1.Misc.Delay))
-		for {
-			if r := Rp.GetSingleResult(); r != nil {
-				jobStop, _ = handleReaction(r, fuzz1)
-				if jobStop {
-					return time.Since(timeStart)
-				}
-			} else {
-				break
-			}
-		}
-	}
-	for {
-		canStop := true // canStop 标记了当前任务是否能够停止
-		// 循环1：跑到Rp等待不阻塞（也就是任务队列为空）为止
-		for !Rp.Wait(time.Millisecond * 10) {
-			for r := Rp.GetSingleResult(); r != nil; r = Rp.GetSingleResult() {
-				stopJob, addReq := handleReaction(r, fuzz1)
-				if stopJob {
-					Rp.Clear()
-					return time.Since(timeStart)
-				}
-				if addReq {
-					canStop = false
-				}
-			}
-		}
-		// 循环2：在确保任务队列为空之后，再把结果队列的结果全部消耗完毕
+		// 任务提交后，从结果队列中取出所有结果并处理
 		for r := Rp.GetSingleResult(); r != nil; r = Rp.GetSingleResult() {
-			stopJob, addReq := handleReaction(r, fuzz1)
-			if stopJob {
-				Rp.Clear()
+			jobStop, _ = handleReaction(r, fuzz1)
+			if jobStop {
 				return time.Since(timeStart)
 			}
-			if addReq {
-				canStop = false
-			}
-		}
-		// 若上面两个循环都跑完了，也没有添加新请求，这种情况下任务队列和结果队列均为空，没可能再有新请求，因此能停止任务
-		if canStop {
-			break
 		}
 	}
+	drainRp(fuzz1)
 	return time.Since(timeStart)
 }
 
