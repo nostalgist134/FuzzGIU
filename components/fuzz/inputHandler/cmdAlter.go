@@ -47,26 +47,31 @@ var addableObjects = []string{
 	"fuzz.React.Matcher.Size",
 }
 
-var ErrMissingAlterOper = errors.New("missing alter operation(add/set)")
-var ErrMissingAlterName = errors.New("missing alter field name")
-var ErrPtrNotAssignable = errors.New("ptr not assignable")
-var ErrSlicePtrUnsupport = errors.New("slice type unsupported")
+var (
+	errMissingAlterOper  = errors.New("missing alter operation(add/set)")
+	errMissingAlterName  = errors.New("missing alter object name")
+	errPtrNotAssignable  = errors.New("ptr not assignable")
+	errSlicePtrUnsupport = errors.New("slice type unsupported")
+	errInvalidPath       = errors.New("invalid path")
+	errNonPointer        = errors.New("value must be a pointer")
+	errNonStruPointer    = errors.New("value must point to a struct")
+)
 
 func getFieldAddress(v any, path string) (any, error) {
 	// 检查v是否为指针类型
 	val := reflect.ValueOf(v)
 	if val.Kind() != reflect.Ptr {
-		return nil, errors.New("v must be a pointer to struct")
+		return nil, errNonPointer
 	}
 	// 获取指针指向的元素（结构体）
 	val = val.Elem()
 	if val.Kind() != reflect.Struct {
-		return nil, errors.New("v must point to a struct")
+		return nil, errNonStruPointer
 	}
 	// 分割路径
 	fields := strings.Split(path, ".")
 	if len(fields) < 2 {
-		return nil, errors.New("invalid path")
+		return nil, errInvalidPath
 	}
 	fields = fields[1:]
 	// 逐层解析字段
@@ -79,20 +84,32 @@ func getFieldAddress(v any, path string) (any, error) {
 		if val.Kind() != reflect.Struct {
 			return nil, fmt.Errorf("field %s is not a struct", strings.Join(fields[:i+1], "."))
 		}
-		// 获取字段
-		field := val.FieldByName(fieldName)
-		if !field.IsValid() {
-			return nil, fmt.Errorf("field %s not found", strings.Join(fields[:i+1], "."))
+		// 大小写不敏感地查找字段
+		field, err := findFieldCaseInsensitive(val.Type(), fieldName)
+		if err != nil {
+			return nil, fmt.Errorf("field %s not found: %v", strings.Join(fields[:i+1], "."), err)
 		}
+		// 获取字段值
+		val = val.FieldByIndex(field.Index)
 		// 最后一个字段需要可寻址才能获取地址
-		if i == len(fields)-1 && !field.CanAddr() {
+		if i == len(fields)-1 && !val.CanAddr() {
 			return nil, fmt.Errorf("field %s is not addressable", path)
 		}
-		// 移动到下一层字段
-		val = field
 	}
 	// 获取最后一个字段的地址
 	return val.Addr().Interface(), nil
+}
+
+// findFieldCaseInsensitive 大小写不敏感地查找结构体字段
+func findFieldCaseInsensitive(t reflect.Type, fieldName string) (reflect.StructField, error) {
+	fieldNameLower := strings.ToLower(fieldName)
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		if strings.ToLower(field.Name) == fieldNameLower {
+			return field, nil
+		}
+	}
+	return reflect.StructField{}, errors.New("field not found")
 }
 
 func bytes2Ranges(b []byte) []fuzzTypes.Range {
@@ -130,13 +147,14 @@ func assignToPtr(ptr any, data []byte) error {
 		}
 		*actual = slic
 	case *int:
-		i, err := strconv.ParseInt(dataString, 10, 64)
+		// 纯你妈傻逼，带个\n就parse不了了，垃圾go语言
+		i, err := strconv.ParseInt(strings.TrimSpace(dataString), 10, 64)
 		if err != nil {
 			return err
 		}
 		*actual = int(i)
 	case *time.Duration:
-		d, err := strconv.ParseInt(dataString, 10, 64)
+		d, err := strconv.ParseInt(strings.TrimSpace(dataString), 10, 64)
 		if err != nil {
 			return err
 		}
@@ -144,7 +162,7 @@ func assignToPtr(ptr any, data []byte) error {
 	case *[]fuzzTypes.Range:
 		*actual = bytes2Ranges(data)
 	default:
-		return ErrPtrNotAssignable
+		return errPtrNotAssignable
 	}
 	return nil
 }
@@ -166,7 +184,7 @@ func addToSlicePtr(ptr any, data []byte) error {
 		}
 		*actual = append(*actual, ranges...)
 	default:
-		return ErrSlicePtrUnsupport
+		return errSlicePtrUnsupport
 	}
 	return nil
 }
@@ -203,10 +221,10 @@ func alter(args []string, data []byte) (any, error) {
 	curFuzz = fuzzCommon.GetCurFuzz()
 	defer output.UpdateScreenInfoPage(curFuzz)
 	if len(args) == 0 {
-		return nil, ErrMissingAlterOper
+		return nil, errMissingAlterOper
 	}
 	if len(args) == 1 {
-		return nil, ErrMissingAlterName
+		return nil, errMissingAlterName
 	}
 	var err error
 	switch strings.ToLower(args[0]) {

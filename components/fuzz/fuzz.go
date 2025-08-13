@@ -32,6 +32,10 @@ var Rp *rp.RoutinePool
 // trySubmit 尝试提交任务，若提交失败，则先从队列中取出所有结果并处理，再提交
 func trySubmit(task rp.Task, fuzz1 *fuzzTypes.Fuzz) bool {
 	for !Rp.Submit(task, time.Millisecond*10) {
+		// 处理外部输入
+		if handleInputStack(fuzz1) {
+			return true
+		}
 		// 若处于暂停状态，则不消耗结果
 		if Rp.Status() == rp.StatPause {
 			time.Sleep(10 * time.Millisecond)
@@ -62,6 +66,22 @@ func tryGetUrlScheme(req *fuzzTypes.Req, keywords []string) string {
 		}
 	}
 	return scheme
+}
+
+func handleInputStack(fuzz1 *fuzzTypes.Fuzz) bool {
+	for inp, hasInput := input.GetSingleInput(); hasInput; inp, hasInput = input.GetSingleInput() {
+		drainRp(fuzz1)
+		if err := inputHandler.HandleInput(inp); err != nil {
+			// 停止当前任务
+			if errors.Is(err, fuzzCommon.ErrJobStop) {
+				output.Logf(common.OutputToWhere, "job stopped by %v", inp.Peer.RemoteAddr())
+				Rp.Clear()
+				return true
+			}
+			output.Logf(common.OutputToWhere, "input error: %v", err)
+		}
+	}
+	return false
 }
 
 // handleReaction 根据fuzz设置处理反应
@@ -222,8 +242,6 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 	}
 	// 预解析url的scheme
 	uScheme := tryGetUrlScheme(&fuzz1.Preprocess.ReqTemplate, keywords)
-	var inp *input.Input
-	var hasInput bool
 	// 主循环
 	for i := int64(0); i < loopLen; i++ {
 		send := (SendMetaPool.Get()).(*fuzzTypes.SendMeta)
@@ -322,21 +340,14 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 		for r := Rp.GetSingleResult(); r != nil; r = Rp.GetSingleResult() {
 			jobStop, _ = handleReaction(r, fuzz1)
 			if jobStop {
+				Rp.Clear()
 				return time.Since(timeStart)
 			}
 		}
 		// 处理外部输入
-		for inp, hasInput = input.GetSingleInput(); hasInput; inp, hasInput = input.GetSingleInput() {
-			drainRp(fuzz1)
-			if err := inputHandler.HandleInput(inp); err != nil {
-				// 停止当前任务
-				if errors.Is(err, fuzzCommon.ErrJobStop) {
-					output.Logf(common.OutputToWhere, "job stopped by %v", inp.Peer.RemoteAddr())
-					Rp.Clear()
-					return time.Since(timeStart)
-				}
-				output.Logf(common.OutputToWhere, "input error: %v", err)
-			}
+		if handleInputStack(fuzz1) {
+			Rp.Clear()
+			return time.Since(timeStart)
 		}
 	}
 	drainRp(fuzz1)

@@ -69,7 +69,7 @@ func handleClient(conn net.Conn) {
 	for {
 		rawInput, err := readRawInput(conn)
 		if err != nil && err != io.EOF {
-			output.Logf(common.OutputToWhere, "error when reading input for %v", conn.RemoteAddr())
+			output.Logf(common.OutputToWhere, "error when reading input for %v: %v", conn.RemoteAddr(), err)
 			conn.Write([]byte(fmt.Sprintf("error: %v. please try again\n", err)))
 			continue
 		} else if len(rawInput) == 0 || err == io.EOF { // 若接收到全空行或EOF，则退出当前连接

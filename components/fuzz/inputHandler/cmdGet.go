@@ -25,12 +25,10 @@ func getFieldValue(data any, path string) (any, error) {
 	parts = parts[1:]
 	// 获取反射值
 	val := reflect.ValueOf(data)
-
 	// 如果是指针类型，获取其指向的值
 	for val.Kind() == reflect.Ptr {
 		val = val.Elem()
 	}
-
 	// 遍历路径的每个部分
 	for _, part := range parts {
 		// 检查当前值是否为结构体

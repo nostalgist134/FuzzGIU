@@ -14,18 +14,11 @@ import (
 type cmdFun func(args []string, data []byte) (any, error)
 
 var availableCommands = map[string]cmdFun{
-	"get":        get,
-	"alter":      alter,
-	"exit":       exit,
-	"job":        job,
-	"poolctrl":   poolCtrl,
-	"endsession": endSession,
-}
-
-var errSessionEnd = errors.New("bye")
-
-func endSession([]string, []byte) (any, error) {
-	return nil, errSessionEnd
+	"get":      get,
+	"alter":    alter,
+	"exit":     exit,
+	"job":      job,
+	"poolctrl": poolCtrl,
 }
 
 func exit([]string, []byte) (any, error) {
@@ -42,10 +35,6 @@ func outputToPeer(data any, err error, peer net.Conn) {
 			peer.Write([]byte("now exiting\n"))
 			fmt.Printf("exit via remote %v\n", peer.RemoteAddr())
 			os.Exit(0)
-		case errors.Is(err, errSessionEnd):
-			peer.Write([]byte{'b', 'y', 'e', '!'})
-			peer.Close()
-			return
 		default:
 			peer.Write([]byte(fmt.Sprintf("{\"error\":%q}\n", err)))
 			return
