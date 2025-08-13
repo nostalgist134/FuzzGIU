@@ -8,9 +8,9 @@ import (
 	"strings"
 )
 
-var gettableObjects = map[string]any{
-	"fuzz": fuzzCommon.GetCurFuzz(),
-	"JQ":   fuzzCommon.GetJQ(),
+var gettableObjects = []string{
+	"fuzz",
+	"jq",
 }
 
 var ErrMissingObjName = errors.New("missing object name to get")
@@ -66,10 +66,11 @@ func getFieldValue(data any, path string) (any, error) {
 func getObjByName(name string) (any, error) {
 	lowerName := strings.ToLower(name)
 	// 在gettableObjects中寻找
-	for k, v := range gettableObjects {
-		if strings.ToLower(k) == lowerName {
-			return v, nil
-		}
+	switch lowerName {
+	case gettableObjects[0]:
+		return fuzzCommon.GetCurFuzz(), nil
+	case gettableObjects[1]:
+		return fuzzCommon.GetJQ(), nil
 	}
 	switch {
 	case lowerName == "jqlen": // 动态获取JQ（任务列表）的长度并返回

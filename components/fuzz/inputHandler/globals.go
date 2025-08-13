@@ -1,3 +1,3 @@
 package inputHandler
 
-var bytesOk = []byte{'o', 'k'}
+var bytesOk = []byte{'o', 'k', '\n'}
