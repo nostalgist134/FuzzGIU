@@ -42,6 +42,8 @@ type (
 		Timeout          int    `json:"timeout,omitempty"`
 		Delay            int    `json:"delay,omitempty"`
 		DelayGranularity string `json:"delay_granularity,omitempty"`
+		Input            bool   `json:"input,omitempty"`
+		InputAddr        string `json:"input_addr,omitempty"`
 	}
 	RecursionControl struct {
 		Recursion         bool   `json:"recursion,omitempty"`

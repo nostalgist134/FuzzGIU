@@ -2,6 +2,7 @@ package output
 
 import (
 	"encoding/xml"
+	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/nostalgist134/FuzzGIU/components/output/common"
 	fo "github.com/nostalgist134/FuzzGIU/components/output/fileOutput"
@@ -21,6 +22,8 @@ type ObjectOutput struct {
 
 var distinctLogs = sync.Map{}
 
+var pendingLogs = make([]string, 0)
+
 // InitOutput 初始化输出。此函数不能在多协程调用
 func InitOutput(globInfo *fuzzTypes.Fuzz, toWhere int32) {
 	// 将输出设置调整为传入的输出设置
@@ -33,6 +36,11 @@ func InitOutput(globInfo *fuzzTypes.Fuzz, toWhere int32) {
 	}
 	if toWhere&OutToNativeStdout != 0 {
 		native.InitOutputStdout()
+	}
+	if len(pendingLogs) > 0 {
+		for _, log := range pendingLogs {
+			Log(toWhere, log)
+		}
 	}
 }
 
@@ -95,7 +103,8 @@ func ClearTaskCounter() {
 	common.ClearTaskCounter()
 }
 
-func Log(log string, toWhere int32) {
+// Log 记录日志，支持标准输出或termui，暂不支持文件
+func Log(toWhere int32, log string) {
 	if toWhere&OutToNativeStdout != 0 {
 		native.Log(log)
 	}
@@ -104,9 +113,22 @@ func Log(log string, toWhere int32) {
 	}
 }
 
+// Logf 格式化输出日志
+func Logf(toWhere int32, fmtLog string, a ...any) {
+	Log(toWhere, fmt.Sprintf(fmtLog, a...))
+}
+
+// PendLog 在init函数调用前记录日志，在init完成后一次性推送，若已经调用了init函数，则不能再使用此函数输出日志
+func PendLog(log string) {
+	if log != "" {
+		pendingLogs = append(pendingLogs, log)
+	}
+}
+
+// LogOnce 只记录一次相同的日志
 func LogOnce(log string, toWhere int32) {
 	if _, ok := distinctLogs.LoadOrStore(log, 1); !ok {
-		Log(log, toWhere)
+		Log(toWhere, log)
 	}
 	return
 }
@@ -121,4 +143,8 @@ func WaitForScreenQuit() {
 
 func ScreenClose() {
 	so.ScreenClose()
+}
+
+func UpdateScreenInfoPage(newInfo *fuzzTypes.Fuzz) {
+	so.UpdateGlobInfo(newInfo)
 }

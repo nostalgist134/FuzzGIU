@@ -32,6 +32,8 @@ func ParseOptCmdline() *Opt {
 	flag.IntVar(&general.Timeout, "timeout", 10, "timeout(second)")
 	flag.IntVar(&general.Delay, "delay", 0, "delay between each job submission")
 	flag.StringVar(&general.DelayGranularity, "delay-gran", "ms", "delay granularity(ns/us/ms/s")
+	flag.BoolVar(&general.Input, "input", false, "enable input")
+	flag.StringVar(&general.InputAddr, "in-addr", "127.0.0.1:11451", "input listen address")
 	// 响应匹配器
 	flag.StringVar(&matcher.Code, "mc", "200,204,301,302,307,401,403,405,500",
 		"match status code from response")
@@ -52,9 +54,9 @@ func ParseOptCmdline() *Opt {
 	flag.StringVar(&filter.Words, "fw", "", "filter amount of words in response")
 	flag.StringVar(&filter.Lines, "fl", "", "filter amount of lines in response")
 	// 请求设置
-	flag.StringVar(&request.Method, "X", "GET", "request method")
-	flag.Var(&request.Cookies, "b", "Cookies")
-	flag.Var(&request.Headers, "H", "request headers to be used")
+	flag.StringVar(&request.Method, "X", "GET", "http method")
+	flag.Var(&request.Cookies, "b", "http cookies")
+	flag.Var(&request.Headers, "H", "http headers to be used")
 	flag.BoolVar(&request.HTTP2, "http2", false, "force http2")
 	flag.BoolVar(&request.FollowRedirect, "F", false, "follow redirects")
 	flag.BoolVar(&request.HTTPS, "s", false, "force https")

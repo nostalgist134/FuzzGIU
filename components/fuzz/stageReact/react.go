@@ -1,7 +1,6 @@
 package stageReact
 
 import (
-	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/common"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/nostalgist134/FuzzGIU/components/output"
@@ -96,7 +95,7 @@ func React(fuzz1 *fuzzTypes.Fuzz, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 		(resp.HttpResponse != nil &&
 			valInRanges(resp.HttpResponse.StatusCode, fuzz1.React.RecursionControl.StatCodes) ||
 			common.RegexMatch(resp.RawResponse, fuzz1.React.RecursionControl.Regex)) && recursionPos != nil {
-		output.Log(fmt.Sprintf("payload %s recursive, add new job", payloadEachKeyword[0]), common.OutputToWhere)
+		output.Logf(common.OutputToWhere, "payload %s recursive, add new job", payloadEachKeyword[0])
 		recKeyword := fuzz1.React.RecursionControl.Keyword
 		splitter := fuzz1.React.RecursionControl.Splitter
 		recursionJob = common.CopyFuzz(fuzz1)

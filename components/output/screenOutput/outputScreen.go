@@ -159,3 +159,11 @@ func ScreenClose() {
 	outputHasInit.Store(false)
 	ui.Close()
 }
+
+func UpdateGlobInfo(newInfo *fuzzTypes.Fuzz) {
+	if newInfo == nil {
+		return
+	}
+	screenOutput.globInfo.setLines(genInfoLines(newInfo))
+	screenOutput.globInfo.render(titleGlobInfo)
+}

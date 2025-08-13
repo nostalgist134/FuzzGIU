@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/fuzz/stageSend"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
+	"github.com/nostalgist134/FuzzGIU/components/input"
 	"github.com/nostalgist134/FuzzGIU/components/options"
+	"github.com/nostalgist134/FuzzGIU/components/output"
 	"github.com/nostalgist134/FuzzGIU/components/plugin"
 	"os"
 	"strconv"
@@ -223,10 +225,18 @@ func opt2fuzz(opt *options.Opt) *fuzzTypes.Fuzz {
 	fuzz.Misc.PoolSize = opt.General.RoutinePoolSize
 	fuzz.Misc.Delay = opt.General.Delay
 	fuzz.Misc.DelayGranularity = getDelayGranularity(opt.General.DelayGranularity)
+	if input.Enabled = opt.General.Input; input.Enabled {
+		err := input.InitInput(opt.General.InputAddr)
+		if err != nil {
+			output.PendLog(fmt.Sprintf("failed to init input: %v", err))
+			input.Enabled = false
+		}
+	}
 	// opt.Request
 	var req *fuzzTypes.Req
 	var raw []byte
 	var err error
+	stageSend.HTTPRandomAgent = opt.Request.RandomAgent
 	// 指定从文件中读取请求结构（req结构的json或者http请求）
 	if opt.General.ReqFile != "" {
 		req, raw, err = parseRequestFile(opt.General.ReqFile)
@@ -333,6 +343,5 @@ func opt2fuzz(opt *options.Opt) *fuzzTypes.Fuzz {
 			break
 		}
 	}
-	stageSend.HTTPRandomAgent = opt.Request.RandomAgent
 	return fuzz
 }

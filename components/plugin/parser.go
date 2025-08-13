@@ -9,7 +9,7 @@ import (
 )
 
 func unexpectedTokenError(i int, r rune) {
-	output.Log("failed to parse plugin string: unexpected token \"%v\" at index %d", common.OutputToWhere)
+	output.Logf(common.OutputToWhere, "failed to parse plugin string: unexpected token \"%v\" at index %d", r, i)
 }
 
 // parseArgStr 识别插件的参数

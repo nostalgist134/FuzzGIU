@@ -1,24 +1,27 @@
 package input
 
 import (
+	"net"
 	"sync"
 )
 
 type Input struct {
-	cmd  string
-	args []string
-	data []byte
+	Cmd  string
+	Args []string
+	Data []byte
+	Peer net.Conn
 }
 
-type controlQueue struct {
-	list       []Input
-	listCursor int
-	mu         sync.Mutex
+type inputStack struct {
+	list   []*Input
+	cursor int
+	mu     sync.Mutex
 }
 
-var globCq = new(controlQueue)
+var inputStk = new(inputStack)
+
+var Enabled bool
 
 func init() {
-	globCq.list = make([]Input, 0)
-	globCq.listCursor = -1
+	inputStk.init(64)
 }

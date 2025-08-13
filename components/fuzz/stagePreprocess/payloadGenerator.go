@@ -2,7 +2,6 @@ package stagePreprocess
 
 import (
 	"bufio"
-	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/common"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/nostalgist134/FuzzGIU/components/output"
@@ -37,7 +36,7 @@ func getPayloadsWordlist(files []string) []string {
 	for _, file := range files {
 		lines, err := readLines(file)
 		if err != nil {
-			output.Log(fmt.Sprintf("read file %s failed - %v", file, err), common.OutputToWhere)
+			output.Logf(common.OutputToWhere, "read file %s failed - %v", file, err)
 			continue
 		}
 		payloads = append(payloads, lines...)
@@ -146,7 +145,7 @@ func GeneratePayloads(payloadGenerator fuzzTypes.PlGen) []string {
 	case "plugin": // plugin类型的generator
 		payloads = generatePayloadsPlugin(generators)
 	default:
-		output.Log(fmt.Sprintf("unsupported generator type [%s]", generatorType), common.OutputToWhere)
+		output.Logf(common.OutputToWhere, "unsupported generator type [%s]", generatorType)
 		payloads = []string{""}
 	}
 	// patchLog#3: 修改了payloadGenerator逻辑使得即使生成的payload列表为空也至少会传入一个空字符串，避免doFuzz主循环中curInd为0

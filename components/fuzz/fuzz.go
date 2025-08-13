@@ -1,12 +1,16 @@
 package fuzz
 
 import (
+	"errors"
 	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/common"
+	"github.com/nostalgist134/FuzzGIU/components/fuzz/fuzzCommon"
+	"github.com/nostalgist134/FuzzGIU/components/fuzz/inputHandler"
 	"github.com/nostalgist134/FuzzGIU/components/fuzz/stagePreprocess"
 	"github.com/nostalgist134/FuzzGIU/components/fuzz/stageReact"
 	"github.com/nostalgist134/FuzzGIU/components/fuzz/stageSend"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
+	"github.com/nostalgist134/FuzzGIU/components/input"
 	"github.com/nostalgist134/FuzzGIU/components/output"
 	"github.com/nostalgist134/FuzzGIU/components/rp"
 	"net/http"
@@ -17,9 +21,7 @@ import (
 	"time"
 )
 
-type JobQueue []*fuzzTypes.Fuzz
-
-var JQ JobQueue = make([]*fuzzTypes.Fuzz, 0)
+var JQ fuzzCommon.JobQueue = make([]*fuzzTypes.Fuzz, 0)
 var SendMetaPool = sync.Pool{
 	New: func() any { return new(fuzzTypes.SendMeta) },
 }
@@ -70,14 +72,14 @@ func handleReaction(r *fuzzTypes.Reaction, fuzz1 *fuzzTypes.Fuzz) (bool, bool) {
 	if r.Flag&fuzzTypes.ReactAddJob != 0 && r.NewJob != nil {
 		k, p := stageReact.GetReactTraceInfo(r)
 		if k != nil && p != nil {
-			output.Log(fmt.Sprintf("task with %s:%s added job", k, p), common.OutputToWhere)
+			output.Logf(common.OutputToWhere, "task with %s:%s added job", k, p)
 		}
 		JQ.AddJob(r.NewJob)
 		// job 总数加1
 		output.SetJobCounter(output.GetCounterSingle(output.TotalJob) + 1)
 	}
 	if r.Flag&fuzzTypes.ReactStopJob != 0 {
-		output.Log("job stopped by react", common.OutputToWhere)
+		output.Log(common.OutputToWhere, "job stopped by react")
 		stopJob = true
 	}
 	if r.Flag&fuzzTypes.ReactAddReq != 0 && r.NewReq != nil {
@@ -152,12 +154,12 @@ func drainRp(fuzz1 *fuzzTypes.Fuzz) bool {
 
 // doFuzz 程序实际执行的函数
 func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
+	fuzzCommon.SetCurFuzz(fuzz1)
 	timeStart := time.Now()
 	// 判断递归深度
 	if fuzz1.React.RecursionControl.RecursionDepth > fuzz1.React.RecursionControl.MaxRecursionDepth {
 		return time.Since(timeStart)
 	}
-
 	// 初始化协程池
 	if Rp == nil {
 		Rp = rp.New(fuzz1.Misc.PoolSize)
@@ -172,7 +174,7 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 	loopLen := int64(1)
 	// 计算长度(loopLen)
 	if len(fuzz1.Preprocess.PlTemp) == 0 {
-		output.Log(fmt.Sprintf("job#%d has no fuzz keyword, skip", jobId), common.OutputToWhere)
+		output.Logf(common.OutputToWhere, "job#%d has no fuzz keyword, skip", jobId)
 		return time.Since(timeStart)
 	}
 	for keyword, pt := range fuzz1.Preprocess.PlTemp {
@@ -220,6 +222,8 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 	}
 	// 预解析url的scheme
 	uScheme := tryGetUrlScheme(&fuzz1.Preprocess.ReqTemplate, keywords)
+	var inp *input.Input
+	var hasInput bool
 	// 主循环
 	for i := int64(0); i < loopLen; i++ {
 		send := (SendMetaPool.Get()).(*fuzzTypes.SendMeta)
@@ -321,18 +325,28 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 				return time.Since(timeStart)
 			}
 		}
+		// 处理外部输入
+		for inp, hasInput = input.GetSingleInput(); hasInput; inp, hasInput = input.GetSingleInput() {
+			drainRp(fuzz1)
+			if err := inputHandler.HandleInput(inp); err != nil {
+				// 停止当前任务
+				if errors.Is(err, fuzzCommon.ErrJobStop) {
+					output.Logf(common.OutputToWhere, "job stopped by %v", inp.Peer.RemoteAddr())
+					Rp.Clear()
+					return time.Since(timeStart)
+				}
+				output.Logf(common.OutputToWhere, "input error: %v", err)
+			}
+		}
 	}
 	drainRp(fuzz1)
 	return time.Since(timeStart)
 }
 
-func (jq *JobQueue) AddJob(fuzz *fuzzTypes.Fuzz) {
-	*jq = append(*jq, fuzz)
-}
-
 func DoJobs() {
 	output.SetJobCounter(int64(len(JQ)))
 	defer output.ScreenClose()
+	fuzzCommon.SetJQ(&JQ)
 	i := 0
 	toWhereShadow := int32(0)
 	for ; i < len(JQ); i++ {
@@ -355,9 +369,9 @@ func DoJobs() {
 		}
 		output.FinishOutput(toWhereShadow)
 		output.AddJobCounter()
-		output.Log(fmt.Sprintf("Job#%d completed, time %v", i, timeLapsed), toWhereShadow)
+		output.Logf(toWhereShadow, "Job#%d completed, time %v", i, timeLapsed)
 	}
-	output.Log("All jobs completed", toWhereShadow)
+	output.Log(toWhereShadow, "All jobs completed")
 	output.WaitForScreenQuit()
 }
 
