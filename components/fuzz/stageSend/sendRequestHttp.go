@@ -124,7 +124,19 @@ var cliPool = sync.Pool{
 	},
 }
 
-// 初始化 Http 客户端，设置代理、超时、重定向等
+func getTrPxy(tr *http.Transport) string {
+	if tr.Proxy == nil {
+		return ""
+	}
+	foo := http.Request{}
+	u, err := tr.Proxy(&foo)
+	if err != nil {
+		return ""
+	}
+	return u.String()
+}
+
+// initHttpCli 初始化 Http 客户端，设置代理、超时、重定向等
 func initHttpCli(proxy string, timeout int, redirect bool, httpVer string,
 	redirectChain *string) (*http.Client, error) {
 	// 从池中获取一个 http.Client
@@ -140,33 +152,46 @@ func initHttpCli(proxy string, timeout int, redirect bool, httpVer string,
 	}
 	tr, ok := cli.Transport.(*http.Transport)
 	// 目前的缓解措施，只能关闭连接并新建transport，不过这样会导致速度变得非常非常慢（差不多变为1/5），而且cpu上升非常快
-	if ok {
-		tr.CloseIdleConnections()
-	}
-	tr = &http.Transport{
-		DialContext: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).DialContext,
-		MaxIdleConns:          0,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
-		ExpectContinueTimeout: 1 * time.Second,
-	}
-	tr.ForceAttemptHTTP2 = forceHttp2
-	// 设置代理
-	if proxy != "" {
-		proxyUrl, err := url.Parse(proxy)
-		if err != nil {
-			return nil, err
+	if !ok {
+		tr = &http.Transport{
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+			MaxIdleConns:          50,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
+			ExpectContinueTimeout: 1 * time.Second,
 		}
-		tr.Proxy = http.ProxyURL(proxyUrl)
 	} else {
-		tr.Proxy = nil
+		if forceHttp2 != tr.ForceAttemptHTTP2 || getTrPxy(tr) != proxy {
+			tr.CloseIdleConnections()
+			tr = &http.Transport{
+				DialContext: (&net.Dialer{
+					Timeout:   30 * time.Second,
+					KeepAlive: 30 * time.Second,
+				}).DialContext,
+				MaxIdleConns:          50,
+				IdleConnTimeout:       90 * time.Second,
+				TLSHandshakeTimeout:   10 * time.Second,
+				TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
+				ExpectContinueTimeout: 1 * time.Second,
+				ForceAttemptHTTP2:     forceHttp2,
+			}
+			// 设置代理
+			if proxy != "" {
+				proxyUrl, err := url.Parse(proxy)
+				if err != nil {
+					return nil, err
+				}
+				tr.Proxy = http.ProxyURL(proxyUrl)
+			} else {
+				tr.Proxy = nil
+			}
+		}
 	}
 	cli.Transport = tr
-
 	// 是否跟随重定向
 	cli.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 		if !redirect {
