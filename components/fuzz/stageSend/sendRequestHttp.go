@@ -120,20 +120,7 @@ func buildRawHTTPResponse(resp *http.Response) ([]byte, error) {
 
 var cliPool = sync.Pool{
 	New: func() any {
-		transport := &http.Transport{
-			DialContext: (&net.Dialer{
-				Timeout:   30 * time.Second,
-				KeepAlive: 30 * time.Second,
-			}).DialContext,
-			MaxIdleConns:          100,
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
-			ExpectContinueTimeout: 1 * time.Second,
-		}
-		return &http.Client{
-			Transport: transport,
-		}
+		return new(http.Client)
 	},
 }
 
@@ -151,15 +138,17 @@ func initHttpCli(proxy string, timeout int, redirect bool, httpVer string,
 	} else {
 		forceHttp2 = true
 	}
-	tr := cli.Transport.(*http.Transport)
-	// 目前的缓解措施，只能新建transport，不过这样会导致速度变得非常非常慢（差不多变为1/5），而且cpu上升非常快
-	tr.CloseIdleConnections()
+	tr, ok := cli.Transport.(*http.Transport)
+	// 目前的缓解措施，只能关闭连接并新建transport，不过这样会导致速度变得非常非常慢（差不多变为1/5），而且cpu上升非常快
+	if ok {
+		tr.CloseIdleConnections()
+	}
 	tr = &http.Transport{
 		DialContext: (&net.Dialer{
 			Timeout:   30 * time.Second,
 			KeepAlive: 30 * time.Second,
 		}).DialContext,
-		MaxIdleConns:          100,
+		MaxIdleConns:          0,
 		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},

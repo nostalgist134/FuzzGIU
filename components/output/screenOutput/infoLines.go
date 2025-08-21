@@ -14,7 +14,7 @@ func splitLines(s string) []string {
 
 func ranges2String(ranges []fuzzTypes.Range) string {
 	if len(ranges) == 0 {
-		return "[]"
+		return "[nil]"
 	}
 	sb := strings.Builder{}
 	sb.WriteByte('[')
@@ -32,6 +32,13 @@ func ranges2String(ranges []fuzzTypes.Range) string {
 	return sb.String()
 }
 
+func retNilStr(s string) string {
+	if s == "" {
+		return "[nil]"
+	}
+	return s
+}
+
 // match2Lines 将fuzzTypes.Match结构转化为行
 func match2Lines(m *fuzzTypes.Match) []string {
 	ret := []string{
@@ -39,13 +46,13 @@ func match2Lines(m *fuzzTypes.Match) []string {
 		"LINES : " + ranges2String(m.Lines),
 		"WORDS : " + ranges2String(m.Words),
 		"SIZE  : " + ranges2String(m.Size),
-		"REGEX : " + m.Regex,
+		"REGEX : " + retNilStr(m.Regex),
 	}
 	if m.Time.Lower.Milliseconds() != m.Time.Upper.Milliseconds() {
 		ret = append(ret,
 			"TIME  : "+fmt.Sprintf("%d-%d(ms)", m.Time.Lower.Milliseconds(), m.Time.Upper.Milliseconds()))
 	} else {
-		ret = append(ret, "TIME  : -")
+		ret = append(ret, "TIME  : [nil]")
 	}
 	ret = append(ret, "MODE  : "+m.Mode)
 	return ret
@@ -63,10 +70,10 @@ func recCtrl2Lines(recCtrl *struct {
 	return []string{
 		"CUR_DEPTH : " + strconv.Itoa(recCtrl.RecursionDepth),
 		"MAX_DEPTH : " + strconv.Itoa(recCtrl.MaxRecursionDepth),
-		"KEYWORD   : " + recCtrl.Keyword,
+		"KEYWORD   : " + retNilStr(recCtrl.Keyword),
 		"CODES     : " + ranges2String(recCtrl.StatCodes),
-		"REGEX     : " + recCtrl.Regex,
-		"REC_SPLIT : " + recCtrl.Splitter,
+		"REGEX     : " + retNilStr(recCtrl.Regex),
+		"REC_SPLIT : " + retNilStr(recCtrl.Splitter),
 	}
 }
 
@@ -86,6 +93,9 @@ func getGranularityString(gran time.Duration) string {
 func genInfoLines(globInfo *fuzzTypes.Fuzz) []string {
 	infoLines := []string{
 		globInfo.Preprocess.ReqTemplate.URL,
+		globInfo.Preprocess.ReqTemplate.HttpSpec.Method,
+		globInfo.Preprocess.ReqTemplate.HttpSpec.Version,
+		fmt.Sprintf("%v", globInfo.Preprocess.ReqTemplate.HttpSpec.ForceHttps),
 		globInfo.Preprocess.ReqTemplate.Data,
 		strconv.Itoa(globInfo.Misc.PoolSize),
 		fmt.Sprintf("%s(%s)", strconv.Itoa(globInfo.Misc.Delay),
@@ -96,11 +106,14 @@ func genInfoLines(globInfo *fuzzTypes.Fuzz) []string {
 		globInfo.React.OutSettings.OutputFormat,
 		fuzzTypes.Plugins2Expr(globInfo.Preprocess.Preprocessors),
 		fuzzTypes.Plugins2Expr([]fuzzTypes.Plugin{globInfo.React.Reactor}),
-		"FUZZ_KEYWORDS >"}
+	}
 
 	// globInfo部分每一个单行使用的标题
 	var lineTitles = []string{
 		"URL",
+		"HTTP_METHOD",
+		"HTTP_VERSION",
+		"FORCE_HTTPS",
 		"SEND_DATA",
 		"RP_SIZE",
 		"DELAY",
@@ -109,22 +122,28 @@ func genInfoLines(globInfo *fuzzTypes.Fuzz) []string {
 		"OUT_FILE",
 		"OUT_FORMAT",
 		"PREPROCESSORS",
-		"REACTORS"}
+		"REACTOR"}
 
 	for i := 0; i < len(lineTitles); i++ {
-		infoLines[i] = fmt.Sprintf("%-13s : %s", lineTitles[i], infoLines[i])
+		infoLines[i] = fmt.Sprintf("%-13s : %s", lineTitles[i], retNilStr(infoLines[i]))
 	}
 
 	addInfoLines := func(s []string, prefix string) {
-		if prefix != "" {
-			for _, str := range s {
+		hasContent := false
+		for _, str := range s {
+			if str != "" {
+				hasContent = true
 				infoLines = append(infoLines, prefix+str)
 			}
-			return
 		}
-		infoLines = append(infoLines, s...)
+		if !hasContent {
+			infoLines = append(infoLines, prefix+"[nil]")
+		}
+		return
 	}
-
+	addInfoLines([]string{"HTTP_HEADERS >"}, "")
+	addInfoLines(globInfo.Preprocess.ReqTemplate.HttpSpec.Headers, "    ")
+	addInfoLines([]string{"FUZZ_KEYWORDS >"}, "")
 	addInfoLines(buildKeywordsLines(globInfo.Preprocess.PlTemp), "    ")
 	addInfoLines([]string{"PROXIES >"}, "")
 	addInfoLines(globInfo.Send.Proxies, "    ")

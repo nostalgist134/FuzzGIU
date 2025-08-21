@@ -7,7 +7,7 @@ toolchain go1.23.2
 require (
 	github.com/gizak/termui/v3 v3.1.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/nostalgist134/reusableBytes v0.0.2
+	github.com/nostalgist134/reusableBytes v0.0.3
 )
 
 require (

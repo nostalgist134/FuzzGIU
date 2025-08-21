@@ -151,11 +151,11 @@ func WaitForScreenQuit() {
 }
 
 func ScreenClose() {
-	screenOutput.renderMu.Lock()
-	defer screenOutput.renderMu.Unlock()
 	if !outputHasInit.Load() {
 		return
 	}
+	screenOutput.renderMu.Lock()
+	defer screenOutput.renderMu.Unlock()
 	outputHasInit.Store(false)
 	ui.Close()
 }
