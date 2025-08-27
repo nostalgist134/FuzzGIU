@@ -94,6 +94,9 @@ func parseJson(ptrJson uintptr) []byte {
 }
 
 func stringFromPtr(strBytes uintptr) string {
+	if strBytes == uintptr(0) {
+		return ""
+	}
 	sb := strings.Builder{}
 	sb.WriteString(unsafe.String((*byte)(unsafe.Pointer(strBytes+4)), *(*int32)(unsafe.Pointer(strBytes))))
 	return sb.String()
