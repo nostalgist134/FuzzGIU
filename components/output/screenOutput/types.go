@@ -10,6 +10,7 @@ type screenOutputRegion struct {
 	lines          []string
 	mu             sync.Mutex
 	lineInd        int
+	lineLeft       int
 	maxRenderLines int
 	rendered       bool
 	renderBuffer   []string

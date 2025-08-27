@@ -9,6 +9,7 @@ import (
 func (r *screenOutputRegion) init(maxLines int, noBorder ...bool) {
 	r.Pg = widgets.NewParagraph()
 	r.Pg.WrapText = false
+	r.lineLeft = 0
 	r.lines = make([]string, 0)
 	r.maxRenderLines = maxLines
 	r.renderBuffer = make([]string, maxLines)
@@ -39,7 +40,12 @@ func (r *screenOutputRegion) render(title string, unlock ...bool) {
 	}
 	// 将要渲染的各行按照最大长度截断后再渲染
 	r.clearRenderBuffer()
-	truncateLines(r.renderBuffer, r.lines, r.lineInd, r.maxRenderLines, r.BottomCorner.X-r.TopCorner.X+10)
+	if truncateLines(r.renderBuffer, r.lines, r.lineInd, r.lineLeft, r.maxRenderLines,
+		r.BottomCorner.X-r.TopCorner.X+10) {
+		r.lineLeft--
+		truncateLines(r.renderBuffer, r.lines, r.lineInd, r.lineLeft, r.maxRenderLines,
+			r.BottomCorner.X-r.TopCorner.X+10)
+	}
 	r.Pg.Text = lines2Text(r.renderBuffer)
 	screenOutput.renderMu.Lock()
 	defer screenOutput.renderMu.Unlock()
@@ -82,17 +88,28 @@ func (r *screenOutputRegion) setLines(lines []string) {
 	r.lines = lines
 }
 
-// scroll 用来控制窗口的上下翻页
-func (r *screenOutputRegion) scroll(direction bool) {
+// scroll 用来控制窗口的上下左右翻页
+func (r *screenOutputRegion) scroll(direction int8) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if direction {
+	switch direction {
+	case directionUp:
+		if r.lineInd > 0 {
+			r.lineInd--
+			r.render("", true)
+		}
+	case directionDown:
 		if r.lineInd < len(r.lines)-1 {
 			r.lineInd++
 			r.render("", true)
 		}
-	} else if r.lineInd > 0 {
-		r.lineInd--
+	case directionLeft:
+		if r.lineLeft > 0 {
+			r.lineLeft--
+			r.render("", true)
+		}
+	case directionRight:
+		r.lineLeft++
 		r.render("", true)
 	}
 }

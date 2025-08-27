@@ -27,7 +27,7 @@ func eventListener() {
 				indSelect++
 				switchHighLightRegion(indSelect - 1)
 			}
-		case "l":
+		case "L":
 			screenOutput.outputObjects.mu.Lock()
 			if !outputLocked {
 				if len(screenOutput.outputObjects.lines)-outputMaxLines-1 < 0 {
@@ -42,9 +42,13 @@ func eventListener() {
 			outputLocked = !outputLocked
 			screenOutput.outputObjects.mu.Unlock()
 		case "<Up>", "k":
-			selectableRegions[indSelect].scroll(false)
+			selectableRegions[indSelect].scroll(directionUp)
 		case "<Down>", "j":
-			selectableRegions[indSelect].scroll(true)
+			selectableRegions[indSelect].scroll(directionDown)
+		case "<Left>", "h":
+			selectableRegions[indSelect].scroll(directionLeft)
+		case "<Right>", "l":
+			selectableRegions[indSelect].scroll(directionRight)
 		case "q":
 			return
 		case "p":

@@ -33,7 +33,6 @@ var agents = []string{
 	"MAC：Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.122 Safari/537.36",
 	"Windows：Mozilla/5.0 (Windows; U; Windows NT 6.1; en-us) AppleWebKit/534.50 (KHTML, like Gecko) Version/5.1 Safari/534.50",
 	"Mozilla/5.0 (iPhone; U; CPU iPhone OS 4_3_3 like Mac OS X; en-us) AppleWebKit/533.17.9 (KHTML, like Gecko) Version/5.0.2 Mobile/8J2 Safari/6533.18.5",
-	"Mozilla/5.0 (iPhone; U; CPU iPhone OS 4_3_3 like Mac OS X; en-us) AppleWebKit/533.17.9 (KHTML, like Gecko) Version/5.0.2 Mobile/8J2 Safari/6533.18.5",
 	"Mozilla/5.0 (iPad; U; CPU OS 4_3_3 like Mac OS X; en-us) AppleWebKit/533.17.9 (KHTML, like Gecko) Version/5.0.2 Mobile/8J2 Safari/6533.18.5",
 	"Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.71 Safari/537.36",
 	"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11",
@@ -92,8 +91,8 @@ func buildRawHTTPResponse(resp *http.Response) ([]byte, error) {
 	var raw bytes.Buffer
 
 	// 状态行
-	raw.WriteString(fmt.Sprintf("HTTP/%d.%d %d %s\r\n",
-		resp.ProtoMajor, resp.ProtoMinor, resp.StatusCode, resp.Status))
+	raw.WriteString(fmt.Sprintf("HTTP/%d.%d %s\r\n",
+		resp.ProtoMajor, resp.ProtoMinor, resp.Status))
 
 	// 响应头
 	for k, vals := range resp.Header {
@@ -124,18 +123,6 @@ var cliPool = sync.Pool{
 	},
 }
 
-func getTrPxy(tr *http.Transport) string {
-	if tr.Proxy == nil {
-		return ""
-	}
-	foo := http.Request{}
-	u, err := tr.Proxy(&foo)
-	if err != nil {
-		return ""
-	}
-	return u.String()
-}
-
 // initHttpCli 初始化 Http 客户端，设置代理、超时、重定向等
 func initHttpCli(proxy string, timeout int, redirect bool, httpVer string,
 	redirectChain *string) (*http.Client, error) {
@@ -143,53 +130,34 @@ func initHttpCli(proxy string, timeout int, redirect bool, httpVer string,
 	cli := cliPool.Get().(*http.Client)
 
 	// 设置 Transport
-	var forceHttp2 bool
-	ver, parseErr := strconv.ParseFloat(httpVer, 32)
-	if parseErr != nil || ver < 2.0 {
-		forceHttp2 = false
-	} else {
-		forceHttp2 = true
-	}
 	tr, ok := cli.Transport.(*http.Transport)
-	// 目前的缓解措施，只能关闭连接并新建transport，不过这样会导致速度变得非常非常慢（差不多变为1/5），而且cpu上升非常快
-	if !ok {
-		tr = &http.Transport{
-			DialContext: (&net.Dialer{
-				Timeout:   30 * time.Second,
-				KeepAlive: 30 * time.Second,
-			}).DialContext,
-			MaxIdleConns:          50,
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
-			ExpectContinueTimeout: 1 * time.Second,
+	// 只能关闭连接并新建transport，否则会在hpack里面panic，不过这样会导致速度变得非常非常慢（差不多变为1/5），而且cpu上升非常快
+	if ok {
+		tr.CloseIdleConnections()
+	}
+	tr = &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   10 * time.Second,
+			KeepAlive: -1,
+		}).DialContext,
+		MaxIdleConns:          0,
+		MaxConnsPerHost:       0,
+		IdleConnTimeout:       0,
+		TLSHandshakeTimeout:   10 * time.Second,
+		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
+		ExpectContinueTimeout: 1 * time.Second,
+		ForceAttemptHTTP2:     true,
+		DisableKeepAlives:     true,
+	}
+	// 设置代理
+	if proxy != "" {
+		proxyUrl, err := url.Parse(proxy)
+		if err != nil {
+			return nil, err
 		}
+		tr.Proxy = http.ProxyURL(proxyUrl)
 	} else {
-		if forceHttp2 != tr.ForceAttemptHTTP2 || getTrPxy(tr) != proxy {
-			tr.CloseIdleConnections()
-			tr = &http.Transport{
-				DialContext: (&net.Dialer{
-					Timeout:   30 * time.Second,
-					KeepAlive: 30 * time.Second,
-				}).DialContext,
-				MaxIdleConns:          50,
-				IdleConnTimeout:       90 * time.Second,
-				TLSHandshakeTimeout:   10 * time.Second,
-				TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
-				ExpectContinueTimeout: 1 * time.Second,
-				ForceAttemptHTTP2:     forceHttp2,
-			}
-			// 设置代理
-			if proxy != "" {
-				proxyUrl, err := url.Parse(proxy)
-				if err != nil {
-					return nil, err
-				}
-				tr.Proxy = http.ProxyURL(proxyUrl)
-			} else {
-				tr.Proxy = nil
-			}
-		}
+		tr.Proxy = nil
 	}
 	cli.Transport = tr
 	// 是否跟随重定向
@@ -218,15 +186,15 @@ func fuzzReq2HttpReq(fuzzReq *fuzzTypes.Req) (*http.Request, error) {
 	var err error = nil
 	var httpReq *http.Request
 	URL := fuzzReq.URL
-	if fuzzReq.HttpSpec.ForceHttps { // 强制使用https
-		URL = strings.Replace(URL, "http://", "https://", 1)
-	}
 	httpReq, err = http.NewRequest(fuzzReq.HttpSpec.Method, URL, bytes.NewBuffer([]byte(fuzzReq.Data)))
+	if fuzzReq.HttpSpec.ForceHttps { // 强制使用https
+		httpReq.URL.Scheme = "https"
+	}
 	if err != nil {
 		return nil, err
 	}
 	// proto，即HTTP/1.1部分
-	httpReq.Proto = "HTTP/" + fuzzReq.HttpSpec.Version
+	httpReq.Proto = fuzzReq.HttpSpec.Version
 	// http请求头部分
 	for i := 0; i < len(fuzzReq.HttpSpec.Headers); i++ {
 		indColon := strings.Index(fuzzReq.HttpSpec.Headers[i], ":")
@@ -273,9 +241,20 @@ func countWords(data []byte) int {
 	return count
 }
 
+func countLines(data []byte) int {
+	line := bytes.Count(data, []byte{'\n'})
+	if data[len(data)-1] != '\n' {
+		line++
+	}
+	return line
+}
+
 // http发包函数
 func sendRequestHttp(request *fuzzTypes.Req, timeout int, httpRedirect bool, retry int,
 	retryCode, retryRegex, proxy string) (*fuzzTypes.Resp, error) {
+	if request.HttpSpec.Version != "HTTP/2" {
+		return sendRequestFastHttp(request, timeout, httpRedirect, retry, retryCode, retryRegex, proxy)
+	}
 	resp := new(fuzzTypes.Resp)
 	resp.ErrMsg = ""
 
@@ -345,10 +324,7 @@ func sendRequestHttp(request *fuzzTypes.Req, timeout int, httpRedirect bool, ret
 	resp.RawResponse = rawResp
 	resp.HttpRedirectChain = redirectChain // 记录重定向链
 	if rawResp != nil {
-		resp.Lines = bytes.Count(rawResp, []byte{'\n'})
-		if rawResp[len(rawResp)-1] != '\n' {
-			resp.Lines++
-		}
+		resp.Lines = countLines(rawResp)
 		resp.Words = countWords(rawResp)
 		resp.Size = len(rawResp)
 	}

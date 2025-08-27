@@ -96,7 +96,7 @@ func InitOutputScreen(globInfo *fuzzTypes.Fuzz) {
 	if !HasInit {
 		screenOutput.logs.append([]string{"W/S to select window to control, <Up>/K to scroll up, <Down>/J to scroll " +
 			"down, Q to quit, P/R to pause/resume current task",
-			"Output window will lock to the latest output object by default, L to unlock it"})
+			"Output window will lock to the latest output object by default, <Shift>+L to unlock it"})
 	}
 	screenOutput.logs.render(titleLogger)
 	if !HasInit {

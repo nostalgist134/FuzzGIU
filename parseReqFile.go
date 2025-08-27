@@ -32,11 +32,6 @@ func parseHttpRequest(fileName string) (*fuzzTypes.Req, error) {
 	path := string(parts[1])
 	version := string(parts[2])
 
-	// 判断协议版本是否符合预期，忽略不符合的版本
-	if !strings.HasPrefix(version, "HTTP/") {
-		return nil, fmt.Errorf("unsupported Request version: %q", version)
-	}
-
 	// 读取 headers
 	var rawHeaders [][]byte
 	var host string

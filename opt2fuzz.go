@@ -259,9 +259,7 @@ func opt2fuzz(opt *options.Opt) *fuzzTypes.Fuzz {
 		fuzz.Preprocess.ReqTemplate.HttpSpec.ForceHttps = opt.Request.HTTPS
 
 		if opt.Request.HTTP2 == true {
-			fuzz.Preprocess.ReqTemplate.HttpSpec.Version = "2"
-		} else {
-			fuzz.Preprocess.ReqTemplate.HttpSpec.Version = "1.1"
+			fuzz.Preprocess.ReqTemplate.HttpSpec.Version = "HTTP/2"
 		}
 
 		fuzz.Preprocess.ReqTemplate.HttpSpec.Headers = make([]string, 0)

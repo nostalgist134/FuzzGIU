@@ -19,6 +19,11 @@ const (
 	titlePausedCounter = "PROGRESS(PAUSED)"
 	titleLogger        = "LOGS"
 	titleLockedOutput  = "OUTPUT(LOCKED)"
+
+	directionUp    = int8(0)
+	directionDown  = int8(1)
+	directionLeft  = int8(2)
+	directionRight = int8(3)
 )
 
 // screenOutput 输出屏幕

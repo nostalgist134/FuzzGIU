@@ -112,7 +112,7 @@ func genInfoLines(globInfo *fuzzTypes.Fuzz) []string {
 	var lineTitles = []string{
 		"URL",
 		"HTTP_METHOD",
-		"HTTP_VERSION",
+		"HTTP_PROTO",
 		"FORCE_HTTPS",
 		"SEND_DATA",
 		"RP_SIZE",
@@ -156,15 +156,27 @@ func genInfoLines(globInfo *fuzzTypes.Fuzz) []string {
 	return infoLines
 }
 
-// truncateLines 从切片中按照下标取出一个指定长度的片段，按照宽度截断后填入另一切片
-func truncateLines(dst []string, src []string, ind int, maxLines int, width int) {
+// truncateLines 从切片中按照下标取出一个指定长度的片段，按照宽度截断后填入另一切片，返回一个bool值，代表行是否全空
+func truncateLines(dst []string, src []string, ind int, left int, maxLines int, width int) bool {
+	allEmpty := true
+	if left == -1 {
+		left = 0
+	}
 	for i := ind; i < len(src) && i-ind < maxLines && i-ind < len(dst); i++ {
-		if len(src[i]) > width && width >= 3 {
-			dst[i-ind] = src[i][:width-3] + "..."
+		line := src[i]
+		if len(line) <= left {
+			line = ""
+		} else {
+			line = src[i][left:]
+			allEmpty = false
+		}
+		if len(line) > width && width >= 3 {
+			dst[i-ind] = line[:width-3] + "..."
 			continue
 		}
-		dst[i-ind] = src[i]
+		dst[i-ind] = line
 	}
+	return allEmpty
 }
 
 // lines2Text 将行转化为单个字符串，如果最大行数设置为-1则全部输出
