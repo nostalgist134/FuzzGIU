@@ -1,11 +1,8 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/fuzz"
-	"github.com/nostalgist134/FuzzGIU/components/fuzz/stageSend"
-	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/nostalgist134/FuzzGIU/components/options"
 	"github.com/nostalgist134/FuzzGIU/components/plugin"
 	"os"
@@ -31,8 +28,14 @@ func initEnv() {
 	}
 }
 
+func runDirect(opt *options.Opt) {
+	fuzz1 := opt2fuzz(opt)
+	fuzz.JQ.AddJob(fuzz1)
+	fuzz.DoJobs()
+}
+
 func main() {
-	opts := options.ParseOptCmdline()
+	opt := options.ParseOptCmdline()
 	if len(os.Args) == 1 {
 		fmt.Println("Checking/initializing environment...")
 		initEnv()
@@ -40,24 +43,9 @@ func main() {
 		fmt.Println("For help, use -h flag")
 		return
 	}
-	//debug();return
-	fuzz1 := opt2fuzz(opts)
-	/*fuzz.Debug(fuzz1)
-	return*/
-	fuzz.JQ.AddJob(fuzz1)
-	fuzz.DoJobs()
-}
-
-func debug() {
-	req := &fuzzTypes.Req{
-		URL: "https://www.baidu.com/",
+	if opt.General.Passive {
+		runPassive(opt)
+		return
 	}
-	sendMeta := &fuzzTypes.SendMeta{
-		Request:             req,
-		HttpFollowRedirects: true,
-		Proxy:               "http://127.0.0.1:8080",
-	}
-	resp := stageSend.SendRequest(sendMeta, "https")
-	respJson, _ := json.MarshalIndent(resp, "", "  ")
-	fmt.Print(string(respJson))
+	runDirect(opt)
 }

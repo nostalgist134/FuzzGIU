@@ -34,6 +34,8 @@ func ParseOptCmdline() *Opt {
 	flag.StringVar(&general.DelayGranularity, "delay-gran", "ms", "delay granularity(ns/us/ms/s")
 	flag.BoolVar(&general.Input, "input", false, "enable input")
 	flag.StringVar(&general.InputAddr, "in-addr", "127.0.0.1:11451", "input listen address")
+	flag.BoolVar(&general.Passive, "passive", false, "run passive mode")
+	flag.StringVar(&general.PassiveAddr, "psv-addr", "0.0.0.0:14514", "passive mode listen address")
 	// 响应匹配器
 	flag.StringVar(&matcher.Code, "mc", "200,204,301,302,307,401,403,405,500",
 		"match status code from response")
