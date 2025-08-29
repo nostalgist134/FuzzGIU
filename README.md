@@ -21,85 +21,9 @@ go build
 
 本项目中所涉及的技术、思路和工具仅供以学习交流使用，任何人不得将其用于非法用途以及盈利等目的，否则后果自行承担。
 
-原先使用http2协议会导致不定时的panic，我以为是我代码里面动态修改http.transport导致的，结果我改成复用以后发现问题还是没办法解决，查不出来是什么问题，傻逼的要死net/http。现在的缓解措施是遇到http2时就不复用transport，然后每次都重新分配，但是这样对cpu的消耗非常大，因此**若指定了`-http2`选项，建议搭配`-delay`使用**，不然cpu分分钟跑到98 99。
+原先使用http2协议会导致不定时的panic，我以为是我代码里面动态修改http.transport导致的，结果我改成复用以后发现问题还是没办法解决，查不出来是什么问题，傻逼的要死net/http。现在的缓解措施是遇到http2时就不复用transport，然后每次都重新分配，但是这样对cpu的消耗非常大，因此**若指定了`-http2`选项，建议搭配较高的`-delay`值使用，将发包速率控制在100~150左右**，不然cpu分分钟跑到98 99，而且会因为tcp端口的TIME_WAIT问题而出错。
 
 # 使用方法
-
-执行 `FuzzGIU -h` 即可查看完整的命令行帮助信息：
-
-```powershell
-PS H:\tools\fuzz\FuzzGIU> .\FuzzGIU.exe -h
-Usage of H:\tools\fuzz\FuzzGIU\FuzzGIU.exe:
-        H:\tools\fuzz\FuzzGIU\FuzzGIU.exe [options]
-options are shown below. when fuzzGIU is executed without any args,
-it will init and create plugin directory
-
-GENERAL OPTIONS:
-  -d    request data
-  -delay        delay between each job submission (default: 0)
-  -delay-gran   delay granularity(ns/us/ms/s (default: ms)
-  -r    request file
-  -t    routine pool size (default: 64)
-  -timeout      timeout(second) (default: 10)
-  -u    url to giu
-
-MATCHER OPTIONS:
-  -mc   match status code from response (default: 200,204,301,302,307,401,403,405,500)
-  -ml   match amount of lines in response
-  -mmode        matcher set operator (default: or)
-  -mr   match regexp
-  -ms   match response size
-  -mt   match time(millisecond) to the first response byte
-  -mw   match amount of words in response
-
-FILTER OPTIONS:
-  -fc   filter status code from response
-  -fl   filter amount of lines in response
-  -fmode        filter set operator (default: or)
-  -fr   filter regexp
-  -fs   filter response size
-  -ft   filter time(millisecond) to the first response byte
-  -fw   filter amount of words in response
-
-REQUEST OPTIONS:
-  -F    follow redirects (default: false)
-  -H    request headers to be used
-  -X    request method (default: GET)
-  -b    Cookies
-  -http2        force http2 (default: false)
-  -ra   http random agent (default: false)
-  -s    force https (default: false)
-  -x    proxies
-
-PAYLOAD OPTIONS:
-  -mode mode for keywords used, basically the same as those in burp suite (default: clusterbomb)
-  -pl-gen       plugin payload generators
-  -pl-processor payload processors
-  -w    wordlists to be used for payload
-
-OUTPUT OPTIONS:
-  -fmt  output file format(native, xml or json. only for file output) (default: native)
-  -ie   ignore errors(will not output error message) (default: false)
-  -ns   native stdout (default: false)
-  -o    file to output
-  -v    verbosity level(native output format only) (default: 1)
-
-RECURSION OPTIONS:
-  -R    enable recursion mode(only support single fuzz keyword) (default: false)
-  -rec-code     Recursion status code(request protocol only)
-  -rec-depth    recursion depth(when recursion is enabled) (default: 2)
-  -rec-regex    recursion when matched regex
-  -rec-splitter splitter to be used to split recursion positions (default: /)
-
-ERROR HANDLE OPTIONS:
-  -retry        max retries (default: 0)
-  -retry-code   retry on status code(request protocol only)
-  -retry-regex  retry when regex matched
-
-PLUGIN OPTIONS:
-  -preproc      preprocessor plugin to be used
-  -react        reactor plugin to be used
-```
 
 ## 快速使用
 
@@ -112,10 +36,13 @@ PLUGIN OPTIONS:
   .\FuzzGIU.exe -u http://test.com/MILAOGIU -w directory_list.txt
   ```
 
-- **HTTP 请求体 Fuzz:**
+- **HTTP 请求体/方法 Fuzz:**
 
   ```powershell
+  # -d选项fuzz请求体
   .\FuzzGIU.exe -u http://test.com/login -d username=admin&password=FUZZ -w passwords.txt::FUZZ
+  # -X选项fuzz/指定http请求方法
+  .\FuzzGIU.exe -u http://test.com/ -X METHOD -w methods.txt::METHOD
   ```
 
 - **使用匹配器 (Matcher) 和过滤器 (Filter):**
@@ -151,6 +78,88 @@ PLUGIN OPTIONS:
   # sniper 模式: 接收单个关键字，根据其出现在请求中的位置依次替换为payload，其它位置替换为空
   .\fuzzGIU.exe -u http://test.com/FUZZ -d user=FUZZ -H Header: FUZZ -w dic.txt::FUZZ -mode sniper
   ```
+
+## 帮助信息
+
+执行 `FuzzGIU -h` 即可查看完整的命令行帮助信息：
+
+```powershell
+PS H:\tools\fuzz\FuzzGIU> .\FuzzGIU.exe -h
+Usage of H:\tools\fuzz\FuzzGIU\FuzzGIU.exe:
+        H:\tools\fuzz\FuzzGIU\FuzzGIU.exe [options]
+options are shown below. when fuzzGIU is executed without any args,
+it will init and create plugin directory
+
+GENERAL OPTIONS:
+  -d    request data
+  -delay        delay between each job submission (default: 0)
+  -delay-gran   delay granularity(ns/us/ms/s (default: ms)
+  -in-addr      input listen address (default: 127.0.0.1:11451)
+  -input        enable input (default: false)
+  -passive      run passive mode (default: false)
+  -psv-addr     passive mode listen address (default: 0.0.0.0:14514)
+  -r    request file
+  -t    routine pool size (default: 64)
+  -timeout      timeout(second) (default: 10)
+  -u    url to giu
+
+MATCHER OPTIONS:
+  -mc   match status code from response (default: 200,204,301,302,307,401,403,405,500)
+  -ml   match amount of lines in response
+  -mmode        matcher set operator (default: or)
+  -mr   match regexp
+  -ms   match response size
+  -mt   match time(millisecond) to the first response byte
+  -mw   match amount of words in response
+
+FILTER OPTIONS:
+  -fc   filter status code from response
+  -fl   filter amount of lines in response
+  -fmode        filter set operator (default: or)
+  -fr   filter regexp
+  -fs   filter response size
+  -ft   filter time(millisecond) to the first response byte
+  -fw   filter amount of words in response
+
+REQUEST OPTIONS:
+  -F    follow redirects (default: false)
+  -H    http headers to be used
+  -X    http method (default: GET)
+  -b    http cookies
+  -http2        force http2 (default: false)
+  -ra   http random agent (default: false)
+  -s    force https (default: false)
+  -x    proxies
+
+PAYLOAD OPTIONS:
+  -mode mode for keywords used, basically the same as those in burp suite (default: clusterbomb)
+  -pl-gen       plugin payload generators
+  -pl-processor payload processors
+  -w    wordlists to be used for payload
+
+OUTPUT OPTIONS:
+  -fmt  output file format(native, xml or json. only for file output) (default: native)
+  -ie   ignore errors(will not output error message) (default: false)
+  -ns   native stdout (default: false)
+  -o    file to output
+  -v    verbosity level(native output format only) (default: 1)
+
+RECURSION OPTIONS:
+  -R    enable recursion mode(only support single fuzz keyword) (default: false)
+  -rec-code     Recursion status code(request protocol only)
+  -rec-depth    recursion depth(when recursion is enabled) (default: 2)
+  -rec-regex    recursion when matched regex
+  -rec-splitter splitter to be used to split recursion positions (default: /)
+
+ERROR HANDLE OPTIONS:
+  -retry        max retries (default: 0)
+  -retry-code   retry on status code(request protocol only)
+  -retry-regex  retry when regex matched
+
+PLUGIN OPTIONS:
+  -preproc      preprocessor plugin to be used
+  -react        reactor plugin to be used
+```
 
 ### 窗口界面操作
 
@@ -347,6 +356,95 @@ HTTPSpec struct {
 - `stripslashes`: 去除开头的 `/` 并将连续多个 `/` 替换为单个 `/`。
 - `suffix(s)`: 给 payload 添加后缀 `s`。e.g., `suffix(".php")`。
 - `repeat(n)`: 将 payload 重复 `n` 次。e.g., `repeat(3)` 将 "a" 变为 "aaa"。
+
+### `-passive`、`-psv-addr`
+
+FuzzGIU支持以http被动模式运行，通过`-passive`选项启动，默认在`0.0.0.0:14514`端口上监听，通过`-psv-addr`选项可修改监听地址。
+
+使用post方法访问对应地址的`/job`路径，并提交json序列化的[fuzz结构体](https://github.com/nostalgist134/FuzzGIU/wiki/FuzzGIU部分实现细节#11-fuzz模糊测试任务配置)来运行任务。
+
+### `-input`、`-in-addr`
+
+FuzzGIU支持通过外部输入来调控部分任务参数以及获取当前任务的元信息。外部输入通过tcp进行发送，若指定了`-input`选项，则启用外部输入，默认在127.0.0.1:11451端口监听，也可通过指定`-in-addr`参数手动指定监听地址。外部输入协议包结构为
+
+```
+COMMAND [SUB COMMAND] [ARGS]
+DATA
+```
+
+`COMMAND`为要执行的指令；`SUB OCMMAND`用于指定子命令（可选），`ARGS`为命令参数（可选），用空格隔开；`DATA`为附加数据。**所有的命令与参数均对大小写不敏感**。
+
+与fuzzGIU的建立连接会长久保留而不超时。输入一个空行可结束连接。
+
+#### 可用的命令列表
+
+##### get
+
+`get`命令用于获取某个对象的值。对象名通过第一个参数传递，可为以下：
+
+- `fuzz` 获取fuzz结构体
+- `fuzz.x.x...` 获取当前任务对应的fuzz结构体的某个成员
+- `JQ` 获取当前任务列表
+- `JQLen` 获取当前任务列表长度
+
+##### alter
+
+`alter`命令用于动态修改当前任务的相关参数，其下有两个子命令`set`和`add`。`set`命令用于设置某个参数，`add`命令用于追加参数（如果参数为切片类型），该命令的用法为`alter set/add [要设置或追加的对象名]`。
+
+可以被修改或追加的参数如下（实际引用时可以不区分大小写）
+
+```
+// 可被修改的对象
+var settableObjects = []string{
+	"fuzz.Misc.Delay",
+	"fuzz.Misc.DelayGranularity",
+	"fuzz.Send.RetryCode",
+	"fuzz.Send.Retry",
+	"fuzz.Send.RetryCode",
+	"fuzz.Send.RetryRegex",
+	"fuzz.Send.Timeout",
+	"fuzz.Send.Proxies",
+	"fuzz.React.Filter.Code",
+	"fuzz.React.Filter.Lines",
+	"fuzz.React.Filter.Words",
+	"fuzz.React.Filter.Size",
+	"fuzz.React.Matcher.Code",
+	"fuzz.React.Matcher.Lines",
+	"fuzz.React.Matcher.Words",
+	"fuzz.React.Matcher.Size",
+}
+
+// 可被追加的对象
+var addableObjects = []string{
+	"fuzz.Send.Proxies",
+	"fuzz.React.Filter.Code",
+	"fuzz.React.Filter.Lines",
+	"fuzz.React.Filter.Words",
+	"fuzz.React.Filter.Size",
+	"fuzz.React.Matcher.Code",
+	"fuzz.React.Matcher.Lines",
+	"fuzz.React.Matcher.Words",
+	"fuzz.React.Matcher.Size",
+}
+```
+
+要修改/追加的值通过`DATA`指定。追加值若为`[]fuzzTypes.Range`，则有两种表示方法可选，一种是json格式的切片，另一种是用逗号分隔的range表示法，比如`1-2,3,4-12`；字符串切片仅能通过json格式表示。
+
+##### poolCtrl命令
+
+这一命令用于控制协程池，有3个子命令`pause`、`resume`和`resize`，前两个命令用于暂停/恢复协程池，最后一个子命令用于调整协程池规模，接收一个参数，为int类型，表示新的协程池规模。
+
+##### job命令
+
+`job`命令用于调整job队列，有两个子命令`stop`和`add`，`stop`命令用于停止当前的job；add命令会在全局任务队列`JQ`上再添加一个任务，将`DATA`字段作为新任务的json表示形式。
+
+##### 使用注意事项
+
+`get`命令与`alter`命令均依靠反射实现，若频繁使用可能导致性能下降。
+
+`get fuzz`获取的是包含展开的payload列表的fuzz结构体，若获取整个fuzz结构体可能过大，注意按需获取。
+
+为了避免竞态问题，外部输入的所有命令均于[任务主循环](https://github.com/nostalgist134/FuzzGIU/wiki/FuzzGIU部分实现细节#阶段-8主循环生成并提交任务)中流式执行，因此若`fuzz.Misc.Delay`较高的情况下，外部命令的处理也会变慢。因此需要尽量避免把延时参数调的太高。
 
 ## 进阶用法
 
