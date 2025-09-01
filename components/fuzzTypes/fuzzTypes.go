@@ -16,6 +16,11 @@ type (
 		Upper int `json:"upper,omitempty"`
 		Lower int `json:"lower,omitempty"`
 	}
+	// KeywordMeta 关于单个fuzz关键字的元信息
+	KeywordMeta struct {
+		PlListLen int `json:"pl_list_len"` // 关键字的payload列表的长度
+		Count     int `json:"count"`       // 关键字在模板中出现的次数
+	}
 	HTTPSpec struct {
 		Method     string   `json:"method,omitempty" xml:"method,omitempty"`
 		Headers    []string `json:"headers,omitempty" xml:"header>headers,omitempty"`

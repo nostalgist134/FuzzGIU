@@ -138,3 +138,11 @@ func React(p fuzzTypes.Plugin, req *fuzzTypes.Req, resp *fuzzTypes.Resp) *fuzzTy
 	}
 	return reaction
 }
+
+func Iterator(p fuzzTypes.Plugin, lengths []int, out []int, ind int) []int {
+	return []int{}
+}
+
+func IterNum(p fuzzTypes.Plugin) int64 {
+	return 0
+}

@@ -354,8 +354,31 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 	return time.Since(timeStart)
 }
 
+func DoSingleJob(fuzz1 *fuzzTypes.Fuzz) {
+	defer output.ScreenClose()
+	if !fuzz1.React.OutSettings.NativeStdout {
+		common.OutputToWhere = output.OutToScreen
+	} else {
+		common.OutputToWhere = output.OutToNativeStdout
+	}
+	if fuzz1.React.OutSettings.OutputFile != "" {
+		common.OutputToWhere |= output.OutToFile
+	}
+	output.InitOutput(fuzz1, common.OutputToWhere)
+	jobId := int(output.GetCounterSingle(3))
+	timeLapsed := doFuzz(fuzz1, jobId)
+	output.Logf(common.OutputToWhere, "Job#%d completed, time %v", jobId, timeLapsed)
+	output.FinishOutput(common.OutputToWhere)
+	output.AddJobCounter()
+	if len(JQ) != 0 {
+		DoJobs()
+	}
+}
+
 func DoJobs() {
-	output.SetJobCounter(int64(len(JQ)))
+	if output.GetCounterSingle(3) == 0 {
+		output.SetJobCounter(int64(len(JQ)))
+	}
 	defer output.ScreenClose()
 	fuzzCommon.SetJQ(&JQ)
 	i := 0

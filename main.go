@@ -44,7 +44,7 @@ func main() {
 		return
 	}
 	if opt.General.Passive {
-		runPassive(opt)
+		RunPassive(opt)
 		return
 	}
 	runDirect(opt)
