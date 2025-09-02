@@ -125,7 +125,7 @@ type ReplaceTemplate struct {
 var bp = new(reusablebytes.BytesPool)
 
 func init() {
-	bp.Init(128, 131072)
+	bp.Init(128, 131072, 128)
 }
 
 func (t *ReplaceTemplate) getFieldNum() int {

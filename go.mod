@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/gizak/termui/v3 v3.1.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/nostalgist134/reusableBytes v0.0.3
+	github.com/nostalgist134/reusableBytes v0.0.4-1
 	github.com/valyala/fasthttp v1.65.0
 )
 

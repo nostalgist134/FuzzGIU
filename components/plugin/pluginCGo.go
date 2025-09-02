@@ -90,7 +90,7 @@ func parseJson(ptrJson uintptr) []byte {
 	if ptrJson == uintptr(0) {
 		return []byte{}
 	}
-	return unsafe.Slice((*byte)(unsafe.Pointer(ptrJson+4)), *(*int32)(unsafe.Pointer(ptrJson)))
+	return unsafe.Slice((*byte)(unsafe.Pointer(ptrJson+4)), *(*uint32)(unsafe.Pointer(ptrJson)))
 }
 
 func stringFromPtr(strBytes uintptr) string {
@@ -110,7 +110,7 @@ func bytes2Strings(ptrBytes uintptr) []string {
 	ret := make([]string, 0)
 	j := *(*int32)(unsafe.Pointer(ptrBytes)) // 前4位为切片的长度
 	for i := uintptr(0); j > 0; j-- {
-		length := *(*int32)(unsafe.Pointer(ptrBytes + 4 + i))
+		length := *(*uint32)(unsafe.Pointer(ptrBytes + 4 + i))
 		bytesSlice := unsafe.Slice((*byte)(unsafe.Pointer(ptrBytes+8+i)), length)
 		ret = append(ret, string(bytesSlice))
 		i += 4 + uintptr(length)

@@ -13,6 +13,8 @@ github.com/mitchellh/go-wordwrap v0.0.0-20150314170334-ad45545899c7 h1:DpOJ2HYzC
 github.com/mitchellh/go-wordwrap v0.0.0-20150314170334-ad45545899c7/go.mod h1:ZXFpozHsX6DPmq2I0TCekCxypsnAUbP2oI0UX1GXzOo=
 github.com/nostalgist134/reusableBytes v0.0.3 h1:wc1mW7aSEZWwcWBc8Kj3EhwpN2y6dczzNVHno/IWSck=
 github.com/nostalgist134/reusableBytes v0.0.3/go.mod h1:mZemtIh4BOVlMNa+hxomvKz2+3IPuVTGSoBBOwdGKm8=
+github.com/nostalgist134/reusableBytes v0.0.4-1 h1:xBBF1PxfbCBaLyhY8onA5U6+IOArG1Ca3tEFqDIQ8V8=
+github.com/nostalgist134/reusableBytes v0.0.4-1/go.mod h1:mZemtIh4BOVlMNa+hxomvKz2+3IPuVTGSoBBOwdGKm8=
 github.com/nsf/termbox-go v0.0.0-20190121233118-02980233997d h1:x3S6kxmy49zXVVyhcnrFqxvNVCBPb2KZ9hV2RBdS840=
 github.com/nsf/termbox-go v0.0.0-20190121233118-02980233997d/go.mod h1:IuKpRQcYE1Tfu+oAQqaLisqDeXgjyyltCfsaoYN18NQ=
 github.com/valyala/bytebufferpool v1.0.0 h1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6KllzawFIhcdPw=
