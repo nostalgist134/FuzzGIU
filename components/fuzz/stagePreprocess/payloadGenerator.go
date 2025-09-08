@@ -108,8 +108,12 @@ func generatePayloadsPlugin(generatorPlugins []fuzzTypes.Plugin) []string {
 	for _, p := range generatorPlugins {
 		switch p.Name {
 		case "int":
-			if len(p.Args) >= 3 {
-				payloads = append(payloads, genIntStrings(p.Args[0].(int), p.Args[1].(int), p.Args[2].(int))...)
+			if len(p.Args) >= 2 {
+				base := 10
+				if len(p.Args) > 2 {
+					base = p.Args[2].(int)
+				}
+				payloads = append(payloads, genIntStrings(p.Args[0].(int), p.Args[1].(int), base)...)
 			}
 		case "permute":
 			if len(p.Args) != 0 {
@@ -123,6 +127,7 @@ func generatePayloadsPlugin(generatorPlugins []fuzzTypes.Plugin) []string {
 				}
 				payloads = append(payloads, permute(src, maxLen)...)
 			}
+		case "":
 		default:
 			payloadsGen := plugin.PayloadGenerator(p)
 			payloads = append(payloads, payloadsGen...)
@@ -131,11 +136,11 @@ func generatePayloadsPlugin(generatorPlugins []fuzzTypes.Plugin) []string {
 	return payloads
 }
 
-// GeneratePayloads 根据payloadGenerator生成payload，同时使用payloadProcessor对生成的payload进行处理
+// PayloadGenerator 根据payloadGenerator生成payload，同时使用payloadProcessor对生成的payload进行处理
 // 返回[]string类型 - 生成的payload
-func GeneratePayloads(payloadGenerator fuzzTypes.PlGen) []string {
-	generators := payloadGenerator.Gen
-	generatorType := payloadGenerator.Type
+func PayloadGenerator(gen fuzzTypes.PlGen) []string {
+	generators := gen.Gen
+	generatorType := gen.Type
 	// 根据generator生成payload
 	var payloads []string
 	switch generatorType {

@@ -252,6 +252,7 @@ func countLines(data []byte) int {
 // http发包函数
 func sendRequestHttp(request *fuzzTypes.Req, timeout int, httpRedirect bool, retry int,
 	retryCode, retryRegex, proxy string) (*fuzzTypes.Resp, error) {
+	// h1请求转fasthttp处理
 	if request.HttpSpec.Version != "HTTP/2" {
 		return sendRequestFastHttp(request, timeout, httpRedirect, retry, retryCode, retryRegex, proxy)
 	}

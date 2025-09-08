@@ -159,7 +159,7 @@ func genInfoLines(globInfo *fuzzTypes.Fuzz) []string {
 // truncateLines 从切片中按照下标取出一个指定长度的片段，按照宽度截断后填入另一切片，返回一个bool值，代表行是否全空
 func truncateLines(dst []string, src []string, ind int, left int, maxLines int, width int) bool {
 	allEmpty := true
-	if left == -1 {
+	if left < 0 {
 		left = 0
 	}
 	for i := ind; i < len(src) && i-ind < maxLines && i-ind < len(dst); i++ {

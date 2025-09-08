@@ -58,6 +58,7 @@ func PayloadProcessor(payload string, plugins []fuzzTypes.Plugin) string {
 					processedPayload = strings.Repeat(processedPayload, cnt)
 				}
 			}
+		case "": // 若插件名为空不做任何操作
 		default:
 			p.Args = append([]any{processedPayload}, p.Args...) // payloadProcessor类型的插件中，第一个为待处理的payload
 			processedPayload = plugin.PayloadProcessor(p)

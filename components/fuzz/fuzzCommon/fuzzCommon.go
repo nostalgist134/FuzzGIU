@@ -38,7 +38,7 @@ func GetJQ() JobQueue {
 func AddJob(newJob *fuzzTypes.Fuzz) bool {
 	if globJq != nil {
 		globJq.AddJob(newJob)
-		output.SetJobCounter(int64(len(*globJq)))
+		output.SetJobTotal(int64(len(*globJq)))
 		return true
 	}
 	return false

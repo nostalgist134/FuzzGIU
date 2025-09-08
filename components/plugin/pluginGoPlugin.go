@@ -4,139 +4,216 @@ package plugin
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/common"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
+	"github.com/nostalgist134/FuzzGIU/components/output"
+	fgpkCommon "github.com/nostalgist134/FuzzGIUPluginKit/cmd/common"
+	"github.com/nostalgist134/FuzzGIUPluginKit/convention"
+	"path/filepath"
 	goPlugin "plugin"
 	"sync"
 	"unsafe"
 )
 
-type symRecord struct {
-	pluginFile *goPlugin.Plugin
-	pluginFun  func(...any) uintptr
+type pluginRecord struct {
+	pluginSelf *goPlugin.Plugin
+	pluginFun  func(...any) ([]byte, error)
+	pInfo      *convention.PluginInfo
 }
 
-var symRecords = sync.Map{}
+var ErrFuncTypeIncorrect = errors.New("plugin entry incorrect, make sure your plugin is built using fgpk")
+
+var registry = sync.Map{}
 var mu = sync.Mutex{}
 
-func callSharedLib(plugin fuzzTypes.Plugin, relPath string, jsons ...[]byte) uintptr {
-	pName := relPath + plugin.Name
-	var pw func(...any) uintptr
+func callSharedLib(p fuzzTypes.Plugin, relPath string, jsons ...[]byte) ([]byte, error) {
+	registryName := filepath.Join(relPath, p.Name)
+	pluginPath := filepath.Join(BaseDir, relPath, p.Name+binSuffix)
+
+	var pFun func(...any) ([]byte, error)
+
+	var pRecord *pluginRecord
+
 	// 尝试从缓存中加载插件函数
-	if pRecord, ok := symRecords.Load(pName); ok {
-		pw = pRecord.(symRecord).pluginFun
+	if record, ok := registry.Load(registryName); ok {
+		pRecord = record.(*pluginRecord)
+		pFun = pRecord.pluginFun
 	} else { // 若失败则使用open打开
 		mu.Lock()
-		if pRecord, ok := symRecords.Load(pName); ok {
-			pw = pRecord.(symRecord).pluginFun
+		if record, ok = registry.Load(registryName); ok {
+			pRecord = record.(*pluginRecord)
+			pFun = pRecord.pluginFun
 		} else {
-			p, err := goPlugin.Open(BaseDir + pName + binSuffix)
+			goPlug, err := goPlugin.Open(pluginPath)
 			if err != nil {
-				return uintptr(0)
+				return nil, err
 			}
-			sym, err := p.Lookup(pluginEntry)
+
+			sym, err := goPlug.Lookup(pluginEntry)
 			if err != nil {
-				return uintptr(0)
+				return nil, err
 			}
-			pw, ok = sym.(func(...any) uintptr)
+
+			pFun, ok = sym.(func(...any) ([]byte, error))
 			if !ok {
-				return uintptr(0)
+				return nil, ErrFuncTypeIncorrect
 			}
-			symRecords.Store(pName, symRecord{p, pw})
+
+			pRecord = &pluginRecord{pluginSelf: goPlug, pluginFun: pFun}
+
+			registry.Store(registryName, pRecord)
 		}
 		mu.Unlock()
 	}
+
+	if pi := pRecord.pInfo; pi != nil && len(pi.Params) != len(jsons)+len(p.Args) {
+		return nil, fmt.Errorf("incorrect parameter count, expect %d, got %d", len(pi.Params),
+			len(jsons)+len(p.Args))
+	}
+
+	// 参数列表
 	args := make([]any, 0)
 	if len(jsons) > 0 && jsons[0] != nil {
 		args = append(args, jsons[0])
+
+		if len(jsons) > 1 && jsons[1] != nil {
+			args = append(args, jsons[1])
+		}
 	}
-	if len(jsons) > 1 && jsons[1] != nil {
-		args = append(args, jsons[1])
-	}
-	args = append(args, plugin.Args...)
-	return pw(args...)
+	args = append(args, p.Args...)
+
+	return pFun(args...)
 }
 
-func parseJson(ptrJson uintptr) []byte {
-	if ptrJson == uintptr(0) {
-		return []byte{}
-	}
-	return unsafe.Slice((*byte)(unsafe.Pointer(ptrJson+4)), *(*int32)(unsafe.Pointer(ptrJson)))
-}
+// PreLoad 预加载插件，并尝试获取插件的信息
+func PreLoad(p fuzzTypes.Plugin, relPath string) (*convention.PluginInfo, error) {
+	registryName := filepath.Join(relPath, p.Name)
 
-// bytes2Strings 将动态链接库返回的bytes转化为string切片
-func bytes2Strings(ptrBytes uintptr) []string {
-	if ptrBytes == uintptr(0) {
-		return []string{}
+	if record, ok := registry.Load(registryName); ok {
+		return record.(*pluginRecord).pInfo, nil
 	}
-	ret := make([]string, 0)
-	j := *(*int32)(unsafe.Pointer(ptrBytes)) // 前4位为切片的长度
-	for i := uintptr(0); j > 0; j-- {
-		length := *(*int32)(unsafe.Pointer(ptrBytes + 4 + i))
-		bytesSlice := unsafe.Slice((*byte)(unsafe.Pointer(ptrBytes+8+i)), length)
-		ret = append(ret, string(bytesSlice))
-		i += 4 + uintptr(length)
+
+	pluginPath := filepath.Join(BaseDir, relPath, p.Name+binSuffix)
+
+	goPlug, err := goPlugin.Open(pluginPath)
+	if err != nil {
+		return nil, err
 	}
-	return ret
+	sym, err := goPlug.Lookup(pluginEntry)
+	if err != nil {
+		return nil, err
+	}
+	pFun, ok := sym.(func(...any) ([]byte, error))
+	if !ok {
+		return nil, ErrFuncTypeIncorrect
+	}
+
+	pi, _ := fgpkCommon.GetPluginInfo(pluginPath)
+	registry.Store(registryName, &pluginRecord{pluginSelf: goPlug, pInfo: pi, pluginFun: pFun})
+
+	return pi, nil
 }
 
 // Preprocess 返回指向preprocessor处理后新生成的*Fuzz
 func Preprocess(p fuzzTypes.Plugin, fuzz1 *fuzzTypes.Fuzz) *fuzzTypes.Fuzz {
 	fuzzJson, err := json.Marshal(fuzz1)
-	fuzzJson = parseJson(callSharedLib(p, RelPathPreprocessor, fuzzJson))
-	newFuzz := new(fuzzTypes.Fuzz)
-	err = json.Unmarshal(fuzzJson, newFuzz)
 	if err != nil {
-		panic(err)
+		output.Logf(common.OutputToWhere, "error in marshalling: %v", err)
+		return fuzz1
 	}
+
+	jsonBytes, err := callSharedLib(p, RelPathPreprocessor, fuzzJson)
+	if err != nil {
+		output.Logf(common.OutputToWhere, "call plugin failed: %v", err)
+		return fuzz1
+	}
+
+	newFuzz := new(fuzzTypes.Fuzz)
+
+	err = json.Unmarshal(jsonBytes, newFuzz)
+	if err != nil {
+		output.Logf(common.OutputToWhere, "error in marshalling: %v", err)
+		return fuzz1
+	}
+
 	return newFuzz
 }
 
 // PayloadGenerator 返回插件生成的payload切片
 func PayloadGenerator(p fuzzTypes.Plugin) []string {
-	ptrPayload := callSharedLib(p, RelPathPlGen)
-	payloads := bytes2Strings(ptrPayload)
-	return payloads
+	payloadsBytes, err := callSharedLib(p, RelPathPlGen)
+	if err != nil {
+		callError(RelPathPlGen, p, err)
+		return []string{}
+	}
+	return bytes2Strings(uintptr(unsafe.Pointer(&payloadsBytes[0])))
 }
 
 // PayloadProcessor 返回处理后的字符串
 func PayloadProcessor(p fuzzTypes.Plugin) string {
-	pStr := (*string)(unsafe.Pointer(callSharedLib(p, RelPathPlProc)))
-	return *pStr
+	payload := p.Args[0].(string)
+	strBytes, err := callSharedLib(p, RelPathPlProc)
+	if err != nil {
+		callError(RelPathPlProc, p, err)
+		return payload
+	}
+	return unsafe.String(&strBytes[0], len(strBytes))
+
 }
 
 // SendRequest 根据sendMeat发送请求，并接收响应
 func SendRequest(p fuzzTypes.Plugin, m *fuzzTypes.SendMeta) *fuzzTypes.Resp {
-	reqJson, err := json.Marshal(m)
-	if err != nil {
-		panic(err)
-	}
-	respJson := parseJson(callSharedLib(p, RelPathReqSender, reqJson))
 	resp := new(fuzzTypes.Resp)
-	err = json.Unmarshal(respJson, resp)
+
+	mJson, err := json.Marshal(m)
 	if err != nil {
-		panic(err)
+		resp.ErrMsg = err.Error()
+		return resp
+	}
+
+	jsonBytes, err := callSharedLib(p, RelPathReqSender, mJson)
+
+	err = json.Unmarshal(jsonBytes, resp)
+	if err != nil {
+		resp.ErrMsg = err.Error()
 	}
 	return resp
 }
 
 // React 返回*reaction
 func React(p fuzzTypes.Plugin, req *fuzzTypes.Req, resp *fuzzTypes.Resp) *fuzzTypes.Reaction {
+	rct := common.GetNewReaction()
+
 	reqJson, err := json.Marshal(req)
 	if err != nil {
-		panic(err)
+		rct.Output.Msg = err.Error()
+		rct.Flag |= fuzzTypes.ReactOutput
+		return rct
 	}
+
 	respJson, err := json.Marshal(resp)
 	if err != nil {
-		panic(err)
+		rct.Output.Msg = err.Error()
+		rct.Flag |= fuzzTypes.ReactOutput
+		return rct
 	}
-	reactionJson := parseJson(callSharedLib(p, RelPathReactor, reqJson, respJson))
-	reaction := common.GetNewReaction()
-	err = json.Unmarshal(reactionJson, reaction)
+
+	jsonBytes, err := callSharedLib(p, RelPathReactor, reqJson, respJson)
 	if err != nil {
-		panic(err)
+		rct.Output.Msg = err.Error()
+		rct.Flag |= fuzzTypes.ReactOutput
+		return rct
 	}
-	return reaction
+
+	err = json.Unmarshal(jsonBytes, rct)
+	if err != nil {
+		rct.Output.Msg = err.Error()
+		rct.Flag |= fuzzTypes.ReactOutput
+	}
+
+	return rct
 }
 
 func Iterator(p fuzzTypes.Plugin, lengths []int, out []int, ind int) []int {

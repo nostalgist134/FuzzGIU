@@ -35,7 +35,7 @@ type (
 	}
 	// Resp 响应对象
 	Resp struct {
-		HttpResponse      *http.Response `json:"-" xml:"-"`
+		HttpResponse      *http.Response `json:"-" xml:"-" gorm:"-"`
 		ResponseTime      time.Duration  `json:"response_time,omitempty" xml:"response_time,omitempty"`
 		Size              int            `json:"size,omitempty" xml:"size,omitempty"`
 		Words             int            `json:"words,omitempty" xml:"words,omitempty"`

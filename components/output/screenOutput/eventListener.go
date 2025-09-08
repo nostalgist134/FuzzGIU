@@ -49,6 +49,10 @@ func eventListener() {
 			selectableRegions[indSelect].scroll(directionLeft)
 		case "<Right>", "l":
 			selectableRegions[indSelect].scroll(directionRight)
+		case "c":
+			if indSelect != selectGlobInfo {
+				selectableRegions[indSelect].clear()
+			}
 		case "q":
 			return
 		case "p":

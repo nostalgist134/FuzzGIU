@@ -9,7 +9,7 @@ import (
 
 var stop = make(chan struct{}, 1)
 
-func NativeStdOutput(obj *common.OutObj) {
+func Output(obj *common.OutObj) {
 	b, err := json.Marshal(obj)
 	if err != nil {
 		fmt.Printf("Cannot marshal obj at %p - %v\n", obj, err)

@@ -12,10 +12,6 @@ func Log(log string) {
 	if !outputHasInit.Load() {
 		return
 	}
-	if firstLog {
-		screenOutput.logs.clear()
-		firstLog = false
-	}
 	screenOutput.logs.mu.Lock()
 	defer screenOutput.logs.mu.Unlock()
 	screenOutput.logs.append(splitLines(log))
@@ -93,11 +89,6 @@ func InitOutputScreen(globInfo *fuzzTypes.Fuzz) {
 	// 渲染日志记录窗口
 	logPos := getNextParaPos(outputPos, logMaxLines)
 	screenOutput.logs.setRect(logPos)
-	if !HasInit {
-		screenOutput.logs.append([]string{"W/S to select window to control, <Up>/K to scroll up, <Down>/J to scroll " +
-			"down, Q to quit, P/R to pause/resume current task",
-			"Output window will lock to the latest output object by default, <Shift>+L to unlock it"})
-	}
 	screenOutput.logs.render(titleLogger)
 	if !HasInit {
 		// 设置选中的窗口为可选窗口数组中的第一个，并渲染
@@ -123,7 +114,7 @@ func InitOutputScreen(globInfo *fuzzTypes.Fuzz) {
 	}
 }
 
-func ScreenObjOutput(obj *common.OutObj) {
+func Output(obj *common.OutObj) {
 	if !outputHasInit.Load() {
 		return
 	}

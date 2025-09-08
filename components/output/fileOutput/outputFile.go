@@ -46,7 +46,7 @@ func InitOutputFile() {
 	}
 }
 
-func FileOutputObj(obj *common.OutObj) {
+func Output(obj *common.OutObj) {
 	if !outputHasInit {
 		return
 	}

@@ -53,7 +53,7 @@ func parseHttpRequest(fileName string) (*fuzzTypes.Req, error) {
 		if path[0] != '/' {
 			path = "/" + path
 		}
-		path = "http://" + host + path
+		path = "https://" + host + path
 	}
 	// 读取 body
 	bodyBuf := new(bytes.Buffer)

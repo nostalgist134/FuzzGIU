@@ -13,7 +13,6 @@ import (
 	"github.com/nostalgist134/FuzzGIU/components/input"
 	"github.com/nostalgist134/FuzzGIU/components/output"
 	"github.com/nostalgist134/FuzzGIU/components/rp"
-	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -89,6 +88,7 @@ func handleReaction(r *fuzzTypes.Reaction, fuzz1 *fuzzTypes.Fuzz) (bool, bool) {
 	defer common.PutReaction(r)
 	stopJob := false
 	addReq := false
+
 	if r.Flag&fuzzTypes.ReactAddJob != 0 && r.NewJob != nil {
 		k, p := stageReact.GetReactTraceInfo(r)
 		if k != nil && p != nil {
@@ -96,7 +96,7 @@ func handleReaction(r *fuzzTypes.Reaction, fuzz1 *fuzzTypes.Fuzz) (bool, bool) {
 		}
 		JQ.AddJob(r.NewJob)
 		// job 总数加1
-		output.SetJobCounter(output.GetCounterSingle(output.TotalJob) + 1)
+		output.SetJobTotal(output.GetCounterValue(output.TotalJob) + 1)
 	}
 	if r.Flag&fuzzTypes.ReactStopJob != 0 {
 		output.Log(common.OutputToWhere, "job stopped by react")
@@ -123,7 +123,7 @@ func handleReaction(r *fuzzTypes.Reaction, fuzz1 *fuzzTypes.Fuzz) (bool, bool) {
 		}
 		stopJob = trySubmit(newTask, fuzz1)
 		// task总数加1
-		output.SetTaskCounter(output.GetCounterSingle(output.TotalTask) + 1)
+		output.SetTaskTotal(output.GetCounterValue(output.TotalTask) + 1)
 	}
 	if r.Flag&fuzzTypes.ReactExit != 0 {
 		output.FinishOutput(common.OutputToWhere)
@@ -172,14 +172,23 @@ func drainRp(fuzz1 *fuzzTypes.Fuzz) bool {
 	return false
 }
 
-// doFuzz 程序实际执行的函数
+// doFuzz fuzz任务实际执行的函数
 func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
-	fuzzCommon.SetCurFuzz(fuzz1)
+	fuzzCommon.SetCurFuzz(fuzz1) // 设置当前任务，用于外部控制获取
+
 	timeStart := time.Now()
-	// 判断递归深度
+
+	// 预加载插件
+	if err := preLoadJobPlugin(fuzz1); err != nil {
+		output.Logf(common.OutputToWhere, "job#%d preload plugins failed: %v\njob will be skipped", jobId, err)
+		return time.Since(timeStart)
+	}
+
+	// 递归边界（虽然在react中也有判断，但是在这里也防备一下）
 	if fuzz1.React.RecursionControl.RecursionDepth > fuzz1.React.RecursionControl.MaxRecursionDepth {
 		return time.Since(timeStart)
 	}
+
 	// 初始化协程池
 	if Rp == nil {
 		Rp = rp.New(fuzz1.Misc.PoolSize)
@@ -189,14 +198,16 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 	}
 
 	fuzz1 = stagePreprocess.Preprocess(fuzz1, fuzz1.Preprocess.Preprocessors)
-	// 多个fuzz关键字的处理
-	keywords := make([]string, 0)
-	loopLen := int64(1)
-	// 计算长度(loopLen)
+
 	if len(fuzz1.Preprocess.PlTemp) == 0 {
 		output.Logf(common.OutputToWhere, "job#%d has no fuzz keyword, skip", jobId)
 		return time.Since(timeStart)
 	}
+
+	// fuzz关键字的处理
+	keywords := make([]string, 0)
+	loopLen := int64(1)
+	// 计算长度(loopLen)
 	for keyword, pt := range fuzz1.Preprocess.PlTemp {
 		keywords = append(keywords, keyword)
 		// sniper模式
@@ -227,40 +238,33 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 			os.Exit(1)
 		}
 	}
-	output.SetTaskCounter(loopLen)
+
+	output.SetTaskTotal(loopLen)
 	output.ClearTaskCounter()
-	// 任务
-	var task func() *fuzzTypes.Reaction
-	// req模板解析
-	reqTemplate := common.ParseReqTemplate(&fuzz1.Preprocess.ReqTemplate, keywords)
-	// payload处理插件
-	var plProcessorPlugins = make([][]fuzzTypes.Plugin, len(keywords))
-	// 用于接收handleReaction标记当前任务是否结束
-	jobStop := false
+
+	var task func() *fuzzTypes.Reaction // task函数：实际放入池中执行的任务
+
+	reqTemplate := common.ParseReqTemplate(&fuzz1.Preprocess.ReqTemplate, keywords) // 请求模板
+
+	var plProcessorPlugins = make([][]fuzzTypes.Plugin, len(keywords)) // payload处理器插件
 	for i, keyword := range keywords {
 		plProcessorPlugins[i] = fuzz1.Preprocess.PlTemp[keyword].Processors
 	}
-	// 预解析url的scheme
+
+	jobStop := false
+
 	uScheme := tryGetUrlScheme(&fuzz1.Preprocess.ReqTemplate, keywords)
+
+	payloadEachKeyword := make([]string, len(keywords))
+
 	// 主循环
 	for i := int64(0); i < loopLen; i++ {
-		send := (SendMetaPool.Get()).(*fuzzTypes.SendMeta)
-		send.Timeout = fuzz1.Send.Timeout
-		send.Retry = fuzz1.Send.Retry
-		send.RetryRegex = fuzz1.Send.RetryRegex
-		send.RetryCode = fuzz1.Send.RetryCode
-		send.HttpFollowRedirects = fuzz1.Send.HttpFollowRedirects
 
-		payloadEachKeyword := make([]string, 0)
 		curInd := int64(len(fuzz1.Preprocess.PlTemp[keywords[0]].PlList))
-		send.Proxy = ""
-		// 代理轮询
-		if len(fuzz1.Send.Proxies) > 0 {
-			send.Proxy = fuzz1.Send.Proxies[i%int64(len(fuzz1.Send.Proxies))]
-		}
 		if fuzz1.Preprocess.Mode == "clusterbomb" && fuzz1.React.RecursionControl.MaxRecursionDepth <= 0 {
 			curInd = i
 		}
+
 		// 根据模式生成任务
 		if fuzz1.Preprocess.Mode != "sniper" && fuzz1.React.RecursionControl.MaxRecursionDepth <= 0 {
 			for j := 0; j < len(keywords); j++ { // 遍历keywords列表，根据i选出每个关键字对应的payload
@@ -270,29 +274,51 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 					d := int64(len(fuzz1.Preprocess.PlTemp[keywords[len(keywords)-j-1]].PlList))
 					r := curInd % d
 					curInd /= d
-					payloadEachKeyword = append(
-						[]string{fuzz1.Preprocess.PlTemp[keywords[len(keywords)-j-1]].PlList[r]},
-						payloadEachKeyword...)
+					payloadEachKeyword[len(keywords)-j-1] =
+						fuzz1.Preprocess.PlTemp[keywords[len(keywords)-j-1]].PlList[r]
 				// pitchfork模式：每个关键字使用一样的payload下标
 				case "pitchfork":
-					payloadEachKeyword = append(payloadEachKeyword, fuzz1.Preprocess.PlTemp[keywords[j]].PlList[i])
+					payloadEachKeyword[j] = fuzz1.Preprocess.PlTemp[keywords[j]].PlList[i]
 				// pitchfork-cycle模式：每次i循环下标都同步更新1，但payload列表到尾部后会从头再次开始
 				case "pitchfork-cycle":
-					payloadEachKeyword = append(payloadEachKeyword,
-						fuzz1.Preprocess.PlTemp[keywords[j]].PlList[i%
-							int64(len(fuzz1.Preprocess.PlTemp[keywords[j]].PlList))])
+					payloadEachKeyword[j] = fuzz1.Preprocess.PlTemp[keywords[j]].PlList[i%
+						int64(len(fuzz1.Preprocess.PlTemp[keywords[j]].PlList))]
 				}
 			}
+
+			interior := common.GetStringSlice(len(payloadEachKeyword))
+			copy(interior, payloadEachKeyword) // 将payloadEachPayload复制一份再用于闭包中
+
 			task = func() *fuzzTypes.Reaction {
-				processedPayloads := make([]string, len(payloadEachKeyword))
-				for j, plugins := range plProcessorPlugins {
-					processedPayloads[j] = stagePreprocess.PayloadProcessor(payloadEachKeyword[j], plugins)
+				// sendMeta对象
+				send := (SendMetaPool.Get()).(*fuzzTypes.SendMeta)
+				send.Timeout = fuzz1.Send.Timeout
+				send.Retry = fuzz1.Send.Retry
+				send.RetryRegex = fuzz1.Send.RetryRegex
+				send.RetryCode = fuzz1.Send.RetryCode
+				send.HttpFollowRedirects = fuzz1.Send.HttpFollowRedirects
+				send.Proxy = ""
+
+				// 代理轮询
+				if len(fuzz1.Send.Proxies) > 0 {
+					send.Proxy = fuzz1.Send.Proxies[i%int64(len(fuzz1.Send.Proxies))]
 				}
+
 				var cacheId int32
+
+				processedPayloads := common.GetStringSlice(len(interior))
+				for j, plugins := range plProcessorPlugins {
+					processedPayloads[j] = stagePreprocess.PayloadProcessor(interior[j], plugins)
+				}
+
 				send.Request, cacheId = common.ReplacePayloadsByTemplate(reqTemplate, processedPayloads, -1)
 				send.Request.HttpSpec.ForceHttps = fuzz1.Preprocess.ReqTemplate.HttpSpec.ForceHttps
+
 				resp := stageSend.SendRequest(send, uScheme)
 				reaction := stageReact.React(fuzz1, send.Request, resp, keywords, processedPayloads, nil)
+
+				common.PutStringSlice(processedPayloads)
+				common.PutStringSlice(interior)
 				SendMetaPool.Put(send)
 				common.ReleaseReqCache(cacheId)
 				output.AddTaskCounter()
@@ -301,11 +327,27 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 		} else { // sniper模式或者递归模式
 			keyword := keywords[0]
 			payload := fuzz1.Preprocess.PlTemp[keyword].PlList[i%curInd]
+
 			task = func() *fuzzTypes.Reaction {
+				// sendMeta对象
+				send := (SendMetaPool.Get()).(*fuzzTypes.SendMeta)
+				send.Timeout = fuzz1.Send.Timeout
+				send.Retry = fuzz1.Send.Retry
+				send.RetryRegex = fuzz1.Send.RetryRegex
+				send.RetryCode = fuzz1.Send.RetryCode
+				send.HttpFollowRedirects = fuzz1.Send.HttpFollowRedirects
+				send.Proxy = ""
+
+				// 代理轮询
+				if len(fuzz1.Send.Proxies) > 0 {
+					send.Proxy = fuzz1.Send.Proxies[i%int64(len(fuzz1.Send.Proxies))]
+				}
+
 				processedPayload := payload
 				processedPayload = stagePreprocess.PayloadProcessor(processedPayload, plProcessorPlugins[0])
 				var recPos []int = nil
 				var cacheId int32
+
 				// payload替换
 				if fuzz1.Preprocess.Mode == "sniper" &&
 					fuzz1.React.RecursionControl.RecursionDepth <= fuzz1.React.RecursionControl.MaxRecursionDepth {
@@ -321,10 +363,14 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 					send.Request, cacheId =
 						common.ReplacePayloadsByTemplate(reqTemplate, []string{payload}, int(i/curInd))
 				}
+
 				send.Request.HttpSpec.ForceHttps = fuzz1.Preprocess.ReqTemplate.HttpSpec.ForceHttps
+
 				resp := stageSend.SendRequest(send, uScheme)
+
 				reaction := stageReact.React(fuzz1, send.Request, resp, []string{keyword},
 					[]string{processedPayload}, recPos)
+
 				SendMetaPool.Put(send)
 				common.ReleaseReqCache(cacheId)
 				output.AddTaskCounter()
@@ -354,8 +400,17 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 	return time.Since(timeStart)
 }
 
+// DoSingleJob 执行单个fuzz任务，并执行由其衍生出的所有任务
 func DoSingleJob(fuzz1 *fuzzTypes.Fuzz) {
 	defer output.ScreenClose()
+
+	if JQ == nil {
+		JQ = make([]*fuzzTypes.Fuzz, 0)
+	} else if len(JQ) > 0 { // 将jq清零，避免DoJobs执行已经执行过的任务
+		JQ = JQ[:0]
+	}
+
+	// 初始化输出
 	if !fuzz1.React.OutSettings.NativeStdout {
 		common.OutputToWhere = output.OutToScreen
 	} else {
@@ -365,26 +420,33 @@ func DoSingleJob(fuzz1 *fuzzTypes.Fuzz) {
 		common.OutputToWhere |= output.OutToFile
 	}
 	output.InitOutput(fuzz1, common.OutputToWhere)
-	jobId := int(output.GetCounterSingle(3))
+
+	jobId := int(output.GetCounterValue(output.TotalJob))
 	timeLapsed := doFuzz(fuzz1, jobId)
+
 	output.Logf(common.OutputToWhere, "Job#%d completed, time %v", jobId, timeLapsed)
 	output.FinishOutput(common.OutputToWhere)
 	output.AddJobCounter()
+
+	// 若执行单个任务后添加了新任务，需要把新任务也全部执行
 	if len(JQ) != 0 {
 		DoJobs()
 	}
 }
 
 func DoJobs() {
-	if output.GetCounterSingle(3) == 0 {
-		output.SetJobCounter(int64(len(JQ)))
+	// 仅当job总数为0时设置
+	if output.GetCounterValue(output.TotalJob) == 0 {
+		output.SetJobTotal(int64(len(JQ)))
 	}
 	defer output.ScreenClose()
+
 	fuzzCommon.SetJQ(&JQ)
+
 	i := 0
 	toWhereShadow := int32(0)
 	for ; i < len(JQ); i++ {
-		// 根据OutSettings选则输出模式（termui界面、原生stdout）
+		// 根据OutSettings选则输出模式（termui界面、原生stdout）并初始化
 		if !JQ[i].React.OutSettings.NativeStdout {
 			common.OutputToWhere = output.OutToScreen
 		} else {
@@ -393,33 +455,22 @@ func DoJobs() {
 		if JQ[i].React.OutSettings.OutputFile != "" {
 			common.OutputToWhere |= output.OutToFile
 		}
-		output.InitOutput(JQ[i], common.OutputToWhere)
-		timeLapsed := doFuzz(JQ[i], i)
+		output.InitOutput(JQ[i], common.OutputToWhere) // 初始化
+
+		timeLapsed := doFuzz(JQ[i], i) // 执行任务
+
 		toWhereShadow = common.OutputToWhere
+
 		// 如果下一个任务仍然使用同样文件以及同样输出格式，则不结束文件输出，追加到同一文件
 		if i+1 < len(JQ) && JQ[i+1].React.OutSettings.OutputFile == JQ[i].React.OutSettings.OutputFile &&
 			JQ[i+1].React.OutSettings.OutputFormat == JQ[i].React.OutSettings.OutputFormat {
 			toWhereShadow &= ^output.OutToFile
 		}
 		output.FinishOutput(toWhereShadow)
+
 		output.AddJobCounter()
 		output.Logf(toWhereShadow, "Job#%d completed, time %v", i, timeLapsed)
 	}
 	output.Log(toWhereShadow, "All jobs completed")
 	output.WaitForScreenQuit()
-}
-
-func Debug(fuzz1 *fuzzTypes.Fuzz) {
-	kw := ""
-	for k, _ := range fuzz1.Preprocess.PlTemp {
-		kw = k
-		break
-	}
-	r := fuzz1.Preprocess.ReqTemplate
-	t := common.ParseReqTemplate(&r, []string{kw})
-	newReq, trackPos, _ := common.ReplacePayloadTrackTemplate(t, "1milaogiu", -1)
-	resp := &fuzzTypes.Resp{HttpResponse: &http.Response{StatusCode: 404}}
-	fmt.Println(newReq, trackPos)
-	reaction := stageReact.React(fuzz1, newReq, resp, []string{}, []string{}, trackPos)
-	fmt.Println(reaction.NewJob.Preprocess.ReqTemplate)
 }

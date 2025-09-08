@@ -5,6 +5,13 @@ import (
 	"time"
 )
 
+const (
+	CntTask   = 0 // CntTask 获取task个数
+	TotalTask = 1 // TotalTask 获取task总数
+	CntJob    = 2 // CntJob 获取job个数
+	TotalJob  = 3 // TotalJob 获取job总数
+)
+
 func init() {
 	globCounter.timeStart = time.Now()
 	// 速率每1秒更新一次
@@ -19,13 +26,13 @@ func init() {
 	}()
 }
 
-// SetTaskCounter 设置task计数器的总数
-func SetTaskCounter(total int64) {
+// SetTaskTotal 设置task计数器的总数
+func SetTaskTotal(total int64) {
 	atomic.StoreInt64(&globCounter.taskCounter.total, total)
 }
 
-// SetJobCounter 设置job计数器的总数
-func SetJobCounter(total int64) {
+// SetJobTotal 设置job计数器的总数
+func SetJobTotal(total int64) {
 	atomic.StoreInt64(&globCounter.jobCounter.total, total)
 }
 
@@ -51,16 +58,16 @@ func GetCounter() []int64 {
 		atomic.LoadInt64(&globCounter.jobCounter.total)}
 }
 
-// GetCounterSingle 获取单个计数器数据
-func GetCounterSingle(which int8) int64 {
+// GetCounterValue 获取单个计数器数据
+func GetCounterValue(which int8) int64 {
 	switch which {
-	case 0:
+	case CntTask:
 		return atomic.LoadInt64(&globCounter.taskCounter.count)
-	case 1:
+	case TotalTask:
 		return atomic.LoadInt64(&globCounter.taskCounter.total)
-	case 2:
+	case CntJob:
 		return atomic.LoadInt64(&globCounter.jobCounter.count)
-	case 3:
+	case TotalJob:
 		return atomic.LoadInt64(&globCounter.jobCounter.total)
 	}
 	return -1

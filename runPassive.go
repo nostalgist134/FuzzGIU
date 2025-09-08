@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/common"
 	"github.com/nostalgist134/FuzzGIU/components/fuzz"
@@ -12,18 +14,26 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"sync"
+	"syscall"
+	"time"
 )
 
-var randMarker = common.GetRandMarker()
+var accessToken = common.GetRandMarker()
 var jobs = make(chan *fuzzTypes.Fuzz, 4096)
 var muJobs = sync.Mutex{}
 
-func handler(w http.ResponseWriter, r *http.Request) {
+const (
+	RouteAddJob    = "add_job"
+	RouteGetResult = "get_result"
+)
+
+func addJobHandler(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
-	if tok := r.Header.Get("Access-Token"); tok != randMarker {
-		http.Error(w, "access token not right", http.StatusUnauthorized)
+	if tok := r.Header.Get("Access-Token"); tok != accessToken {
+		http.Error(w, "incorrect access token", http.StatusUnauthorized)
 		return
 	}
 
@@ -80,23 +90,51 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 // RunPassive 以被动模式运行
 func RunPassive(opt *options.Opt) {
-	http.HandleFunc("/add_job", handler)
+	// 捕获中断信号
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/"+RouteAddJob, addJobHandler)
+
+	srv := &http.Server{
+		Addr:    opt.General.PassiveAddr,
+		Handler: mux,
+	}
+
 	go func() {
 		f, err := os.Create("token.txt")
-		defer os.Remove("token.txt")
-		if err == nil {
-			f.WriteString(randMarker)
+		if err != nil {
+		} else {
+			f.WriteString(accessToken)
 			f.Close()
 		}
-		fmt.Printf("submit job on %s/add_job with access token: %s...\n", opt.General.PassiveAddr, randMarker)
-		if err := http.ListenAndServe(opt.General.PassiveAddr, nil); err != nil {
+		fmt.Printf("submit job on %s/%s\nget result on %s/%s\naccess token: %s\n", opt.General.PassiveAddr,
+			RouteAddJob, opt.General.PassiveAddr, RouteGetResult, accessToken)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("fatal error: %v. exitting...", err)
 		}
 	}()
-	output.SetJobCounter(-1)
-	for j := range jobs {
-		// 输出到原生 stdout
-		j.React.OutSettings.NativeStdout = true
-		fuzz.DoSingleJob(j)
+
+	output.SetJobTotal(-1)
+
+	for {
+		select {
+		case j := <-jobs:
+			j.React.OutSettings.NativeStdout = true
+			fuzz.DoSingleJob(j)
+		case <-quit:
+			fmt.Println("\nReceived Ctrl+C, now exiting...")
+
+			// 优雅关闭 HTTP server
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := srv.Shutdown(ctx); err != nil {
+				log.Printf("http shutdown error: %v", err)
+			}
+
+			os.Remove("token.txt")
+			return
+		}
 	}
 }

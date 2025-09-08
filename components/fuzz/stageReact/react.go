@@ -52,6 +52,12 @@ func matchResponse(resp *fuzzTypes.Resp, m *fuzzTypes.Match) bool {
 	return !whenToRet
 }
 
+// insertRecursionMarker 往请求中的指定位置插入递归关键字，便于之后递归中使用
+// 递归关键字需要插入的位置recursionPos在模板渲染时获取，recursionPos按照如下逻辑解析：
+// 一个recursionPos中可能含有正数或者负数，标记了一个字段中需要插入递归关键字的位置或字段的结束。
+// 若recursionPos[i]为正数，则说明这个是要插入payload的下标；
+// 若recursionPos[i]为负数，但是绝对值<=len(field)，则其正数代表要插入的下标，并且负号代表字段结束
+// 若recursionPos[i]为负数，且绝对值大于len(field)，则说明当前字段没有要插入递归关键字的位置
 func insertRecursionMarker(recKeyword string, splitter string,
 	field string, recursionPos []int, currentPos int) (string, int) {
 	sb := strings.Builder{}
@@ -154,7 +160,7 @@ func React(fuzz1 *fuzzTypes.Fuzz, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 	} else if reaction.Flag&fuzzTypes.ReactMatch != 0 {
 		reaction.Flag |= fuzzTypes.ReactOutput
 	}
-	o := output.ObjectOutput{Msg: reaction.Output.Msg}
+	o := output.OutObj{Msg: reaction.Output.Msg}
 	// 生成并输出消息
 	if reaction.Flag&fuzzTypes.ReactOutput != 0 {
 		if !reaction.Output.Overwrite {
@@ -163,7 +169,7 @@ func React(fuzz1 *fuzzTypes.Fuzz, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 			o.Request = reqSend
 			o.Response = resp
 		}
-		output.ObjOutput(&o, common.OutputToWhere)
+		output.Output(&o, common.OutputToWhere)
 	}
 	// 添加新单个请求的reaction，在输出消息后添加追溯信息(keyword:payload对)，易于追踪
 	if reaction.Flag&fuzzTypes.ReactAddReq != 0 || reaction.Flag&fuzzTypes.ReactAddJob != 0 {

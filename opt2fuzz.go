@@ -8,6 +8,7 @@ import (
 	"github.com/nostalgist134/FuzzGIU/components/options"
 	"github.com/nostalgist134/FuzzGIU/components/output"
 	"github.com/nostalgist134/FuzzGIU/components/plugin"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -20,7 +21,7 @@ const defaultKeyword = "MILAOGIU"
 
 func keywordOverlap(keyword string) (string, bool) {
 	for _, k := range globKeywords {
-		if strings.Index(k, keyword) != -1 || strings.Index(keyword, k) != -1 {
+		if strings.Contains(k, keyword) || strings.Contains(keyword, k) {
 			return k, true
 		}
 	}
@@ -145,6 +146,7 @@ func str2Ranges(s string) []fuzzTypes.Range {
 		upper, err := strconv.Atoi(bounds[1])
 		if err != nil {
 			ranges = append(ranges, errRange)
+			continue
 		}
 		ranges = append(ranges, fuzzTypes.Range{Upper: upper, Lower: lower})
 	}
@@ -218,6 +220,7 @@ func getDelayGranularity(gran string) time.Duration {
 // opt2fuzz 将opt结构转化为fuzz结构
 func opt2fuzz(opt *options.Opt) *fuzzTypes.Fuzz {
 	fuzz := new(fuzzTypes.Fuzz)
+
 	// opt.General
 	fuzz.Preprocess.ReqTemplate.URL = opt.General.URL
 	fuzz.Preprocess.ReqTemplate.Data = opt.General.Data
@@ -232,6 +235,7 @@ func opt2fuzz(opt *options.Opt) *fuzzTypes.Fuzz {
 			input.Enabled = false
 		}
 	}
+
 	// opt.Request
 	var req *fuzzTypes.Req
 	var raw []byte
@@ -243,7 +247,9 @@ func opt2fuzz(opt *options.Opt) *fuzzTypes.Fuzz {
 		if req != nil {
 			fuzz.Preprocess.ReqTemplate = *req
 			// -u指定的url优先级更高
-			fuzz.Preprocess.ReqTemplate.URL = opt.General.URL
+			if opt.General.URL != "" {
+				fuzz.Preprocess.ReqTemplate.URL = opt.General.URL
+			}
 		} else { // 如果不是json或http，则将其视作data
 			fuzz.Preprocess.ReqTemplate.Data = string(raw)
 		}
@@ -258,7 +264,7 @@ func opt2fuzz(opt *options.Opt) *fuzzTypes.Fuzz {
 		}
 		fuzz.Preprocess.ReqTemplate.HttpSpec.ForceHttps = opt.Request.HTTPS
 
-		if opt.Request.HTTP2 == true {
+		if opt.Request.HTTP2 {
 			fuzz.Preprocess.ReqTemplate.HttpSpec.Version = "HTTP/2"
 		}
 
@@ -286,20 +292,25 @@ func opt2fuzz(opt *options.Opt) *fuzzTypes.Fuzz {
 
 		fuzz.Preprocess.ReqTemplate.HttpSpec.Method = opt.Request.Method
 	}
+
 	// opt.Filter
 	setMatch(&fuzz.React.Filter, opt.Filter)
+
 	// opt.Match
 	setMatch(&fuzz.React.Matcher, opt.Matcher)
+
 	// opt.Output
 	fuzz.React.OutSettings.Verbosity = opt.Output.Verbosity
 	fuzz.React.OutSettings.OutputFormat = opt.Output.Fmt
 	fuzz.React.OutSettings.IgnoreError = opt.Output.IgnoreError
 	fuzz.React.OutSettings.OutputFile = opt.Output.File
 	fuzz.React.OutSettings.NativeStdout = opt.Output.NativeStdout
+
 	// opt.ErrorHandling
 	fuzz.Send.Retry = opt.ErrorHandling.Retry
 	fuzz.Send.RetryCode = opt.ErrorHandling.RetryOnStatus
 	fuzz.Send.RetryRegex = opt.ErrorHandling.RetryRegex
+
 	// opt.PayloadSetting
 	fuzz.Preprocess.Mode = opt.Payload.Mode
 	fuzz.Preprocess.PlTemp = make(map[string]fuzzTypes.PayloadTemp)
@@ -307,8 +318,9 @@ func opt2fuzz(opt *options.Opt) *fuzzTypes.Fuzz {
 	appendPayloadTmp(fuzz.Preprocess.PlTemp, opt.Payload.Wordlists, 0, "wordlist")
 	appendPayloadTmp(fuzz.Preprocess.PlTemp, opt.Payload.Processors, 1, "")
 	if opt.Payload.Mode == "sniper" && len(fuzz.Preprocess.PlTemp) > 1 {
-		panic("sniper mode only supports single fuzz keyword")
+		log.Fatal("sniper mode only supports single fuzz keyword")
 	}
+
 	// opt.Plugin
 	sb := strings.Builder{}
 	for i, preprocessors := range opt.Plugin.Preprocessors {
@@ -326,10 +338,11 @@ func opt2fuzz(opt *options.Opt) *fuzzTypes.Fuzz {
 		fuzz.React.Reactor = reactPlugin[0]
 	}
 	quitIfPathTraverse([]fuzzTypes.Plugin{fuzz.React.Reactor})
+
 	// opt.RecursionControl
 	if opt.RecursionControl.Recursion {
 		if len(fuzz.Preprocess.PlTemp) > 1 {
-			panic("recursion mode only supports single fuzz keyword")
+			log.Fatal("recursion mode only supports single fuzz keyword")
 		}
 		fuzz.React.RecursionControl.MaxRecursionDepth = opt.RecursionControl.RecursionDepth
 		fuzz.React.RecursionControl.StatCodes = str2Ranges(opt.RecursionControl.RecursionStatus)

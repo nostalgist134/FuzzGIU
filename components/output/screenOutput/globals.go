@@ -24,6 +24,10 @@ const (
 	directionDown  = int8(1)
 	directionLeft  = int8(2)
 	directionRight = int8(3)
+
+	selectGlobInfo = 0
+	selectOutput   = 1
+	selectLogs     = 2
 )
 
 // screenOutput 输出屏幕
@@ -43,6 +47,5 @@ var posLogo = []int{0, 0, 0, logoMaxLines + 2}
 var outputHasInit = atomic.Bool{}
 var outputLocked = true
 var hasOutput = false
-var firstLog = true
 
 var wg = sync.WaitGroup{}

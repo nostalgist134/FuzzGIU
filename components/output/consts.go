@@ -1,12 +1,10 @@
 package output
 
 const (
-	// OutToFile 输出到文件
-	OutToFile = 1
-	// OutToScreen 输出到屏幕（termui）
-	OutToScreen = 2
-	// OutToNativeStdout 直接输出到stdout
-	OutToNativeStdout = 4
+	OutToFile         = 1 // OutToFile 输出到文件
+	OutToScreen       = 2 // OutToScreen 输出到屏幕（termui）
+	OutToNativeStdout = 4 // OutToNativeStdout 直接输出到stdout
+	OutToDB           = 8 // OutToDB 输出到db文件中（这个暂时不做了，因为我发现gorm库打包完编译出来的文件直接会到30m以上）
 
 	// CntTask 获取task个数
 	CntTask = 0
