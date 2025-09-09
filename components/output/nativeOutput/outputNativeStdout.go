@@ -23,7 +23,7 @@ func Log(log string) {
 	fmt.Printf("{\"log\":%s}\n", string(l))
 }
 
-func InitOutputStdout() {
+func InitOutput() {
 	fmt.Println("NATIVE_OUTPUT_BEGIN")
 	go func() {
 		for {
@@ -40,7 +40,7 @@ func InitOutputStdout() {
 	}()
 }
 
-func FinishOutputStdout() {
+func FinishOutput() {
 	stop <- struct{}{}
 	fmt.Println("NATIVE_OUTPUT_END")
 }

@@ -53,15 +53,18 @@ func genIntStrings(lower int, upper int, base int) []string {
 	return ret
 }
 
-// 反转切片
-func reverse(chars []rune) {
-	for i, j := 0, len(chars)-1; i < j; i, j = i+1, j-1 {
-		chars[i], chars[j] = chars[j], chars[i]
-	}
+// emptyStrings 生成一个全为空字符串的切片
+func emptyStrings(length int) []string {
+	return make([]string, length)
 }
 
-// 非递归实现字符串全排列，返回所有不重复的排列，maxlen控制最大返回数量，-1表示无限制
+// permute 返回所有不重复的排列，maxlen控制最大返回数量，-1表示无限制
 func permute(s string, maxLen int) []string {
+	reverse := func(chars []rune) {
+		for i, j := 0, len(chars)-1; i < j; i, j = i+1, j-1 {
+			chars[i], chars[j] = chars[j], chars[i]
+		}
+	}
 	chars := []rune(s)
 	// 先排序得到最小字典序的初始排列
 	sort.Slice(chars, func(i, j int) bool {
@@ -109,11 +112,22 @@ func generatePayloadsPlugin(generatorPlugins []fuzzTypes.Plugin) []string {
 		switch p.Name {
 		case "int":
 			if len(p.Args) >= 2 {
+				var ok bool
+				var lower int
+				var upper int
 				base := 10
-				if len(p.Args) > 2 {
-					base = p.Args[2].(int)
+				if lower, ok = p.Args[0].(int); !ok {
+					continue
 				}
-				payloads = append(payloads, genIntStrings(p.Args[0].(int), p.Args[1].(int), base)...)
+				if upper, ok = p.Args[1].(int); !ok {
+					continue
+				}
+				if len(p.Args) > 2 {
+					if base, ok = p.Args[2].(int); !ok {
+						base = 10
+					}
+				}
+				payloads = append(payloads, genIntStrings(lower, upper, base)...)
 			}
 		case "permute":
 			if len(p.Args) != 0 {
@@ -126,6 +140,12 @@ func generatePayloadsPlugin(generatorPlugins []fuzzTypes.Plugin) []string {
 					maxLen, ok = p.Args[1].(int)
 				}
 				payloads = append(payloads, permute(src, maxLen)...)
+			}
+		case "nil":
+			if len(p.Args) != 0 {
+				if length, ok := p.Args[0].(int); ok {
+					payloads = append(payloads, emptyStrings(length)...)
+				}
 			}
 		case "":
 		default:

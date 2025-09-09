@@ -44,8 +44,8 @@ func getNextParaPos(pos []int, maxLines int) []int {
 	return []int{0, pos[3] + 1, pos[2], pos[3] + maxLines + 3}
 }
 
-// InitOutputScreen 初始化输出窗口
-func InitOutputScreen(globInfo *fuzzTypes.Fuzz) {
+// InitOutput 初始化输出窗口
+func InitOutput(globInfo *fuzzTypes.Fuzz) {
 	HasInit := outputHasInit.Load()
 	if !HasInit {
 		outputHasInit.Store(true)
@@ -130,7 +130,7 @@ func Output(obj *common.OutObj) {
 	screenOutput.outputObjects.render("", true)
 }
 
-func FinishOutputScreen() {
+func FinishOutput() {
 	if !outputHasInit.Load() {
 		return
 	}

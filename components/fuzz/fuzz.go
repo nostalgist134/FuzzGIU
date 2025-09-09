@@ -400,7 +400,7 @@ func doFuzz(fuzz1 *fuzzTypes.Fuzz, jobId int) time.Duration {
 	return time.Since(timeStart)
 }
 
-// DoSingleJob 执行单个fuzz任务，并执行由其衍生出的所有任务
+// DoSingleJob 执行单个fuzz任务及其衍生出的所有任务
 func DoSingleJob(fuzz1 *fuzzTypes.Fuzz) {
 	defer output.ScreenClose()
 
@@ -410,15 +410,17 @@ func DoSingleJob(fuzz1 *fuzzTypes.Fuzz) {
 		JQ = JQ[:0]
 	}
 
+	outToMem := common.OutputToWhere & output.OutToMem
 	// 初始化输出
-	if !fuzz1.React.OutSettings.NativeStdout {
-		common.OutputToWhere = output.OutToScreen
-	} else {
+	if fuzz1.React.OutSettings.NativeStdout {
 		common.OutputToWhere = output.OutToNativeStdout
+	} else {
+		common.OutputToWhere = output.OutToScreen
 	}
 	if fuzz1.React.OutSettings.OutputFile != "" {
 		common.OutputToWhere |= output.OutToFile
 	}
+	common.OutputToWhere |= outToMem
 	output.InitOutput(fuzz1, common.OutputToWhere)
 
 	jobId := int(output.GetCounterValue(output.TotalJob))
@@ -447,10 +449,10 @@ func DoJobs() {
 	toWhereShadow := int32(0)
 	for ; i < len(JQ); i++ {
 		// 根据OutSettings选则输出模式（termui界面、原生stdout）并初始化
-		if !JQ[i].React.OutSettings.NativeStdout {
-			common.OutputToWhere = output.OutToScreen
-		} else {
+		if JQ[i].React.OutSettings.NativeStdout {
 			common.OutputToWhere = output.OutToNativeStdout
+		} else {
+			common.OutputToWhere = output.OutToScreen
 		}
 		if JQ[i].React.OutSettings.OutputFile != "" {
 			common.OutputToWhere |= output.OutToFile
@@ -473,4 +475,8 @@ func DoJobs() {
 	}
 	output.Log(toWhereShadow, "All jobs completed")
 	output.WaitForScreenQuit()
+}
+
+func GetCurrentJob() *fuzzTypes.Fuzz {
+	return fuzzCommon.GetCurFuzz()
 }

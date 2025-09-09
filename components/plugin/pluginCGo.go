@@ -233,7 +233,7 @@ func PayloadProcessor(p fuzzTypes.Plugin) string {
 		callError(RelPathPlProc, p, err)
 		return ""
 	} else if needed > rb.Cap() {
-		rb.Resize(needed)
+		rb.Resize(needed + needed>>1)
 		needed, err = callSharedLib(p, RelPathPlProc, rb)
 		if err != nil {
 			callError(RelPathPlProc, p, err)
@@ -256,7 +256,7 @@ func PayloadGenerator(p fuzzTypes.Plugin) []string {
 		callError(RelPathPlGen, p, err)
 		return []string{}
 	} else if needed > rb.Cap() {
-		rb.Resize(needed)
+		rb.Resize(needed + needed>>1)
 		_, err = callSharedLib(p, RelPathPlGen, rb)
 		if err != nil {
 			callError(RelPathPlGen, p, err)
@@ -290,7 +290,7 @@ func Preprocess(p fuzzTypes.Plugin, fuzz1 *fuzzTypes.Fuzz) *fuzzTypes.Fuzz {
 		output.Log(common.OutputToWhere, errInteriorMarshal)
 		return fuzz1
 	} else if needed > rb.Cap() { // 长度不够时，调用resize，而后再次调用动态库
-		rb.Resize(needed)
+		rb.Resize(needed + needed>>1)
 		needed, err = callSharedLib(p, RelPathPreprocessor, rb, fuzzJson)
 		if err != nil {
 			callError(RelPathPreprocessor, p, err)
@@ -327,7 +327,7 @@ func SendRequest(p fuzzTypes.Plugin, m *fuzzTypes.SendMeta) *fuzzTypes.Resp {
 	} else if needed == -1 {
 		return &fuzzTypes.Resp{ErrMsg: errInteriorMarshal}
 	} else if needed > rb.Cap() {
-		rb.Resize(needed)
+		rb.Resize(needed + needed>>1)
 		needed, err = callSharedLib(p, RelPathReqSender, rb, reqJson)
 		if err != nil {
 			return &fuzzTypes.Resp{ErrMsg: err.Error()}
@@ -377,7 +377,7 @@ func React(p fuzzTypes.Plugin, req *fuzzTypes.Req, resp *fuzzTypes.Resp) *fuzzTy
 		rct.Flag |= fuzzTypes.ReactOutput
 		return rct
 	} else if needed > rb.Cap() {
-		rb.Resize(needed)
+		rb.Resize(needed + needed>>1)
 		needed, err = callSharedLib(p, RelPathReactor, rb, reqJson, respJson)
 		if err != nil {
 			rct.Output.Msg = err.Error()

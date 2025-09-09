@@ -58,6 +58,8 @@ func (r *screenOutputRegion) render(title string, unlock ...bool) {
 // clear 将outputRegion清空
 func (r *screenOutputRegion) clear() {
 	r.lines = r.lines[:0]
+	r.lineLeft = 0
+	r.lineLeft = 0
 	r.render("")
 }
 
