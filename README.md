@@ -349,6 +349,7 @@ HTTPSpec struct {
 
 - `int(lower, upper, base)`: 生成 `[lower, upper)` 范围内指定 `base` 进制 (通常为 10) 的数字字符串。e.g., `int(1, 100, 10)` 生成 "1" 到 "99"，`base`参数可省略，默认为10。
 - `permute(s, maxLen)`: 生成字符串 `s` 的所有排列组合，最多 `maxLen` 个结果。e.g., `permute("abc", 10)`，若`maxLen`省略或为-1，则不限制。
+- `permuteex(s, m, n)`: 生成字符串`s`的长度从`m`到`n`的全排列，若`n`未设置或小于0，则设置为最大长度。
 - `nil(length)`: 生成一个长度为`length`，全为空字符串的列表。
 
 `-pl-processor`参数用于指定fuzz关键字的对应payload使用的处理器，同样使用 [伪函数调用表达式](#插件调用) 进行调用，使用`::`符号与关键字进行关联。对单个fuzz关键字也可指定多个处理器，会按照顺序依次调用，每个处理器处理后的payload会作为下一个处理器的输入。

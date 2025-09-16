@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/common"
 	"github.com/nostalgist134/FuzzGIU/components/fuzz"
+	"github.com/nostalgist134/FuzzGIU/components/fuzz/stageSend"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/nostalgist134/FuzzGIU/components/options"
 	"github.com/nostalgist134/FuzzGIU/components/output"
@@ -149,6 +150,7 @@ func getCurrentJobHandler(w http.ResponseWriter, r *http.Request) {
 
 // RunPassive 以被动模式运行
 func RunPassive(opt *options.Opt) {
+	stageSend.HTTPRandomAgent = opt.Request.RandomAgent
 	// 捕获中断信号
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

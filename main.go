@@ -28,7 +28,7 @@ func initEnv() {
 	}
 }
 
-func runDirect(opt *options.Opt) {
+func RunDirect(opt *options.Opt) {
 	fuzz1 := opt2fuzz(opt)
 	fuzz.JQ.AddJob(fuzz1)
 	fuzz.DoJobs()
@@ -47,5 +47,5 @@ func main() {
 		RunPassive(opt)
 		return
 	}
-	runDirect(opt)
+	RunDirect(opt)
 }

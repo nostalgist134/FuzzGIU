@@ -154,4 +154,5 @@ const (
 	ReactFiltered = 0x10
 	ReactMatch    = 0x20
 	ReactAddReq   = 0x40
+	ReactMerge    = 0x80
 )

@@ -84,9 +84,9 @@ var agents = []string{
 
 var HTTPRandomAgent = false
 
-func buildRawHTTPResponse(resp *http.Response) ([]byte, error) {
+func buildRawHTTPResponse(resp *http.Response) ([]byte, []byte, error) {
 	if resp == nil {
-		return nil, nil
+		return nil, nil, nil
 	}
 	var raw bytes.Buffer
 
@@ -102,11 +102,13 @@ func buildRawHTTPResponse(resp *http.Response) ([]byte, error) {
 	}
 	raw.WriteString("\r\n")
 
+	var bodyBytes []byte
+	var err error
 	// 响应体
 	if resp.Body != nil {
-		bodyBytes, err := io.ReadAll(resp.Body)
+		bodyBytes, err = io.ReadAll(resp.Body)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		raw.Write(bodyBytes)
 
@@ -114,7 +116,7 @@ func buildRawHTTPResponse(resp *http.Response) ([]byte, error) {
 		resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 	}
 
-	return raw.Bytes(), nil
+	return raw.Bytes(), bodyBytes, nil
 }
 
 var cliPool = sync.Pool{
@@ -131,7 +133,7 @@ func initHttpCli(proxy string, timeout int, redirect bool, httpVer string,
 
 	// 设置 Transport
 	tr, ok := cli.Transport.(*http.Transport)
-	// 只能关闭连接并新建transport，否则会在hpack里面panic，不过这样会导致速度变得非常非常慢（差不多变为1/5），而且cpu上升非常快
+	// h2不能复用tr，只能关闭连接并新建，否则会在hpack里面panic，不过这样会导致资源消耗大，我也没办法
 	if ok {
 		tr.CloseIdleConnections()
 	}
@@ -198,12 +200,19 @@ func fuzzReq2HttpReq(fuzzReq *fuzzTypes.Req) (*http.Request, error) {
 	// http请求头部分
 	for i := 0; i < len(fuzzReq.HttpSpec.Headers); i++ {
 		indColon := strings.Index(fuzzReq.HttpSpec.Headers[i], ":")
+		headerName := ""
+		headerVal := ""
 		// 如果没有冒号，则加入一个值为空的头（net/http不允许无冒号的单独头名）
 		if indColon == len(fuzzReq.HttpSpec.Headers[i])-1 || indColon == -1 {
-			httpReq.Header.Add(fuzzReq.HttpSpec.Headers[i], "")
+			headerName = fuzzReq.HttpSpec.Headers[i]
 		} else {
-			httpReq.Header.Add(fuzzReq.HttpSpec.Headers[i][0:indColon],
-				strings.TrimSpace(fuzzReq.HttpSpec.Headers[i][indColon+1:]))
+			headerName = fuzzReq.HttpSpec.Headers[i][:indColon]
+			headerVal = strings.TrimSpace(fuzzReq.HttpSpec.Headers[i][indColon+1:])
+		}
+		if strings.ToLower(headerName) == "host" {
+			httpReq.Host = headerVal
+		} else {
+			httpReq.Header.Add(headerName, headerVal)
 		}
 	}
 	// 设置UA头
@@ -242,6 +251,9 @@ func countWords(data []byte) int {
 }
 
 func countLines(data []byte) int {
+	if len(data) == 0 {
+		return 0
+	}
 	line := bytes.Count(data, []byte{'\n'})
 	if data[len(data)-1] != '\n' {
 		line++
@@ -259,7 +271,7 @@ func sendRequestHttp(request *fuzzTypes.Req, timeout int, httpRedirect bool, ret
 	resp := new(fuzzTypes.Resp)
 	resp.ErrMsg = ""
 
-	req, err := fuzzReq2HttpReq(request)
+	httpReq, err := fuzzReq2HttpReq(request)
 	if err != nil {
 		resp.ErrMsg = err.Error()
 		return resp, err
@@ -271,13 +283,14 @@ func sendRequestHttp(request *fuzzTypes.Req, timeout int, httpRedirect bool, ret
 		return resp, err
 	}
 	timeStart := time.Now()
-	httpResponse, sendErr := cli.Do(req)
+	httpResponse, sendErr := cli.Do(httpReq)
 	var buildErr error = nil
 	var rawResp []byte
+	var bodyBytes []byte
 	if sendErr == nil {
 		resp.HttpResponse = httpResponse
 		// 生成rawResponse
-		rawResp, buildErr = buildRawHTTPResponse(httpResponse)
+		rawResp, bodyBytes, buildErr = buildRawHTTPResponse(httpResponse)
 		if buildErr != nil {
 			rawResp = nil
 			return resp, buildErr
@@ -298,16 +311,16 @@ func sendRequestHttp(request *fuzzTypes.Req, timeout int, httpRedirect bool, ret
 				httpResponse.Body.Close()
 			}
 			// patchLog#2: 重新填充data部分，因为http.request每次发完请求后就会把body消耗掉（完全傻逼的设计）
-			req.Body = io.NopCloser(bytes.NewBuffer(reqData))
+			httpReq.Body = io.NopCloser(bytes.NewBuffer(reqData))
 			// 重试请求
-			httpResponse, sendErr = cli.Do(req)
+			httpResponse, sendErr = cli.Do(httpReq)
 			resp.HttpResponse = httpResponse
 			if sendErr != nil {
 				resp.ErrMsg = sendErr.Error() // 每次发送请求后都设置respError位
 			} else {
 				resp.ErrMsg = ""
 			}
-			rawResp, buildErr = buildRawHTTPResponse(httpResponse)
+			rawResp, bodyBytes, buildErr = buildRawHTTPResponse(httpResponse)
 			if buildErr != nil {
 				rawResp = nil
 				return resp, buildErr
@@ -325,9 +338,9 @@ func sendRequestHttp(request *fuzzTypes.Req, timeout int, httpRedirect bool, ret
 	resp.RawResponse = rawResp
 	resp.HttpRedirectChain = redirectChain // 记录重定向链
 	if rawResp != nil {
-		resp.Lines = countLines(rawResp)
-		resp.Words = countWords(rawResp)
-		resp.Size = len(rawResp)
+		resp.Lines = countLines(bodyBytes)
+		resp.Words = countWords(bodyBytes)
+		resp.Size = len(bodyBytes)
 	}
 	// 关闭HttpResponse的body，因为rawResponse已经记录body了，这个成员之后不会再用
 	if resp.HttpResponse != nil {

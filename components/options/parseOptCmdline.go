@@ -100,11 +100,18 @@ func ParseOptCmdline() *Opt {
 	flag.Visit(func(f *flag.Flag) {
 		flagIsSet[f.Name] = true
 	})
-	// 当用户未指定mc参数，但是指定其它过滤器或者匹配器参数时，将mc参数设置为空，避免因匹配器优先级导致过滤器无法正常运行或匹配本无意匹配的条件
+
+	// 当用户未指定mc参数，但是指定其它匹配器参数时，将mc参数设置为空，避免匹配本无意匹配的条件
 	if (flagIsSet["ms"] || flagIsSet["mr"] || flagIsSet["mt"] || flagIsSet["mw"] || flagIsSet["ml"]) &&
 		!flagIsSet["mc"] {
 		matcher.Code = ""
 	}
+
+	// 将http方法选项设为空，避免覆盖-r指定文件中的http方法
+	if !flagIsSet["X"] && flagIsSet["r"] {
+		request.Method = ""
+	}
+
 	return &Opt{
 		General:          general,
 		Output:           output,

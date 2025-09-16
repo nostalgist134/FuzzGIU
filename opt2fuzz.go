@@ -246,51 +246,61 @@ func opt2fuzz(opt *options.Opt) *fuzzTypes.Fuzz {
 		req, raw, err = parseRequestFile(opt.General.ReqFile)
 		if req != nil {
 			fuzz.Preprocess.ReqTemplate = *req
-			// -u指定的url优先级更高
-			if opt.General.URL != "" {
-				fuzz.Preprocess.ReqTemplate.URL = opt.General.URL
-			}
 		} else { // 如果不是json或http，则将其视作data
 			fuzz.Preprocess.ReqTemplate.Data = string(raw)
 		}
 	}
-	if err != nil || opt.General.ReqFile == "" {
-		if opt.General.ReqFile != "" {
-			if os.IsNotExist(err) {
-				fmt.Printf("request file %s not found, ignored\n", opt.General.ReqFile)
-			} else {
-				fmt.Printf("error when parsing request file %s: %v, skipping\n", opt.General.ReqFile, err)
-			}
-		}
-		fuzz.Preprocess.ReqTemplate.HttpSpec.ForceHttps = opt.Request.HTTPS
 
-		if opt.Request.HTTP2 {
-			fuzz.Preprocess.ReqTemplate.HttpSpec.Version = "HTTP/2"
-		}
+	if opt.General.ReqFile != "" {
+		if os.IsNotExist(err) {
+			output.PendLog(fmt.Sprintf("request file %s not found, ignored\n", opt.General.ReqFile))
 
+		} else if err != nil {
+			output.PendLog(fmt.Sprintf("error when parsing request file %s: %v, skipping\n",
+				opt.General.ReqFile, err))
+		}
+	}
+
+	// 无论文件是否读取成功，都读取命令行参数
+	if opt.General.URL != "" { // -u指定的url优先级更高
+		fuzz.Preprocess.ReqTemplate.URL = opt.General.URL
+	}
+
+	fuzz.Preprocess.ReqTemplate.HttpSpec.ForceHttps = opt.Request.HTTPS
+
+	if opt.Request.HTTP2 {
+		fuzz.Preprocess.ReqTemplate.HttpSpec.Version = "HTTP/2"
+	}
+
+	if len(fuzz.Preprocess.ReqTemplate.HttpSpec.Headers) == 0 {
 		fuzz.Preprocess.ReqTemplate.HttpSpec.Headers = make([]string, 0)
-		for _, h := range opt.Request.Headers {
-			fuzz.Preprocess.ReqTemplate.HttpSpec.Headers = append(fuzz.Preprocess.ReqTemplate.HttpSpec.Headers, h)
-		}
+	}
+	for _, h := range opt.Request.Headers {
+		fuzz.Preprocess.ReqTemplate.HttpSpec.Headers = append(fuzz.Preprocess.ReqTemplate.HttpSpec.Headers, h)
+	}
 
-		if len(opt.Request.Cookies) > 0 {
-			cookies := strings.Builder{}
-			cookies.WriteString("Cookies: ")
-			for i, cookie := range opt.Request.Cookies {
-				cookies.WriteString(cookie)
-				if i != len(opt.Request.Cookies)-1 {
-					cookies.WriteString("; ")
-				}
+	if len(opt.Request.Cookies) > 0 {
+		cookies := strings.Builder{}
+		cookies.WriteString("Cookies: ")
+		for i, cookie := range opt.Request.Cookies {
+			cookies.WriteString(cookie)
+			if i != len(opt.Request.Cookies)-1 {
+				cookies.WriteString("; ")
 			}
-			fuzz.Preprocess.ReqTemplate.HttpSpec.Headers = append(fuzz.Preprocess.ReqTemplate.HttpSpec.Headers,
-				cookies.String())
 		}
+		fuzz.Preprocess.ReqTemplate.HttpSpec.Headers = append(fuzz.Preprocess.ReqTemplate.HttpSpec.Headers,
+			cookies.String())
+	}
 
-		fuzz.Send.Proxies = opt.Request.Proxies
+	fuzz.Send.Proxies = opt.Request.Proxies
 
-		fuzz.Send.HttpFollowRedirects = opt.Request.FollowRedirect
+	fuzz.Send.HttpFollowRedirects = opt.Request.FollowRedirect
 
+	// 若-r选项指定了http方法，且-X选项没出现过，才使用-r选项的
+	if opt.Request.Method != "" {
 		fuzz.Preprocess.ReqTemplate.HttpSpec.Method = opt.Request.Method
+	} else if fuzz.Preprocess.ReqTemplate.HttpSpec.Method == "" { // 若-r、-X选项均没出现，使用默认的GET方法
+		fuzz.Preprocess.ReqTemplate.HttpSpec.Method = "GET"
 	}
 
 	// opt.Filter

@@ -105,6 +105,82 @@ func permute(s string, maxLen int) []string {
 	return result
 }
 
+func permuteEx(s string, n, m int) []string {
+	// 参数合法性检查
+	if n < 1 || m < n || m > len(s) {
+		return []string{}
+	}
+
+	chars := []rune(s)
+	sort.Slice(chars, func(i, j int) bool { return chars[i] < chars[j] })
+	var result []string
+	strLen := len(chars)
+
+	// 遍历从n到m的所有长度
+	for k := n; k <= m; k++ {
+		// 生成当前长度k的所有组合索引
+		combo := make([]int, k)
+		for i := 0; i < k; i++ {
+			combo[i] = i
+		}
+
+		for {
+			// 复制当前组合索引
+			currentCombo := make([]int, k)
+			copy(currentCombo, combo)
+
+			// 提取组合对应的字符
+			comboChars := make([]rune, k)
+			for i, idx := range currentCombo {
+				comboChars[i] = chars[idx]
+			}
+
+			// 生成当前组合的所有排列
+			perm := make([]rune, k)
+			copy(perm, comboChars)
+			result = append(result, string(perm))
+
+			for {
+				// 查找下一个排列（字典序法）
+				i := k - 2
+				for i >= 0 && perm[i] >= perm[i+1] {
+					i--
+				}
+				if i < 0 {
+					break // 此组合的所有排列已生成
+				}
+
+				j := k - 1
+				for perm[j] <= perm[i] {
+					j--
+				}
+				perm[i], perm[j] = perm[j], perm[i]
+
+				// 反转i+1到末尾的字符
+				for a, b := i+1, k-1; a < b; a, b = a+1, b-1 {
+					perm[a], perm[b] = perm[b], perm[a]
+				}
+				result = append(result, string(perm))
+			}
+
+			// 生成下一个组合
+			i := k - 1
+			for i >= 0 && combo[i] == strLen-k+i {
+				i--
+			}
+			if i < 0 {
+				break // 所有组合已处理
+			}
+			combo[i]++
+			for j := i + 1; j < k; j++ {
+				combo[j] = combo[j-1] + 1
+			}
+		}
+	}
+
+	return result
+}
+
 // generatePayloadsPlugin 使用插件生成payload
 func generatePayloadsPlugin(generatorPlugins []fuzzTypes.Plugin) []string {
 	payloads := make([]string, 0)
@@ -138,8 +214,31 @@ func generatePayloadsPlugin(generatorPlugins []fuzzTypes.Plugin) []string {
 				maxLen := -1
 				if len(p.Args) >= 2 {
 					maxLen, ok = p.Args[1].(int)
+					if !ok {
+						maxLen = -1
+					}
 				}
 				payloads = append(payloads, permute(src, maxLen)...)
+			}
+		case "permuteex":
+			if len(p.Args) != 0 {
+				var src string
+				var n, m int
+				var ok bool
+				if src, ok = p.Args[0].(string); !ok {
+					break
+				}
+				if len(p.Args) >= 2 {
+					if n, ok = p.Args[1].(int); !ok {
+						n = 1
+					}
+					if len(p.Args) >= 3 {
+						if m, ok = p.Args[2].(int); !ok || m < 0 {
+							m = len(src)
+						}
+					}
+				}
+				payloads = append(payloads, permuteEx(src, n, m)...)
 			}
 		case "nil":
 			if len(p.Args) != 0 {

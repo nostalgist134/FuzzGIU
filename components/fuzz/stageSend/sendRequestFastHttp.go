@@ -2,6 +2,7 @@ package stageSend
 
 import (
 	"bytes"
+	"crypto/tls"
 	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/common"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
@@ -16,7 +17,7 @@ import (
 )
 
 // buildRawHTTPResponse1 将 fasthttp.Response 转为原始 HTTP 响应 []byte
-func buildRawHTTPResponse1(resp *fasthttp.Response) []byte {
+func buildRawHTTPResponse1(resp *fasthttp.Response) ([]byte, []byte) {
 	var buf bytes.Buffer
 	// 写状态行
 	fmt.Fprintf(&buf, "%s %d %s\r\n",
@@ -33,8 +34,9 @@ func buildRawHTTPResponse1(resp *fasthttp.Response) []byte {
 	// 空行分隔 header 与 body
 	buf.WriteString("\r\n")
 	// 写 body
-	buf.Write(resp.Body())
-	return buf.Bytes()
+	respBody := resp.Body()
+	buf.Write(respBody)
+	return buf.Bytes(), respBody
 }
 
 var fhCliPool = sync.Pool{New: func() any {
@@ -45,6 +47,7 @@ var fhCliPool = sync.Pool{New: func() any {
 		NoDefaultUserAgentHeader:      true,
 		DisableHeaderNamesNormalizing: true,
 		DisablePathNormalizing:        true,
+		TLSConfig:                     &tls.Config{InsecureSkipVerify: true},
 		Dial: (&fasthttp.TCPDialer{
 			Concurrency:      1,
 			DNSCacheDuration: time.Hour,
@@ -68,12 +71,19 @@ func fuzzReq2FHReq(fr *fuzzTypes.Req, fhr *fasthttp.Request) {
 	fhr.Header.SetProtocol(fr.HttpSpec.Version)
 	for _, h := range fr.HttpSpec.Headers {
 		indCol := strings.Index(h, ":")
-		if indCol == len(h)-1 {
-			fhr.Header.Add(h[:indCol], "")
-		} else if indCol == -1 {
-			fhr.Header.Add(h, "")
+		headerName := ""
+		headerVal := ""
+		if indCol == len(h)-1 || indCol == -1 {
+			headerName = h
 		} else {
-			fhr.Header.Add(h[:indCol], h[indCol+1:])
+			headerName = h[:indCol]
+			headerVal = strings.TrimSpace(h[indCol+1:])
+		}
+		if strings.ToLower(headerName) == "host" {
+			fhr.UseHostHeader = true
+			fhr.Header.SetHost(headerVal)
+		} else {
+			fhr.Header.Add(headerName, headerVal)
 		}
 	}
 	if ua := fhr.Header.Peek("User-Agent"); len(ua) == 0 {
@@ -198,15 +208,20 @@ func sendRequestFastHttp(req *fuzzTypes.Req, timeout int, httpRedirect bool, ret
 			}
 		}
 	}
+
+	var body []byte
+
 	// 统计时间为第一次+重试的总时间
 	resp.ResponseTime = time.Since(timeStart)
-	resp.RawResponse = buildRawHTTPResponse1(fhResp)
+	resp.RawResponse, body = buildRawHTTPResponse1(fhResp)
+
 	// 填充httpResponse对象（仅需填充status code，因为过滤与匹配只用到status code）
 	resp.HttpResponse = &http.Response{StatusCode: fhResp.StatusCode()}
+
 	resp.HttpRedirectChain = rdr
-	resp.Size = len(resp.RawResponse)
-	resp.Words = countWords(resp.RawResponse)
-	resp.Lines = countLines(resp.RawResponse)
+	resp.Size = len(body)
+	resp.Words = countWords(body)
+	resp.Lines = countLines(body)
 	if err != nil {
 		resp.ErrMsg = err.Error()
 	}

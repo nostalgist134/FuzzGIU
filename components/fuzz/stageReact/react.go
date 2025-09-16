@@ -82,6 +82,22 @@ func insertRecursionMarker(recKeyword string, splitter string,
 	return sb.String(), currentPos + 1
 }
 
+// mergeReaction 将r2的内容归并到r1中
+// r1为空的字段赋值为r2相应的字段，不为空的字段保持不变
+// r1、r2的flag相或
+func mergeReaction(r1 *fuzzTypes.Reaction, r2 *fuzzTypes.Reaction) {
+	r1.Flag |= r2.Flag
+	if r1.Output.Msg == "" {
+		r1.Output.Msg = r2.Output.Msg
+	}
+	if r1.NewReq == nil {
+		r1.NewReq = r2.NewReq
+	}
+	if r1.NewJob == nil {
+		r1.NewJob = r2.NewJob
+	}
+}
+
 // React 函数
 // patchLog#12: 添加了一个reactPlugin参数，现在reactor插件通过此参数调用，避免每次调用都解析插件字符串导致性能问题
 // reactPlugin在doFuzz函数中通过一次plugin.ParsePluginsStr解析得到
@@ -128,22 +144,20 @@ func React(fuzz1 *fuzzTypes.Fuzz, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 		recursionJob.Preprocess.ReqTemplate.Data, _ = insertRecursionMarker(recKeyword, splitter,
 			recursionJob.Preprocess.ReqTemplate.Data, recursionPos, currentPos)
 	}
+
 	// reactDns调用
 	if strings.Index(fuzz1.Preprocess.ReqTemplate.URL, "dns://") == 0 {
 		common.PutReaction(reaction)
 		reaction = reactDns(reqSend, resp)
 	}
-	// reactor插件调用
-	if fuzz1.React.Reactor.Name != "" {
-		common.PutReaction(reaction)
-		reaction = plugin.React(fuzz1.React.Reactor, reqSend, resp)
-	}
+
 	// 添加递归任务（如果自定义reactor没有添加）
 	if reaction.NewJob == nil && recursionJob != nil {
 		reaction.Flag |= fuzzTypes.ReactAddJob
 		reaction.NewJob = recursionJob
 	}
-	// 决定是否输出，自定义reactor若没有标识响应是否会被过滤，根据Matcher和Filter确定
+
+	// 决定是否过滤，自定义reactor若没有标识响应是否会被过滤，根据Matcher和Filter确定
 	if (reaction.Flag&fuzzTypes.ReactMatch == 0) && (reaction.Flag&fuzzTypes.ReactFiltered == 0) {
 		filtered := matchResponse(resp, &fuzz1.React.Filter)
 		matched := matchResponse(resp, &fuzz1.React.Matcher)
@@ -160,6 +174,18 @@ func React(fuzz1 *fuzzTypes.Fuzz, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 	} else if reaction.Flag&fuzzTypes.ReactMatch != 0 {
 		reaction.Flag |= fuzzTypes.ReactOutput
 	}
+
+	// reactor插件调用
+	if fuzz1.React.Reactor.Name != "" {
+		pluginReaction := plugin.React(fuzz1.React.Reactor, reqSend, resp)
+		if pluginReaction.Flag&fuzzTypes.ReactMerge != 0 {
+			mergeReaction(pluginReaction, reaction)
+		} else {
+			common.PutReaction(reaction)
+			reaction = pluginReaction
+		}
+	}
+
 	o := output.OutObj{Msg: reaction.Output.Msg}
 	// 生成并输出消息
 	if reaction.Flag&fuzzTypes.ReactOutput != 0 {
@@ -203,9 +229,9 @@ func GetReactTraceInfo(reaction *fuzzTypes.Reaction) ([]string, []string) {
 	}
 	for _, kpPair := range strings.Split(reaction.Output.Msg[markerInd+len(infoMarker):], infoMarker) {
 		if kpPair != "" {
-			if kp := strings.Split(kpPair, ":"); len(kp) > 1 {
-				k = append(k, kp[0])
-				p = append(p, kp[1])
+			if key, payload, ok := strings.Cut(kpPair, ":"); ok {
+				k = append(k, key)
+				p = append(p, payload)
 			}
 		}
 	}

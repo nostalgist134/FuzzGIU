@@ -9,8 +9,10 @@ import (
 )
 
 var embeddedGen = map[string]bool{
-	"int":     true,
-	"permute": true,
+	"int":       true,
+	"permute":   true,
+	"permuteex": true,
+	"nil":       true,
 }
 
 var embeddedPlProc = map[string]bool{
