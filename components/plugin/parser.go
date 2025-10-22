@@ -1,15 +1,14 @@
 package plugin
 
 import (
-	"github.com/nostalgist134/FuzzGIU/components/common"
+	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
-	"github.com/nostalgist134/FuzzGIU/components/output"
 	"strconv"
 	"strings"
 )
 
-func unexpectedTokenError(i int, r rune) {
-	output.Logf(common.OutputToWhere, "failed to parse plugin string: unexpected token \"%v\" at index %d", r, i)
+func unexpectedTokenError(i int, r rune) error {
+	return fmt.Errorf("failed to parse plugin string: unexpected token \"%v\" at index %d", r, i)
 }
 
 // parseArgStr 识别插件的参数
@@ -54,16 +53,16 @@ func parseArgStr(argStr string) any {
 
 // ParsePluginsStr 用来解析插件字符串，具体规则参考fuzzTypes.go中的注释
 // 解析结果为Plugin类型
-func ParsePluginsStr(pluginsStr string) []fuzzTypes.Plugin {
+func ParsePluginsStr(pluginsStr string) ([]fuzzTypes.Plugin, error) {
 	if len(pluginsStr) == 0 {
-		return nil
+		return nil, nil
 	}
 	pluginsStr = strings.TrimSpace(pluginsStr)
 	plugins := make([]fuzzTypes.Plugin, 1)
 	tmpStrArgBuilder := strings.Builder{}
 	tmpPlugNameBuilder := strings.Builder{}
 	// 根据下标遍历整个pluginsStr字符串，i为下标，j为当前所处的状态
-	// 整个循环中有3种状态，0代表在读取插件名，1代表在读取参数列表，2代表在读取字符串参数，3代表读取字符串结束
+	// 整个循环中有3种状态，0-在读取插件名，1-在读取参数列表，2-在读取字符串参数，3-读取字符串结束
 	for i, j, curPluginInd := 0, 0, 0; i < len(pluginsStr); i++ {
 		switch pluginsStr[i] {
 		case '(':
@@ -73,16 +72,14 @@ func ParsePluginsStr(pluginsStr string) []fuzzTypes.Plugin {
 				plugins[curPluginInd].Args = make([]any, 0)
 				plugins[curPluginInd].Name = tmpPlugNameBuilder.String()
 			case 1, 3: // 在读取参数列表的时候是不允许出现括号参数的，读完字符串参数后也不能
-				unexpectedTokenError(i, '(')
-				return nil
+				return nil, unexpectedTokenError(i, '(')
 			case 2:
 				tmpStrArgBuilder.WriteByte(pluginsStr[i])
 			}
 		case '\'', '"':
 			switch j {
 			case 0, 3: // 读取插件名的状态不能直接跳到读取字符串参数的状态，读取单个字符串结束后也不能
-				unexpectedTokenError(i, rune(pluginsStr[i]))
-				return nil
+				return nil, unexpectedTokenError(i, rune(pluginsStr[i]))
 			case 1:
 				j++
 				tmpStrArgBuilder.WriteByte(pluginsStr[i])
@@ -107,8 +104,7 @@ func ParsePluginsStr(pluginsStr string) []fuzzTypes.Plugin {
 					tmpStrArgBuilder.Reset()
 				}
 			case 0:
-				unexpectedTokenError(i, ')')
-				return nil
+				return nil, unexpectedTokenError(i, ')')
 			case 2:
 				tmpStrArgBuilder.WriteByte(pluginsStr[i])
 			case 3: // 读完字符串参数遇到右括号说明参数列表的读取结束了
@@ -131,7 +127,7 @@ func ParsePluginsStr(pluginsStr string) []fuzzTypes.Plugin {
 				tmpStrArgBuilder.Reset()
 				j = 1
 			}
-		case ' ':
+		case ' ': // 忽略插件表达式中的括号
 			switch j {
 			case 2:
 				tmpStrArgBuilder.WriteByte(pluginsStr[i])
@@ -148,10 +144,9 @@ func ParsePluginsStr(pluginsStr string) []fuzzTypes.Plugin {
 			case 1, 2:
 				tmpStrArgBuilder.WriteByte(pluginsStr[i])
 			case 3: // 字符串参数读取之后如果再有其它的字符视为语法错误
-				unexpectedTokenError(i, rune(pluginsStr[i]))
-				return nil
+				return nil, unexpectedTokenError(i, rune(pluginsStr[i]))
 			}
 		}
 	}
-	return plugins
+	return plugins, nil
 }

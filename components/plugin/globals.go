@@ -12,6 +12,10 @@ const (
 	RelPathPreprocessor = "preprocessors/"
 	RelPathReqSender    = "requestSenders/"
 	RelPathReactor      = "reactors/"
+	RelPathIterator     = "iterators/"
+
+	SelectIterIndex = 0
+	SelectIterLen   = 1
 )
 
 var binSuffix = ""

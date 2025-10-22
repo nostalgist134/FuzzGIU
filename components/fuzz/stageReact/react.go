@@ -2,14 +2,19 @@ package stageReact
 
 import (
 	"github.com/nostalgist134/FuzzGIU/components/common"
+	"github.com/nostalgist134/FuzzGIU/components/fuzz/fuzzCtx"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/nostalgist134/FuzzGIU/components/output"
 	"github.com/nostalgist134/FuzzGIU/components/plugin"
+	"github.com/nostalgist134/FuzzGIU/components/resourcePool"
 	"strings"
 )
 
+// todo: 更新递归任务的生成逻辑，添加对req.Fields的支持
+// 	最好把递归任务的生成单独弄一个函数出来（已完成，deriveRecursionJob）
+
 // infoMarker 用来标识payload信息出现的位置
-var infoMarker = common.GetRandMarker()
+var infoMarker = common.RandMarker()
 
 func valInRanges(v int, ranges []fuzzTypes.Range) bool {
 	for _, r := range ranges {
@@ -52,36 +57,6 @@ func matchResponse(resp *fuzzTypes.Resp, m *fuzzTypes.Match) bool {
 	return !whenToRet
 }
 
-// insertRecursionMarker 往请求中的指定位置插入递归关键字，便于之后递归中使用
-// 递归关键字需要插入的位置recursionPos在模板渲染时获取，recursionPos按照如下逻辑解析：
-// 一个recursionPos中可能含有正数或者负数，标记了一个字段中需要插入递归关键字的位置或字段的结束。
-// 若recursionPos[i]为正数，则说明这个是要插入payload的下标；
-// 若recursionPos[i]为负数，但是绝对值<=len(field)，则其正数代表要插入的下标，并且负号代表字段结束
-// 若recursionPos[i]为负数，且绝对值大于len(field)，则说明当前字段没有要插入递归关键字的位置
-func insertRecursionMarker(recKeyword string, splitter string,
-	field string, recursionPos []int, currentPos int) (string, int) {
-	sb := strings.Builder{}
-	ind := 0
-	for ; recursionPos[currentPos] > 0; currentPos++ {
-		sb.WriteString(field[ind:recursionPos[currentPos]])
-		sb.WriteString(splitter)
-		sb.WriteString(recKeyword)
-		ind = recursionPos[currentPos]
-	}
-	if -recursionPos[currentPos] <= len(field) {
-		sb.WriteString(field[ind:-recursionPos[currentPos]])
-		sb.WriteString(splitter)
-		sb.WriteString(recKeyword)
-		ind = -recursionPos[currentPos]
-		if ind < len(field) {
-			sb.WriteString(field[ind:])
-		}
-	} else {
-		return field, currentPos + 1
-	}
-	return sb.String(), currentPos + 1
-}
-
 // mergeReaction 将r2的内容归并到r1中
 // r1为空的字段赋值为r2相应的字段，不为空的字段保持不变
 // r1、r2的flag相或
@@ -101,11 +76,15 @@ func mergeReaction(r1 *fuzzTypes.Reaction, r2 *fuzzTypes.Reaction) {
 // React 函数
 // patchLog#12: 添加了一个reactPlugin参数，现在reactor插件通过此参数调用，避免每次调用都解析插件字符串导致性能问题
 // reactPlugin在doFuzz函数中通过一次plugin.ParsePluginsStr解析得到
-func React(fuzz1 *fuzzTypes.Fuzz, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
+func React(jobCtx *fuzzCtx.JobCtx, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 	keywordsUsed []string, payloadEachKeyword []string, recursionPos []int) *fuzzTypes.Reaction {
-	defer common.PutReq(reqSend)
-	reaction := common.GetNewReaction()
-	var recursionJob *fuzzTypes.Fuzz = nil
+	defer resourcePool.PutReq(reqSend)
+	reaction := resourcePool.GetNewReaction()
+
+	fuzz1 := jobCtx.Job
+	outCtx := jobCtx.OutputCtx
+
+	var recursionJob *fuzzTypes.Fuzz
 	/*
 		递归模式通过向任务列表添加新任务完成，新任务的req结构由当前任务的React.RecursionControl控制
 		1. recursionPos标记了payload替换后每个替换位置的下一个下标，通过 fuzz1.ReplacePayloadTrack 生成
@@ -117,37 +96,14 @@ func React(fuzz1 *fuzzTypes.Fuzz, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 		(resp.HttpResponse != nil &&
 			valInRanges(resp.HttpResponse.StatusCode, fuzz1.React.RecursionControl.StatCodes) ||
 			common.RegexMatch(resp.RawResponse, fuzz1.React.RecursionControl.Regex)) && recursionPos != nil {
-		output.Logf(common.OutputToWhere, "payload %s recursive, add new job", payloadEachKeyword[0])
-		recKeyword := fuzz1.React.RecursionControl.Keyword
-		splitter := fuzz1.React.RecursionControl.Splitter
-		recursionJob = common.CopyFuzz(fuzz1)
-		recursionJob.Preprocess.Mode = ""
-		// 递归深度=当前深度+1
-		recursionJob.React.RecursionControl.RecursionDepth++
-		recursionJob.Preprocess.ReqTemplate = *reqSend
-		currentPos := 0
-		// HttpSpec.Method
-		recursionJob.Preprocess.ReqTemplate.HttpSpec.Method, currentPos = insertRecursionMarker(recKeyword, splitter,
-			recursionJob.Preprocess.ReqTemplate.HttpSpec.Method, recursionPos, 0)
-		// URL
-		recursionJob.Preprocess.ReqTemplate.URL, currentPos = insertRecursionMarker(recKeyword, splitter,
-			recursionJob.Preprocess.ReqTemplate.URL, recursionPos, currentPos)
-		// HttpSpec.Version
-		recursionJob.Preprocess.ReqTemplate.HttpSpec.Version, currentPos = insertRecursionMarker(recKeyword, splitter,
-			recursionJob.Preprocess.ReqTemplate.HttpSpec.Version, recursionPos, currentPos)
-		// HttpSpec.Headers
-		for i := 0; i < len(recursionJob.Preprocess.ReqTemplate.HttpSpec.Headers); i++ {
-			recursionJob.Preprocess.ReqTemplate.HttpSpec.Headers[i], currentPos = insertRecursionMarker(recKeyword, splitter,
-				recursionJob.Preprocess.ReqTemplate.HttpSpec.Headers[i], recursionPos, currentPos)
-		}
-		// Data
-		recursionJob.Preprocess.ReqTemplate.Data, _ = insertRecursionMarker(recKeyword, splitter,
-			recursionJob.Preprocess.ReqTemplate.Data, recursionPos, currentPos)
+		outCtx.LogFmtMsg("job#%d payload %s recursive, add new job", jobCtx.JobId, payloadEachKeyword[0])
+
+		recursionJob = deriveRecursionJob(fuzz1, reqSend, recursionPos)
 	}
 
 	// reactDns调用
 	if strings.Index(fuzz1.Preprocess.ReqTemplate.URL, "dns://") == 0 {
-		common.PutReaction(reaction)
+		resourcePool.PutReaction(reaction)
 		reaction = reactDns(reqSend, resp)
 	}
 
@@ -168,7 +124,7 @@ func React(fuzz1 *fuzzTypes.Fuzz, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 			reaction.Flag |= fuzzTypes.ReactMatch
 		}
 		// 仅当没被标记为过滤，且被标记为匹配，或者出错时输出
-		if !filtered && matched || !fuzz1.React.OutSettings.IgnoreError && resp.ErrMsg != "" {
+		if !filtered && matched || !fuzz1.React.IgnoreError && resp.ErrMsg != "" {
 			reaction.Flag |= fuzzTypes.ReactOutput
 		}
 	} else if reaction.Flag&fuzzTypes.ReactMatch != 0 {
@@ -181,7 +137,7 @@ func React(fuzz1 *fuzzTypes.Fuzz, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 		if pluginReaction.Flag&fuzzTypes.ReactMerge != 0 {
 			mergeReaction(pluginReaction, reaction)
 		} else {
-			common.PutReaction(reaction)
+			resourcePool.PutReaction(reaction)
 			reaction = pluginReaction
 		}
 	}
@@ -195,7 +151,7 @@ func React(fuzz1 *fuzzTypes.Fuzz, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 			o.Request = reqSend
 			o.Response = resp
 		}
-		output.Output(&o, common.OutputToWhere)
+		outCtx.Output(&o)
 	}
 	// 添加新单个请求的reaction，在输出消息后添加追溯信息(keyword:payload对)，易于追踪
 	if reaction.Flag&fuzzTypes.ReactAddReq != 0 || reaction.Flag&fuzzTypes.ReactAddJob != 0 {

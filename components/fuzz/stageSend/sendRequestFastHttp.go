@@ -87,13 +87,13 @@ func fuzzReq2FHReq(fr *fuzzTypes.Req, fhr *fasthttp.Request) {
 		}
 	}
 	if ua := fhr.Header.Peek("User-Agent"); len(ua) == 0 {
-		if HTTPRandomAgent {
+		if fr.HttpSpec.RandomAgent {
 			fhr.Header.Set("User-Agent", agents[rand.Int()%len(agents)])
 		} else {
 			fhr.Header.Set("User-Agent", "milaogiu browser(114.54)")
 		}
 	}
-	fhr.SetBody(unsafeStringToBytes(fr.Data))
+	fhr.SetBody(fr.Data)
 }
 
 func getFHCli(pxy string) *fasthttp.Client {
@@ -169,8 +169,9 @@ func fastHttpRequest(cli *fasthttp.Client, fhReq *fasthttp.Request, fhResp *fast
 	return nil, rdrChain.String()
 }
 
-func sendRequestFastHttp(req *fuzzTypes.Req, timeout int, httpRedirect bool, retry int,
+func sendRequestFastHttp(sendMeta *fuzzTypes.SendMeta, timeout int, httpRedirect bool, retry int,
 	retryCode, retryRegex, proxy string) (*fuzzTypes.Resp, error) {
+	req := sendMeta.Request
 	resp := new(fuzzTypes.Resp)
 
 	fhReq := fasthttp.AcquireRequest()

@@ -1,0 +1,26 @@
+package tviewOutput
+
+import (
+	"sync"
+	"sync/atomic"
+)
+
+// screenOutput 输出屏幕
+var screenOutput *Screen
+
+// selectableRegions 标识可以被选中（可以上下滑动）的输出区域
+var selectableRegions []*screenOutputRegion
+
+var indSelect = 0
+
+var logo = "     GIUGIUGIUGIU                            GIUGIUGIUGI GIUGIUGI     GI\n      GI                                    IU            GI  UG     UG\n     UG                                    GI            UG  IU     IU\n    IUGIUGIUGGI   IU#GIUGIUGIU#GIUGIUGIU# UG            IU  GI     GI\n   GI       UG   UG       GIU       GIU  IU       GIU  GI  UG     UG\n  UG       IU   GI      GIU       GIU   GI        IU  UG  IU     IU\n IU       GI   IU     GIU       GIU    UG        UG  IU  GI     GI\nGIU        UGIUGIU GIUGIUGIU#GIUGIUGIU#IUGIUGIUGIU GIUGIU UGIUGIU"
+var counterFmt = "task: %d/%d    job: %d/%d    rate: %dr/s    duration: [%02d:%02d:%02d]"
+var hintWindowTooSmall = "THE WINDOW SEEMS TOO SMALL TO DISPLAY ALL INFORMATION, RECOMMEND RESIZE"
+
+var posLogo = []int{0, 0, 0, logoMaxLines + 2}
+
+var outputHasInit = atomic.Bool{}
+var outputLocked = true
+var hasOutput = false
+
+var wg = sync.WaitGroup{}

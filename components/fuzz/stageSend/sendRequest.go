@@ -47,7 +47,7 @@ func SendRequest(meta *fuzzTypes.SendMeta, scheme string) *fuzzTypes.Resp {
 	}
 	switch uScheme {
 	case "http", "https", "":
-		resp, sendErr := sendRequestHttp(meta.Request, meta.Timeout, meta.HttpFollowRedirects,
+		resp, sendErr := sendRequestHttp(meta, meta.Timeout, meta.HttpFollowRedirects,
 			meta.Retry, meta.RetryCode, meta.RetryRegex, meta.Proxy)
 		if sendErr != nil && resp != nil && resp.ErrMsg == "" {
 			resp.ErrMsg = sendErr.Error()
@@ -55,7 +55,7 @@ func SendRequest(meta *fuzzTypes.SendMeta, scheme string) *fuzzTypes.Resp {
 		retResp = resp
 	case "ws", "wss":
 		retResp = sendRequestWs(meta.Request, meta.Timeout, meta.Retry, meta.RetryRegex)
-	case "dns":
+	case "brute_domain":
 		retResp = sendRequestDns(meta.Request, meta.Timeout)
 	default:
 		p := fuzzTypes.Plugin{Name: uScheme}

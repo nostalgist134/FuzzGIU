@@ -8,6 +8,8 @@ import (
 	"github.com/nostalgist134/FuzzGIUPluginKit/convention"
 )
 
+// todo: 需要更新fgpk，添加和迭代器插件有关的常量，下面用到迭代器的先用reactor的代替
+
 var embeddedGen = map[string]bool{
 	"int":       true,
 	"permute":   true,
@@ -22,6 +24,13 @@ var embeddedPlProc = map[string]bool{
 	"stripslashes": true,
 	"suffix":       true,
 	"repeat":       true,
+}
+
+var embeddedIterator = map[string]bool{
+	"sniper":          true,
+	"clusterbomb":     true,
+	"pitchfork":       true,
+	"pitchfork-cycle": true,
 }
 
 // checkPlugin 根据插件信息检查参数和插件类型是否有错（仅当插件信息不为空时检查）
@@ -45,7 +54,7 @@ func checkPlugin(pi *convention.PluginInfo, expectTypeInd int, p fuzzTypes.Plugi
 	return nil
 }
 
-// preLoadJobPlugin 对fuzz job所要使用的插件进行预加载
+// preLoadJobPlugin 预加载需要使用的插件
 func preLoadJobPlugin(job *fuzzTypes.Fuzz) error {
 	var errTotal error
 
@@ -85,6 +94,7 @@ func preLoadJobPlugin(job *fuzzTypes.Fuzz) error {
 		}
 	}
 
+	// 加载preprocessor插件
 	for _, preproc := range job.Preprocess.Preprocessors {
 		pi, err := plugin.PreLoad(preproc, plugin.RelPathPreprocessor)
 		if err != nil {
@@ -95,7 +105,7 @@ func preLoadJobPlugin(job *fuzzTypes.Fuzz) error {
 			errTotal = errors.Join(errTotal, err)
 		}
 	}
-	// requestSender插件由于可能是易变的（因为允许往url中插入fuzz关键字），因此不预加载
+	// requestSender插件由于可能是易变的（url中可能包含fuzz关键字），预加载实现难度过大，因此略去
 
 	// 加载reactor插件
 	if job.React.Reactor.Name != "" {
@@ -109,5 +119,21 @@ func preLoadJobPlugin(job *fuzzTypes.Fuzz) error {
 			errTotal = errors.Join(errTotal, err)
 		}
 	}
+
+	// 加载iterator插件
+	if iterName := job.Control.IterCtrl.Iterator.Name; iterName != "" {
+		iterator := job.Control.IterCtrl.Iterator
+		if _, ok := embeddedIterator[iterName]; !ok {
+			pi, err := plugin.PreLoad(iterator, plugin.RelPathIterator)
+			if err != nil {
+				errTotal = errors.Join(errTotal, err)
+			}
+
+			if err = checkPlugin(pi, convention.IndPTypeReact, iterator, 2); err != nil {
+				errTotal = errors.Join(errTotal, err)
+			}
+		}
+	}
+
 	return errTotal
 }

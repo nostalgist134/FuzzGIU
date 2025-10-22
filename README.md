@@ -606,6 +606,26 @@ fuzzGIU的插件调用遵循以下的被称为伪函数调用表达式的规则�
 
 若内置组件无法满足需求，可基于 [FuzzGIUPluginKit](https://github.com/nostalgist134/FuzzGIUPluginKit) 与go编译器开发自定义插件，遵循工具定义的接口规范，实现特定逻辑后编译为动态链接库即可使用。
 
+### 将FuzzGIU作为go库使用
+
+若要在go代码中使用fuzzgiu中的功能，可在代码中导入如下库
+
++ `github.com/nostalgist134/FuzzGIU/libfgiu`与`github.com/nostalgist134/FuzzGIU/components/options`
+
++ `github.com/nostalgist134/FuzzGIU/components/fuzz`与`github.com/nostalgist134/FuzzGIU/components/fuzzTypes`
+
+#### libfgiu.RunDirect(opt *options.Opt)
+
+根据Opt结构运行一个fuzz任务，阻塞，非协程安全，不输出
+
+#### libfgiu.RunPassive(opt *options.Opt)
+
+根据Opt结构运行被动模式，阻塞，仅读取`opt.PassiveAddr`和`opt.Request.HTTPRandomAgent`，其它选项会被忽略
+
+#### fuzz.DoSingleJob(fuzz *fuzzTypes.Fuzz)
+
+运行单个fuzz任务及由其衍生出的所有任务
+
 # 特别感谢
 
 ## 项目

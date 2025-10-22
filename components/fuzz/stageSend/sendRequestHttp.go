@@ -188,7 +188,7 @@ func fuzzReq2HttpReq(fuzzReq *fuzzTypes.Req) (*http.Request, error) {
 	var err error = nil
 	var httpReq *http.Request
 	URL := fuzzReq.URL
-	httpReq, err = http.NewRequest(fuzzReq.HttpSpec.Method, URL, bytes.NewBuffer([]byte(fuzzReq.Data)))
+	httpReq, err = http.NewRequest(fuzzReq.HttpSpec.Method, URL, bytes.NewBuffer(fuzzReq.Data))
 	if fuzzReq.HttpSpec.ForceHttps { // 强制使用https
 		httpReq.URL.Scheme = "https"
 	}
@@ -209,7 +209,7 @@ func fuzzReq2HttpReq(fuzzReq *fuzzTypes.Req) (*http.Request, error) {
 			headerName = fuzzReq.HttpSpec.Headers[i][:indColon]
 			headerVal = strings.TrimSpace(fuzzReq.HttpSpec.Headers[i][indColon+1:])
 		}
-		if strings.ToLower(headerName) == "host" {
+		if headerName == "Host" {
 			httpReq.Host = headerVal
 		} else {
 			httpReq.Header.Add(headerName, headerVal)
@@ -217,7 +217,7 @@ func fuzzReq2HttpReq(fuzzReq *fuzzTypes.Req) (*http.Request, error) {
 	}
 	// 设置UA头
 	if httpReq.Header.Get("User-Agent") == "" {
-		if HTTPRandomAgent {
+		if fuzzReq.HttpSpec.RandomAgent {
 			httpReq.Header.Set("User-Agent", agents[rand.Int()%len(agents)])
 		} else {
 			httpReq.Header.Set("User-Agent", "milaogiu browser(114.54)")
@@ -262,11 +262,12 @@ func countLines(data []byte) int {
 }
 
 // http发包函数
-func sendRequestHttp(request *fuzzTypes.Req, timeout int, httpRedirect bool, retry int,
+func sendRequestHttp(sendMeta *fuzzTypes.SendMeta, timeout int, httpRedirect bool, retry int,
 	retryCode, retryRegex, proxy string) (*fuzzTypes.Resp, error) {
+	request := sendMeta.Request
 	// h1请求转fasthttp处理
 	if request.HttpSpec.Version != "HTTP/2" {
-		return sendRequestFastHttp(request, timeout, httpRedirect, retry, retryCode, retryRegex, proxy)
+		return sendRequestFastHttp(sendMeta, timeout, httpRedirect, retry, retryCode, retryRegex, proxy)
 	}
 	resp := new(fuzzTypes.Resp)
 	resp.ErrMsg = ""

@@ -1,42 +1,71 @@
 package rp
 
 import (
+	"github.com/nostalgist134/FuzzGIU/components/fuzz/fuzzCtx"
+	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"sync"
 	"time"
-
-	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 )
 
 const (
 	StatStop    = 0
 	StatRunning = 1
 	StatPause   = 2
+
+	ExecMajor = int8(0)
+	ExecMinor = int8(1)
 )
 
-type Task func() *fuzzTypes.Reaction
+// todo: 这个包循环import了，具体的是rp import fuzzCtx, fuzzCtx.JobCtx.RP -> import rp
+// 可能的解决方案：1.在这个包里再声明一次taskCtx，然后之后调用都强转
+// 	2.tsk.arg与executor的参数类型全改为使用unsafe.Pointer，不过这样需要改的内容会很多，而且需要另起一个池来管理execCtx
+//	已解决，在fuzzCtx中声明了一个rp接口，然后使用的时候不直接用rp类型而是用接口，这样就避免了
+
+type tsk struct {
+	arg       fuzzCtx.TaskCtx
+	whichExec int8
+}
 
 type RoutinePool struct {
-	tasks       chan Task
+	tasks       chan tsk
 	results     chan *fuzzTypes.Reaction
 	concurrency int
 
-	wg     sync.WaitGroup
-	quit   chan struct{}
-	status int8
-	mu     sync.Mutex
-	cond   *sync.Cond
+	wg        sync.WaitGroup
+	quit      chan struct{}
+	status    int8
+	mu        sync.Mutex
+	cond      *sync.Cond
+	executors [2]func(*fuzzCtx.TaskCtx) *fuzzTypes.Reaction
 }
 
-var CurrentRp *RoutinePool
+// nopExecutor 空执行器，作为默认值避免空指针
+func nopExecutor(*fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
+	return nil
+}
 
-// New 创建一个新的协程池
-func New(concurrency int) *RoutinePool {
-	wp := &RoutinePool{
+// newRoutinePool 创建一个新的协程池
+func newRoutinePool(concurrency int) *RoutinePool {
+	routinePool := &RoutinePool{
 		concurrency: concurrency,
+		executors:   [2]func(*fuzzCtx.TaskCtx) *fuzzTypes.Reaction{nopExecutor, nopExecutor},
 	}
-	wp.cond = sync.NewCond(&wp.mu)
-	CurrentRp = wp
-	return CurrentRp
+	routinePool.cond = sync.NewCond(&routinePool.mu)
+	return routinePool
+}
+
+// RegisterExecutor 注册任务执行函数，如果协程池是运行状态，或注册下标不为ExecMinor或ExecMajor，则退出
+// 特别注意：协程池在运行状态时是不能调用此函数的，必须先暂停
+func (p *RoutinePool) RegisterExecutor(executor func(*fuzzCtx.TaskCtx) *fuzzTypes.Reaction, which int8) {
+	if which != ExecMinor && which != ExecMajor {
+		return
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.status == StatRunning {
+		return
+	}
+	p.executors[which] = executor
 }
 
 // Start 启动所有 worker
@@ -47,7 +76,7 @@ func (p *RoutinePool) Start() {
 		return
 	}
 	if p.status == StatStop {
-		p.tasks = make(chan Task, 8192)
+		p.tasks = make(chan tsk, 8192)
 		p.results = make(chan *fuzzTypes.Reaction, 8192)
 		p.quit = make(chan struct{})
 	}
@@ -85,50 +114,43 @@ func (p *RoutinePool) worker() {
 				if !ok {
 					continue
 				}
-				result := task()
+				result := p.executors[task.whichExec](&task.arg)
 				p.results <- result
 				p.wg.Done()
 			case <-p.quit:
 				return
-			case <-time.After(10 * time.Millisecond):
-				// 短暂超时，让worker有机会检查状态变化
+			case <-time.After(5 * time.Millisecond): // 短暂超时
 			}
 		}
 	}
 }
 
-func (p *RoutinePool) waitForResume() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	for p.status == StatPause {
-		select {
-		case <-p.quit:
-			return
-		default:
-			p.cond.Wait()
-		}
-	}
-}
-
 // Submit 添加任务
-func (p *RoutinePool) Submit(task Task, timeout time.Duration) bool {
+func (p *RoutinePool) Submit(execArg *fuzzCtx.TaskCtx, whichExec int8, timeout time.Duration) bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
 	if p.status != StatRunning {
 		return false
 	}
+
 	p.wg.Add(1)
+
+	// 提交函数、执行可以用指针，这样可以减少栈分配，但是tsk结构必须是字面值复制，不然又要写一个资源池来管理
+	task := tsk{
+		arg:       *execArg,
+		whichExec: whichExec,
+	}
+
 	if timeout < 0 {
 		p.tasks <- task
 		return true
 	}
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
+
 	select {
 	case p.tasks <- task:
 		return true
-	case <-timer.C:
+	case <-time.After(timeout):
 		p.wg.Done()
 		return false
 	}
@@ -228,6 +250,18 @@ func (p *RoutinePool) Status() int8 {
 	return s
 }
 
+func (p *RoutinePool) WaitResume() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	for p.status != StatRunning {
+		if p.status == StatStop {
+			return // 已停止，直接返回
+		}
+		p.cond.Wait()
+	}
+}
+
 // Clear 清空任务队列
 func (p *RoutinePool) Clear() {
 	p.mu.Lock()
@@ -248,4 +282,9 @@ func (p *RoutinePool) Clear() {
 			return
 		}
 	}
+}
+
+// ReleaseSelf 将自身放入池中
+func (p *RoutinePool) ReleaseSelf() {
+	putRp(p)
 }

@@ -2,7 +2,6 @@ package stagePreprocess
 
 import (
 	"bufio"
-	"github.com/nostalgist134/FuzzGIU/components/common"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/nostalgist134/FuzzGIU/components/output"
 	"github.com/nostalgist134/FuzzGIU/components/plugin"
@@ -31,12 +30,12 @@ func readLines(path string) ([]string, error) {
 }
 
 // getPayloadsWordlist 从文本文件中直接读取payload
-func getPayloadsWordlist(files []string) []string {
+func getPayloadsWordlist(files []string, outputCtx *output.Ctx) []string {
 	payloads := make([]string, 0)
 	for _, file := range files {
 		lines, err := readLines(file)
 		if err != nil {
-			output.Logf(common.OutputToWhere, "read file %s failed - %v", file, err)
+			outputCtx.LogFmtMsg("read file %s failed - %v", file, err)
 			continue
 		}
 		payloads = append(payloads, lines...)
@@ -182,7 +181,7 @@ func permuteEx(s string, n, m int) []string {
 }
 
 // generatePayloadsPlugin 使用插件生成payload
-func generatePayloadsPlugin(generatorPlugins []fuzzTypes.Plugin) []string {
+func generatePayloadsPlugin(generatorPlugins []fuzzTypes.Plugin, outCtx *output.Ctx) []string {
 	payloads := make([]string, 0)
 	for _, p := range generatorPlugins {
 		switch p.Name {
@@ -248,7 +247,7 @@ func generatePayloadsPlugin(generatorPlugins []fuzzTypes.Plugin) []string {
 			}
 		case "":
 		default:
-			payloadsGen := plugin.PayloadGenerator(p)
+			payloadsGen := plugin.PayloadGenerator(p, outCtx)
 			payloads = append(payloads, payloadsGen...)
 		}
 	}
@@ -257,7 +256,7 @@ func generatePayloadsPlugin(generatorPlugins []fuzzTypes.Plugin) []string {
 
 // PayloadGenerator 根据payloadGenerator生成payload，同时使用payloadProcessor对生成的payload进行处理
 // 返回[]string类型 - 生成的payload
-func PayloadGenerator(gen fuzzTypes.PlGen) []string {
+func PayloadGenerator(gen fuzzTypes.PlGen, outCtx *output.Ctx) []string {
 	generators := gen.Gen
 	generatorType := gen.Type
 	// 根据generator生成payload
@@ -265,11 +264,11 @@ func PayloadGenerator(gen fuzzTypes.PlGen) []string {
 	switch generatorType {
 	case "wordlist": // wordlist类型的generator
 		files := strings.Split(generators[0].Name, ",")
-		payloads = getPayloadsWordlist(files)
+		payloads = getPayloadsWordlist(files, outCtx)
 	case "plugin": // plugin类型的generator
-		payloads = generatePayloadsPlugin(generators)
+		payloads = generatePayloadsPlugin(generators, outCtx)
 	default:
-		output.Logf(common.OutputToWhere, "unsupported generator type [%s]", generatorType)
+		outCtx.LogFmtMsg("unsupported generator type [%s]", generatorType)
 		payloads = []string{""}
 	}
 	// patchLog#3: 修改了payloadGenerator逻辑使得即使生成的payload列表为空也至少会传入一个空字符串，避免doFuzz主循环中curInd为0

@@ -3,7 +3,9 @@ package stagePreprocess
 import (
 	"encoding/base64"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
+	"github.com/nostalgist134/FuzzGIU/components/output"
 	"github.com/nostalgist134/FuzzGIU/components/plugin"
+	"github.com/nostalgist134/FuzzGIU/components/resourcePool"
 	"net/url"
 	"regexp"
 	"strings"
@@ -32,9 +34,9 @@ func stripslashes(s string) string {
 }
 
 // PayloadProcessor 对单个payload进行处理，默认的处理模块有urlencode、addslashes、base64以及给payload加后缀
-func PayloadProcessor(payload string, plugins []fuzzTypes.Plugin) string {
+func PayloadProcessor(outCtx *output.Ctx, payload string, plugins []fuzzTypes.Plugin) string {
 	processedPayload := payload
-	for _, p := range plugins { // 与preprocessor类似的循环
+	for _, p := range plugins { // 遍历payload处理器链
 		switch p.Name {
 		case "urlencode":
 			processedPayload = urlencode(processedPayload)
@@ -60,8 +62,11 @@ func PayloadProcessor(payload string, plugins []fuzzTypes.Plugin) string {
 			}
 		case "": // 若插件名为空不做任何操作
 		default:
-			p.Args = append([]any{processedPayload}, p.Args...) // payloadProcessor类型的插件中，第一个为待处理的payload
-			processedPayload = plugin.PayloadProcessor(p)
+			tmp := fuzzTypes.Plugin{Name: p.Name, Args: resourcePool.AnySlices.Get(len(p.Args) + 1)}
+			tmp.Args[0] = processedPayload
+			copy(tmp.Args[1:], p.Args)
+			processedPayload = plugin.PayloadProcessor(tmp, outCtx)
+			resourcePool.AnySlices.Put(tmp.Args)
 		}
 	}
 	return processedPayload

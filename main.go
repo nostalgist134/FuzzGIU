@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/nostalgist134/FuzzGIU/components/fuzz"
 	"github.com/nostalgist134/FuzzGIU/components/options"
 	"github.com/nostalgist134/FuzzGIU/components/plugin"
 	"os"
@@ -12,7 +11,7 @@ import (
 func initEnv() {
 	dirs := []string{plugin.BaseDir, plugin.BaseDir + plugin.RelPathPlGen, plugin.BaseDir + plugin.RelPathPlProc,
 		plugin.BaseDir + plugin.RelPathPreprocessor, plugin.BaseDir + plugin.RelPathReqSender,
-		plugin.BaseDir + plugin.RelPathReactor}
+		plugin.BaseDir + plugin.RelPathReactor, plugin.BaseDir + plugin.RelPathIterator}
 	for _, dir := range dirs {
 		fmt.Printf("Checking directory %s......", dir)
 		// 如果目录不存在，则尝试创建
@@ -28,12 +27,6 @@ func initEnv() {
 	}
 }
 
-func RunDirect(opt *options.Opt) {
-	fuzz1 := opt2fuzz(opt)
-	fuzz.JQ.AddJob(fuzz1)
-	fuzz.DoJobs()
-}
-
 func main() {
 	opt := options.ParseOptCmdline()
 	if len(os.Args) == 1 {
@@ -43,9 +36,5 @@ func main() {
 		fmt.Println("For help, use -h flag")
 		return
 	}
-	if opt.General.Passive {
-		RunPassive(opt)
-		return
-	}
-	RunDirect(opt)
+	_ = opt
 }

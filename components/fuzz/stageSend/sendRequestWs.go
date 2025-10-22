@@ -39,7 +39,7 @@ func sendRequestWs(req *fuzzTypes.Req, timeout int, retry int, retryRegex string
 		}
 
 		// 发送请求数据
-		err = conn.WriteMessage(websocket.TextMessage, []byte(req.Data))
+		err = conn.WriteMessage(websocket.TextMessage, req.Data)
 		if err != nil {
 			resp.ErrMsg = err.Error()
 			continue

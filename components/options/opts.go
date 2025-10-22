@@ -12,6 +12,9 @@ type (
 		Words string `json:"words,omitempty"`
 	}
 	Request struct {
+		URL            string   `json:"url,omitempty"`
+		Data           string   `json:"data,omitempty"`
+		ReqFile        string   `json:"req_file,omitempty"`
 		Headers        sliceStr `json:"header,omitempty"`
 		Method         string   `json:"method,omitempty"`
 		Cookies        sliceStr `json:"cookie,omitempty"`
@@ -25,7 +28,6 @@ type (
 		Wordlists  sliceStr `json:"wordlists,omitempty"`
 		Generators sliceStr `json:"generator,omitempty"`
 		Processors sliceStr `json:"processor,omitempty"`
-		Mode       string   `json:"mode,omitempty"`
 	}
 	Output struct {
 		Verbosity    int    `json:"verbosity,omitempty"`
@@ -35,17 +37,14 @@ type (
 		NativeStdout bool   `json:"native_stdout,omitempty"`
 	}
 	General struct {
-		URL              string `json:"url,omitempty"`
-		Data             string `json:"data,omitempty"`
-		ReqFile          string `json:"req_file,omitempty"`
-		RoutinePoolSize  int    `json:"routine_pool_size,omitempty"`
-		Timeout          int    `json:"timeout,omitempty"`
-		Delay            int    `json:"delay,omitempty"`
-		DelayGranularity string `json:"delay_granularity,omitempty"`
-		Passive          bool   `json:"passive,omitempty"`
-		PassiveAddr      string `json:"psv_addr,omitempty"`
-		Input            bool   `json:"input,omitempty"`
-		InputAddr        string `json:"input_addr,omitempty"`
+		RoutinePoolSize int    `json:"routine_pool_size,omitempty"`
+		Timeout         int    `json:"timeout,omitempty"`
+		Delay           string `json:"delay,omitempty"`
+		Passive         bool   `json:"passive,omitempty"`
+		PassiveAddr     string `json:"psv_addr,omitempty"`
+		Input           bool   `json:"input,omitempty"`
+		InputAddr       string `json:"input_addr,omitempty"`
+		Iter            string `json:"iter,omitempty"`
 	}
 	RecursionControl struct {
 		Recursion         bool   `json:"recursion,omitempty"`

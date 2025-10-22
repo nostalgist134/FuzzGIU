@@ -10,7 +10,7 @@ import (
 func getSection(name string) string {
 	switch {
 	case name == "u" || name == "d" || name == "r" || name == "t" || name == "timeout" || name == "delay" ||
-		name == "delay-gran" || name == "input" || name == "in-addr" || name == "passive" || name == "psv-addr":
+		name == "input" || name == "in-addr" || name == "passive" || name == "psv-addr" || name == "iter":
 		return "GENERAL"
 	case strings.HasPrefix(name, "m") && name != "mode":
 		return "MATCHER"
@@ -19,7 +19,7 @@ func getSection(name string) string {
 	case name == "X" || name == "b" || name == "H" || name == "http2" || name == "F" || name == "s" || name == "x" ||
 		name == "ra":
 		return "REQUEST"
-	case strings.HasPrefix(name, "pl") || name == "w" || name == "mode":
+	case strings.HasPrefix(name, "pl") || name == "w":
 		return "PAYLOAD"
 	case name == "o" || name == "fmt" || name == "v" || name == "ie" || name == "ns":
 		return "OUTPUT"
@@ -71,7 +71,7 @@ func usage() {
 			fmt.Fprintf(os.Stderr, "  -%s\t%s%s\n", f.Name, f.Usage, def)
 		}
 	}
-	fmt.Println("\nSIMPLE USAGES:")
+	fmt.Println("\nSIMPLE USAGE EXAMPLES:")
 	exampleUsage("fuzz URL", "-u http://test.com/FUZZ -w dict.txt::FUZZ",
 		"-u http://test.com/MILAOGIU -w dict.txt  # use default keyword")
 	exampleUsage("fuzz Request data", "-u http://test.com -w dict.txt::FUZZ -d \"test=FUZZ\"")
@@ -88,7 +88,7 @@ func usage() {
 		"-u http://FUZZ3/FUZZ4 -w dic3.txt::FUZZ3 \\\n\t-w dic4.txt::FUZZ4 -mode pitchfork-cycle")
 	fmt.Println("refer to flag help information as above" +
 		" or https://github.com/nostalgist134/FuzzGIU/wiki for more usages")
-	fmt.Println("\nADVANCED USAGES:")
+	fmt.Println("\nADVANCED USAGE EXAMPLES:")
 	exampleUsage("recursive jobs",
 		"-u http://test.com/FUZZ -w dict.txt::FUZZ -R -rec-code 403 -rec-depth 4")
 	exampleUsage("use plugins",

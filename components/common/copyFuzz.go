@@ -12,7 +12,6 @@ func CopyFuzz(f *fuzzTypes.Fuzz) *fuzzTypes.Fuzz {
 
 	// 拷贝 Preprocess
 	newFuzz.Preprocess.Preprocessors = f.Preprocess.Preprocessors
-	newFuzz.Preprocess.Mode = f.Preprocess.Mode
 	newFuzz.Preprocess.PlTemp = make(map[string]fuzzTypes.PayloadTemp)
 	for k, v := range f.Preprocess.PlTemp {
 		newFuzz.Preprocess.PlTemp[k] = fuzzTypes.PayloadTemp{
@@ -42,10 +41,10 @@ func CopyFuzz(f *fuzzTypes.Fuzz) *fuzzTypes.Fuzz {
 	newFuzz.React.Matcher.Code = append([]fuzzTypes.Range{}, f.React.Matcher.Code...)
 	newFuzz.React.RecursionControl = f.React.RecursionControl
 	newFuzz.React.RecursionControl.StatCodes = append([]fuzzTypes.Range{}, f.React.RecursionControl.StatCodes...)
-	newFuzz.React.OutSettings = f.React.OutSettings
+	newFuzz.Control.OutSetting = f.Control.OutSetting
 
-	// 拷贝 Misc
-	newFuzz.Misc = f.Misc
+	// 拷贝 Control
+	newFuzz.Control = f.Control
 
 	return newFuzz
 }
