@@ -1,4 +1,4 @@
-package options
+package opt
 
 type (
 	sliceStr []string

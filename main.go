@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/nostalgist134/FuzzGIU/components/options"
+	"github.com/nostalgist134/FuzzGIU/components/opt"
 	"github.com/nostalgist134/FuzzGIU/components/plugin"
 	"os"
 )
@@ -28,7 +28,7 @@ func initEnv() {
 }
 
 func main() {
-	opt := options.ParseOptCmdline()
+	opt := opt.ParseOptCmdline()
 	if len(os.Args) == 1 {
 		fmt.Println("Checking/initializing environment...")
 		initEnv()

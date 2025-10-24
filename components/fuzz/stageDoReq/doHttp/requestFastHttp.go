@@ -1,9 +1,7 @@
-package stageSend
+package doHttp
 
 import (
-	"bytes"
 	"crypto/tls"
-	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/common"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/valyala/fasthttp"
@@ -13,31 +11,7 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unsafe"
 )
-
-// buildRawHTTPResponse1 将 fasthttp.Response 转为原始 HTTP 响应 []byte
-func buildRawHTTPResponse1(resp *fasthttp.Response) ([]byte, []byte) {
-	var buf bytes.Buffer
-	// 写状态行
-	fmt.Fprintf(&buf, "%s %d %s\r\n",
-		resp.Header.Protocol(),
-		resp.StatusCode(),
-		resp.Header.StatusMessage())
-	// 写 header
-	resp.Header.VisitAll(func(key, value []byte) {
-		buf.Write(key)
-		buf.WriteString(": ")
-		buf.Write(value)
-		buf.WriteString("\r\n")
-	})
-	// 空行分隔 header 与 body
-	buf.WriteString("\r\n")
-	// 写 body
-	respBody := resp.Body()
-	buf.Write(respBody)
-	return buf.Bytes(), respBody
-}
 
 var fhCliPool = sync.Pool{New: func() any {
 	return &fasthttp.Client{
@@ -54,10 +28,6 @@ var fhCliPool = sync.Pool{New: func() any {
 		}).Dial,
 	}
 }}
-
-func unsafeStringToBytes(s string) []byte {
-	return unsafe.Slice(unsafe.StringData(s), len(s))
-}
 
 func fuzzReq2FHReq(fr *fuzzTypes.Req, fhr *fasthttp.Request) {
 	fhr.Header.SetMethod(fr.HttpSpec.Method)
@@ -169,7 +139,7 @@ func fastHttpRequest(cli *fasthttp.Client, fhReq *fasthttp.Request, fhResp *fast
 	return nil, rdrChain.String()
 }
 
-func sendRequestFastHttp(sendMeta *fuzzTypes.SendMeta, timeout int, httpRedirect bool, retry int,
+func doRequestFastHttp(sendMeta *fuzzTypes.RequestCtx, timeout int, httpRedirect bool, retry int,
 	retryCode, retryRegex, proxy string) (*fuzzTypes.Resp, error) {
 	req := sendMeta.Request
 	resp := new(fuzzTypes.Resp)

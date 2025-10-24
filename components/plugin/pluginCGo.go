@@ -334,9 +334,9 @@ func Preprocess(p fuzzTypes.Plugin, fuzz1 *fuzzTypes.Fuzz, outCtx *output.Ctx) *
 	return newFuzz
 }
 
-// SendRequest 根据sendMeta发送请求，并接收响应
-func SendRequest(p fuzzTypes.Plugin, m *fuzzTypes.SendMeta) *fuzzTypes.Resp {
-	reqJson, err := json.Marshal(m)
+// DoRequest 根据sendMeta发送请求，并接收响应
+func DoRequest(p fuzzTypes.Plugin, reqCtx *fuzzTypes.RequestCtx) *fuzzTypes.Resp {
+	reqJson, err := json.Marshal(reqCtx)
 	if err != nil {
 		return &fuzzTypes.Resp{ErrMsg: err.Error()}
 	}
@@ -371,7 +371,7 @@ func SendRequest(p fuzzTypes.Plugin, m *fuzzTypes.SendMeta) *fuzzTypes.Resp {
 
 // React 返回响应处理结果（reaction）
 func React(p fuzzTypes.Plugin, req *fuzzTypes.Req, resp *fuzzTypes.Resp) *fuzzTypes.Reaction {
-	rct := resourcePool.GetNewReaction()
+	rct := resourcePool.GetReaction()
 
 	reqJson, err := json.Marshal(req)
 	if err != nil {

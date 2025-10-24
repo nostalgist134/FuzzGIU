@@ -3,9 +3,9 @@ package fuzz
 import (
 	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/fuzz/fuzzCtx"
+	"github.com/nostalgist134/FuzzGIU/components/fuzz/stageDoReq"
 	"github.com/nostalgist134/FuzzGIU/components/fuzz/stagePreprocess"
 	"github.com/nostalgist134/FuzzGIU/components/fuzz/stageReact"
-	"github.com/nostalgist134/FuzzGIU/components/fuzz/stageSend"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/nostalgist134/FuzzGIU/components/resourcePool"
 	"github.com/nostalgist134/FuzzGIU/components/tmplReplace"
@@ -13,6 +13,8 @@ import (
 
 // taskMultiKeyword 多关键字fuzz使用的执行函数
 func taskMultiKeyword(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
+	defer resourcePool.PutTaskCtx(c)
+
 	payloads := c.Payloads
 	job := c.JobCtx.Job
 	i := c.IterInd
@@ -23,8 +25,10 @@ func taskMultiKeyword(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 
 	defer resourcePool.StringSlices.Put(payloads)
 
-	// nostalgist134他妈是不是脑袋有问题，还专门写一个sync.Pool来管理sendMeta，直接栈分配不就行了
-	send := fuzzTypes.SendMeta{
+	rc := resourcePool.GetReqCtx()
+	defer resourcePool.PutReqCtx(rc)
+
+	*rc = fuzzTypes.RequestCtx{
 		Retry:               job.Send.Retry,
 		HttpFollowRedirects: job.Send.HttpFollowRedirects,
 		RetryCode:           job.Send.RetryCode,
@@ -34,7 +38,7 @@ func taskMultiKeyword(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 
 	// 代理轮询
 	if len(job.Send.Proxies) > 0 {
-		send.Proxy = job.Send.Proxies[i%len(job.Send.Proxies)]
+		rc.Proxy = job.Send.Proxies[i%len(job.Send.Proxies)]
 	}
 
 	var cacheId int32
@@ -46,19 +50,21 @@ func taskMultiKeyword(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 		processedPayloads[j] = stagePreprocess.PayloadProcessor(c.JobCtx.OutputCtx, payloads[j], eachPlProc)
 	}
 
-	send.Request, cacheId = repTmpl.Replace(processedPayloads, -1)
+	rc.Request, cacheId = repTmpl.Replace(processedPayloads, -1)
 	defer tmplReplace.ReleaseReqCache(cacheId)
 
-	send.Request.HttpSpec.ForceHttps = job.Preprocess.ReqTemplate.HttpSpec.ForceHttps
+	rc.Request.HttpSpec.ForceHttps = job.Preprocess.ReqTemplate.HttpSpec.ForceHttps
 
-	resp := stageSend.SendRequest(&send, uScheme)
-	reaction := stageReact.React(c.JobCtx, send.Request, resp, keywords, processedPayloads, nil)
+	resp := stageDoReq.DoRequest(rc, uScheme)
+	reaction := stageReact.React(c.JobCtx, rc.Request, resp, keywords, processedPayloads, nil)
 
 	return reaction
 }
 
-// taskSingleKeyword 单关键字（sniper模式或者递归模式）使用的任务执行函数
+// taskSingleKeyword 单关键字（sniper模式或者递归模式）使用的任务执行函数（单关键字的执行函数居然比多关键字的还复杂，笑死）
 func taskSingleKeyword(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
+	defer resourcePool.PutTaskCtx(c)
+
 	job := c.JobCtx.Job
 	i := c.IterInd
 	payloads := c.Payloads
@@ -68,7 +74,10 @@ func taskSingleKeyword(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 	uScheme := c.USchemeCache
 	keywords := c.Keywords
 
-	send := fuzzTypes.SendMeta{
+	rc := resourcePool.GetReqCtx()
+	defer resourcePool.PutReqCtx(rc)
+
+	*rc = fuzzTypes.RequestCtx{
 		Retry:               job.Send.Retry,
 		HttpFollowRedirects: job.Send.HttpFollowRedirects,
 		RetryCode:           job.Send.RetryCode,
@@ -78,47 +87,60 @@ func taskSingleKeyword(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 
 	// 代理轮询
 	if len(job.Send.Proxies) > 0 {
-		send.Proxy = job.Send.Proxies[i%len(job.Send.Proxies)]
+		rc.Proxy = job.Send.Proxies[i%len(job.Send.Proxies)]
 	}
 
 	processedPayload := payloads[0]
 	payload := payloads[0]
+
+	processedPayloads := resourcePool.StringSlices.Get(1)
+	defer resourcePool.StringSlices.Put(processedPayloads)
+
 	processedPayload = stagePreprocess.PayloadProcessor(c.JobCtx.OutputCtx, processedPayload, plProc[0])
+	processedPayloads[0] = processedPayload
 
 	var recPos []int
 	var cacheId int32
 
+	tmp := resourcePool.StringSlices.Get(1)
+	defer resourcePool.StringSlices.Put(tmp)
+
+	tmp[0] = payload
+
 	// payload替换
 	if job.Control.IterCtrl.Iterator.Name == "sniper" && // 同时启用sniper和递归
 		job.React.RecursionControl.RecursionDepth <= job.React.RecursionControl.MaxRecursionDepth {
-		send.Request, recPos, cacheId = repTmpl.ReplaceTrack(payload, i/snipLen)
+		rc.Request, recPos, cacheId = repTmpl.ReplaceTrack(payload, i/snipLen)
 	} else if job.React.RecursionControl.RecursionDepth <=
 		job.React.RecursionControl.MaxRecursionDepth { // 只启用递归
-		send.Request, recPos, cacheId = repTmpl.ReplaceTrack(payload, -1)
+		rc.Request, recPos, cacheId = repTmpl.ReplaceTrack(payload, -1)
 	} else { // 只启用sniper
-		send.Request, cacheId = repTmpl.Replace([]string{payload}, i/snipLen)
+		rc.Request, cacheId = repTmpl.Replace(tmp, i/snipLen)
 	}
 	defer tmplReplace.ReleaseReqCache(cacheId)
-	defer resourcePool.IntSlices.Put(recPos) // resourcesPool.Put(nil)会自动被忽略
+	defer resourcePool.IntSlices.Put(recPos)
 
-	send.Request.HttpSpec.ForceHttps = job.Preprocess.ReqTemplate.HttpSpec.ForceHttps
+	rc.Request.HttpSpec.ForceHttps = job.Preprocess.ReqTemplate.HttpSpec.ForceHttps
 
-	resp := stageSend.SendRequest(&send, uScheme)
+	resp := stageDoReq.DoRequest(rc, uScheme)
 
-	reaction := stageReact.React(c.JobCtx, send.Request, resp, keywords,
-		[]string{processedPayload}, recPos)
+	reaction := stageReact.React(c.JobCtx, rc.Request, resp, keywords, processedPayloads, recPos)
 
 	return reaction
 }
 
 // taskNoKeywords 用于没有包含payload信息的任务的执行，目前只有handleReaction时发现需要添加新请求时，才使用此函数
 func taskNoKeywords(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
+	defer resourcePool.PutTaskCtx(c)
+
 	job := c.JobCtx.Job
 	r := c.ViaReaction
 	k, p := stageReact.GetReactTraceInfo(r)
 
-	send := fuzzTypes.SendMeta{
-		Request:             r.NewReq,
+	rc := resourcePool.GetReqCtx()
+	defer resourcePool.PutReqCtx(rc)
+
+	*rc = fuzzTypes.RequestCtx{
 		Retry:               job.Send.Retry,
 		HttpFollowRedirects: job.Send.HttpFollowRedirects,
 		RetryCode:           job.Send.RetryCode,
@@ -126,8 +148,14 @@ func taskNoKeywords(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 		Timeout:             job.Send.Timeout,
 	}
 
-	resp := stageSend.SendRequest(&send, "")
-	reaction := stageReact.React(c.JobCtx, send.Request, resp, []string{""},
-		[]string{fmt.Sprintf("add via react by %s:%s", k, p)}, nil)
+	tmp := resourcePool.StringSlices.Get(1)
+	defer resourcePool.StringSlices.Put(tmp)
+
+	addedVia := fmt.Sprintf("add via react by %s:%s", k, p)
+	tmp[0] = addedVia
+
+	resp := stageDoReq.DoRequest(rc, "")
+	reaction := stageReact.React(c.JobCtx, rc.Request, resp, []string{""},
+		tmp, nil)
 	return reaction
 }

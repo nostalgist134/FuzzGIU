@@ -51,7 +51,7 @@ func NewOutputCtx(outSetting *fuzzTypes.OutputSetting, jid int) (*Ctx, error) {
 
 	if toWhere&OutToFile != 0 {
 		fc, err1 := fo.NewFileOutputCtx(outSetting, jid)
-		err = errors.Join(err, err1)
+		err = fmt.Errorf("file output init error: %w", err1)
 
 		oc.FileOutputCtx = fc
 	}

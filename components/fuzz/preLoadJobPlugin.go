@@ -105,7 +105,7 @@ func preLoadJobPlugin(job *fuzzTypes.Fuzz) error {
 			errTotal = errors.Join(errTotal, err)
 		}
 	}
-	// requestSender插件由于可能是易变的（url中可能包含fuzz关键字），预加载实现难度过大，因此略去
+	// doRequest插件由于可能是易变的（url中可能包含fuzz关键字），预加载实现难度过大，因此略去
 
 	// 加载reactor插件
 	if job.React.Reactor.Name != "" {

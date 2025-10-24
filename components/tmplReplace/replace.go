@@ -61,7 +61,7 @@ func strings2Req(req *fuzzTypes.Req, fields []string, headerNum int) {
 	req.Data = toBytes(fields[len(fields)-1]) // req.Data恒为fields的最后一个项
 }
 
-// loadLazyFields 将lazy结构体加载为字符串
+// loadLazyFields 将lazy结构体加载为字符串，同时将lazy切片放回池
 func loadLazyFields(fields []string, lazyFields []reusablebytes.Lazy) {
 	if len(fields) != len(lazyFields) {
 		return
@@ -69,6 +69,7 @@ func loadLazyFields(fields []string, lazyFields []reusablebytes.Lazy) {
 	for i := 0; i < len(lazyFields); i++ {
 		fields[i] = lazyFields[i].String()
 	}
+	lazyPool.Put(lazyFields)
 }
 
 // Replace 将模板中的关键字替换为payload列表
@@ -79,7 +80,7 @@ func (t *ReplaceTemplate) Replace(payloads []string, sniperPos int) (req *fuzzTy
 	} else {
 		lazyFields, cacheId = t.render(payloads)
 	}
-	req = resourcePool.GetNewReq()
+	req = resourcePool.GetReq()
 	stringFields := resourcePool.StringSlices.Get(len(lazyFields))
 	loadLazyFields(stringFields, lazyFields)
 	strings2Req(req, stringFields, t.headerNum)
@@ -96,7 +97,7 @@ func (t *ReplaceTemplate) ReplaceTrack(payload string, sniperPos int) (req *fuzz
 	} else {
 		lazyFields, track, cacheId = t.renderTrack(payload)
 	}
-	req = resourcePool.GetNewReq()
+	req = resourcePool.GetReq()
 	stringFields := resourcePool.StringSlices.Get(len(lazyFields))
 	loadLazyFields(stringFields, lazyFields)
 	strings2Req(req, stringFields, t.headerNum)

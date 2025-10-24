@@ -22,7 +22,7 @@ const (
 //	已解决，在fuzzCtx中声明了一个rp接口，然后使用的时候不直接用rp类型而是用接口，这样就避免了
 
 type tsk struct {
-	arg       fuzzCtx.TaskCtx
+	arg       *fuzzCtx.TaskCtx
 	whichExec int8
 }
 
@@ -114,7 +114,7 @@ func (p *RoutinePool) worker() {
 				if !ok {
 					continue
 				}
-				result := p.executors[task.whichExec](&task.arg)
+				result := p.executors[task.whichExec](task.arg)
 				p.results <- result
 				p.wg.Done()
 			case <-p.quit:
@@ -138,7 +138,7 @@ func (p *RoutinePool) Submit(execArg *fuzzCtx.TaskCtx, whichExec int8, timeout t
 
 	// 提交函数、执行可以用指针，这样可以减少栈分配，但是tsk结构必须是字面值复制，不然又要写一个资源池来管理
 	task := tsk{
-		arg:       *execArg,
+		arg:       execArg,
 		whichExec: whichExec,
 	}
 

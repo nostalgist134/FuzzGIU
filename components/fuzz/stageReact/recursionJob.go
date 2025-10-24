@@ -37,7 +37,7 @@ func insertRecursionMarker(recKeyword string, splitter string,
 	return sb.String(), currentPos + 1
 }
 
-func insertLastRecursionMarker(recKeyword string, splitter string, dataField []byte, recursionPos []int,
+func insertRecursionMarkerBytes(recKeyword string, splitter string, dataField []byte, recursionPos []int,
 	currentPos int) []byte {
 	buf := bytes.Buffer{}
 	ind := 0
@@ -109,7 +109,7 @@ func deriveRecursionJob(job *fuzzTypes.Fuzz, reqSend *fuzzTypes.Req, recPos []in
 	}
 
 	// DATA
-	derived.Data = insertLastRecursionMarker(recKw, recSp, derived.Data, recPos, curPos)
+	derived.Data = insertRecursionMarkerBytes(recKw, recSp, derived.Data, recPos, curPos)
 
 	return recJob
 }

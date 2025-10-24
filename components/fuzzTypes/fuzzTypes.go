@@ -79,8 +79,8 @@ type (
 		PlList     []string `json:"pl_list,omitempty"`
 	}
 
-	// SendMeta 包括了请求本身以及与请求相关的设置（超时、代理等）的结构
-	SendMeta struct {
+	// RequestCtx 包括了请求本身以及与请求相关的设置（超时、代理等）的结构
+	RequestCtx struct {
 		Request             *Req   `json:"request,omitempty"`               // 发送的请求
 		Proxy               string `json:"proxy,omitempty"`                 // 使用的代理
 		Retry               int    `json:"retry,omitempty"`                 // 错误重试次数
@@ -167,7 +167,6 @@ const (
 	ReactOutput = 1 << iota
 	ReactAddJob
 	ReactStopJob
-	ReactExit
 	ReactFiltered
 	ReactMatch
 	ReactAddReq

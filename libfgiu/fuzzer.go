@@ -3,6 +3,7 @@ package libfgiu
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/fuzz"
 	"github.com/nostalgist134/FuzzGIU/components/fuzz/fuzzCtx"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
@@ -44,7 +45,7 @@ func (f *Fuzzer) daemon() {
 				p := f.pendingJobs[done]
 				jc, err := fuzz.NewJobCtx(p.job, p.parentId)
 				if err != nil {
-					log.Fatal(err)
+					log.Printf("failed to init job, reason: %v", err)
 				}
 				if !f.jp.submit(jc) {
 					break // 池满，立即停止
@@ -64,7 +65,7 @@ func (f *Fuzzer) daemon() {
 				j := res.newJobs[done]
 				jc, err := fuzz.NewJobCtx(j, res.jid)
 				if err != nil {
-					log.Fatal(err)
+					log.Printf("failed to init job, reason: %v", err)
 				}
 				if !f.jp.submit(jc) {
 					break // 池满，立即停
@@ -100,7 +101,7 @@ func NewFuzzer(runMode int8, concurrency int, passiveAddr ...string) (*Fuzzer, e
 		ctx:     quitCtx,
 	}
 	if runMode == FuzzModePassive {
-		if len(passiveAddr) > 0 {
+		if len(passiveAddr) > 0 { // 被动模式：待实现
 			http.ListenAndServe(passiveAddr[0], nil)
 		}
 	}
@@ -144,4 +145,14 @@ func (f *Fuzzer) Stop() {
 // GetJob 获取当前协程池中一个正在运行的任务
 func (f *Fuzzer) GetJob(jid int) (*fuzzCtx.JobCtx, bool) {
 	return f.jp.findRunningJobById(jid)
+}
+
+// StopJob 停止一个任务
+func (f *Fuzzer) StopJob(jid int) error {
+	jc, ok := f.jp.findRunningJobById(jid)
+	if !ok {
+		return fmt.Errorf("job#%d not exist", jid)
+	}
+	jc.Stop()
+	return nil
 }

@@ -7,11 +7,12 @@ import (
 
 func TestIterIndexClusterbomb(t *testing.T) {
 	var (
-		lengths = []int{3, 4, 5, 2}
-		out     = make([]int, 4)
+		lengths = []int{2, 71, 399, 9812}
+		out     = make([]int, len(lengths))
 	)
-	for i := 0; i < 3*4*5*2; i++ {
+	fmt.Println(iterLenClusterbomb(lengths))
+	for i := 0; i < iterLenClusterbomb(lengths); i++ {
 		iterIndexClusterbomb(lengths, i, out)
-		fmt.Println(out)
 	}
+	fmt.Println("done")
 }

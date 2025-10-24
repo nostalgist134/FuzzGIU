@@ -50,19 +50,32 @@ func iterLen(p fuzzTypes.Plugin, lengths []int) int {
 		tmp.Args[0] = plugin.SelectIterLen
 		copy(tmp.Args[1:], p.Args)
 
-		return plugin.IterLen(p, lengths)
+		return plugin.IterLen(tmp, lengths)
 	}
 }
 
 func iterIndexClusterbomb(lengths []int, ind int, out []int) {
 	for i := len(lengths) - 1; i >= 0; i-- {
-		r := ind % lengths[i]
+		out[i] = ind % lengths[i]
 		ind /= lengths[i]
-		out[i] = r
 	}
 }
 
 func iterIndexPitchfork(lengths []int, ind int, out []int) {
+	for i, _ := range out {
+		// 如果出现某个列表长度小于等于下标，说明已经过了pitchfork的边界，此时标记结束
+		if ind >= lengths[i] {
+			for j, _ := range out {
+				out[j] = -1
+			}
+			return
+		}
+		out[i] = ind
+	}
+	return
+}
+
+func iterIndexPitchforkCycle(lengths []int, ind int, out []int) {
 	for i := 0; i < len(out); i++ {
 		out[i] = ind % lengths[i]
 	}
@@ -76,8 +89,10 @@ func iterIndex(lengths []int, ind int, out []int, p fuzzTypes.Plugin) {
 	switch p.Name {
 	case "clusterbomb":
 		iterIndexClusterbomb(lengths, ind, out)
-	case "pitchfork", "pitchfork-cycle":
+	case "pitchfork":
 		iterIndexPitchfork(lengths, ind, out)
+	case "pitchfork-cycle":
+		iterIndexPitchforkCycle(lengths, ind, out)
 	default:
 		tmp := fuzzTypes.Plugin{Name: p.Name, Args: resourcePool.AnySlices.Get(len(p.Args) + 2)}
 		defer resourcePool.AnySlices.Put(tmp.Args)

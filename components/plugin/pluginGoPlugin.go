@@ -164,8 +164,8 @@ func PayloadProcessor(p fuzzTypes.Plugin) string {
 
 }
 
-// SendRequest 根据sendMeat发送请求，并接收响应
-func SendRequest(p fuzzTypes.Plugin, m *fuzzTypes.SendMeta) *fuzzTypes.Resp {
+// DoRequest 根据sendMeat发送请求，并接收响应
+func SendRequest(p fuzzTypes.Plugin, m *fuzzTypes.RequestCtx) *fuzzTypes.Resp {
 	resp := new(fuzzTypes.Resp)
 
 	mJson, err := json.Marshal(m)
@@ -185,7 +185,7 @@ func SendRequest(p fuzzTypes.Plugin, m *fuzzTypes.SendMeta) *fuzzTypes.Resp {
 
 // React 返回*reaction
 func React(p fuzzTypes.Plugin, req *fuzzTypes.Req, resp *fuzzTypes.Resp) *fuzzTypes.Reaction {
-	rct := resourcePool.GetNewReaction()
+	rct := resourcePool.GetReaction()
 
 	reqJson, err := json.Marshal(req)
 	if err != nil {

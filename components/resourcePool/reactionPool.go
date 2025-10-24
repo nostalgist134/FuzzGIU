@@ -9,8 +9,8 @@ var reactionPool = sync.Pool{
 	New: func() any { return new(fuzzTypes.Reaction) },
 }
 
-// GetNewReaction 从池中获取一个新的Reaction结构
-func GetNewReaction() *fuzzTypes.Reaction {
+// GetReaction 从池中获取一个新的Reaction结构
+func GetReaction() *fuzzTypes.Reaction {
 	newReaction := (reactionPool.Get()).(*fuzzTypes.Reaction)
 	*newReaction = fuzzTypes.Reaction{}
 	return newReaction
@@ -18,6 +18,9 @@ func GetNewReaction() *fuzzTypes.Reaction {
 
 // PutReaction 将用完的Reaction结构放回池
 func PutReaction(r *fuzzTypes.Reaction) {
+	if r == nil {
+		return
+	}
 	*r = fuzzTypes.Reaction{}
 	reactionPool.Put(r)
 }

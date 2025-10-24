@@ -3,7 +3,7 @@ package libfgiu
 import (
 	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
-	"github.com/nostalgist134/FuzzGIU/components/options"
+	"github.com/nostalgist134/FuzzGIU/components/opt"
 	"github.com/nostalgist134/FuzzGIU/components/output"
 	"github.com/nostalgist134/FuzzGIU/components/plugin"
 	"log"
@@ -173,7 +173,7 @@ func str2TimeBounds(s string) struct {
 	}
 }
 
-func setMatch(fuzzMatch *fuzzTypes.Match, optMatch *options.Match) {
+func setMatch(fuzzMatch *fuzzTypes.Match, optMatch *opt.Match) {
 	fuzzMatch.Lines = str2Ranges(optMatch.Lines)
 	fuzzMatch.Size = str2Ranges(optMatch.Size)
 	fuzzMatch.Code = str2Ranges(optMatch.Code)
@@ -203,7 +203,7 @@ func parseRequestFile(fileName string) (req *fuzzTypes.Req, raw []byte, err erro
 }
 
 // opt2fuzz 将opt结构转化为fuzz结构
-func opt2fuzz(opt *options.Opt) (fuzz1 *fuzzTypes.Fuzz, pendingLogs []string) {
+func opt2fuzz(opt *opt.Opt) (fuzz1 *fuzzTypes.Fuzz, pendingLogs []string) {
 	fuzz1 = new(fuzzTypes.Fuzz)
 	var err error
 

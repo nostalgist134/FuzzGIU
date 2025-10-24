@@ -7,7 +7,6 @@ import (
 	"github.com/nostalgist134/FuzzGIU/components/output"
 	"github.com/nostalgist134/FuzzGIU/components/plugin"
 	"github.com/nostalgist134/FuzzGIU/components/resourcePool"
-	"strings"
 )
 
 // todo: 更新递归任务的生成逻辑，添加对req.Fields的支持
@@ -73,13 +72,12 @@ func mergeReaction(r1 *fuzzTypes.Reaction, r2 *fuzzTypes.Reaction) {
 	}
 }
 
-// React 函数
-// patchLog#12: 添加了一个reactPlugin参数，现在reactor插件通过此参数调用，避免每次调用都解析插件字符串导致性能问题
-// reactPlugin在doFuzz函数中通过一次plugin.ParsePluginsStr解析得到
+// React 通过req和resp结构根据特定规则生成一个reaction结构，指示fuzz流程的下一步动作
 func React(jobCtx *fuzzCtx.JobCtx, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 	keywordsUsed []string, payloadEachKeyword []string, recursionPos []int) *fuzzTypes.Reaction {
 	defer resourcePool.PutReq(reqSend)
-	reaction := resourcePool.GetNewReaction()
+
+	reaction := resourcePool.GetReaction()
 
 	fuzz1 := jobCtx.Job
 	outCtx := jobCtx.OutputCtx
@@ -99,12 +97,6 @@ func React(jobCtx *fuzzCtx.JobCtx, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 		outCtx.LogFmtMsg("job#%d payload %s recursive, add new job", jobCtx.JobId, payloadEachKeyword[0])
 
 		recursionJob = deriveRecursionJob(fuzz1, reqSend, recursionPos)
-	}
-
-	// reactDns调用
-	if strings.Index(fuzz1.Preprocess.ReqTemplate.URL, "dns://") == 0 {
-		resourcePool.PutReaction(reaction)
-		reaction = reactDns(reqSend, resp)
 	}
 
 	// 添加递归任务（如果自定义reactor没有添加）
@@ -155,41 +147,7 @@ func React(jobCtx *fuzzCtx.JobCtx, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 	}
 	// 添加新单个请求的reaction，在输出消息后添加追溯信息(keyword:payload对)，易于追踪
 	if reaction.Flag&fuzzTypes.ReactAddReq != 0 || reaction.Flag&fuzzTypes.ReactAddJob != 0 {
-		sb := strings.Builder{}
-		sb.WriteByte('\n')
-		// 写入infoMarker，避免与原先的信息冲突，InfoMarker是随机生成的12位长字符串
-		sb.WriteString(infoMarker)
-		for i, k := range keywordsUsed {
-			sb.WriteString(k)
-			sb.WriteString(":")
-			sb.WriteString(payloadEachKeyword[i])
-			if i != len(keywordsUsed)-1 {
-				sb.WriteString(infoMarker)
-			}
-		}
-		reaction.Output.Msg += sb.String()
+		AppendReactTraceInfo(reaction, keywordsUsed, payloadEachKeyword)
 	}
 	return reaction
-}
-
-// GetReactTraceInfo 获取reaction结构中的追溯信息
-func GetReactTraceInfo(reaction *fuzzTypes.Reaction) ([]string, []string) {
-	markerInd := strings.Index(reaction.Output.Msg, infoMarker)
-	if markerInd == -1 {
-		return nil, nil
-	}
-	k := make([]string, 0)
-	p := make([]string, 0)
-	if len(reaction.Output.Msg[markerInd:]) == len(infoMarker) {
-		return nil, nil
-	}
-	for _, kpPair := range strings.Split(reaction.Output.Msg[markerInd+len(infoMarker):], infoMarker) {
-		if kpPair != "" {
-			if key, payload, ok := strings.Cut(kpPair, ":"); ok {
-				k = append(k, key)
-				p = append(p, payload)
-			}
-		}
-	}
-	return k, p
 }

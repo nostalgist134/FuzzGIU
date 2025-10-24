@@ -1,6 +1,7 @@
 package fuzz
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/fuzz/fuzzCtx"
@@ -13,13 +14,10 @@ import (
 	"github.com/nostalgist134/FuzzGIU/components/rp"
 	"github.com/nostalgist134/FuzzGIU/components/tmplReplace"
 	"net/url"
-	"os"
 	"strings"
 	"sync/atomic"
 	"time"
 )
-
-// todo: 编写一个ValidateJob函数，在执行任务之前进行判断，同时开放出去，给libfgiu使用
 
 var curJobId = atomic.Int64{}
 
@@ -90,11 +88,6 @@ func handleReaction(jobCtx *fuzzCtx.JobCtx, r *fuzzTypes.Reaction) (stopJob bool
 
 		// task总数加1
 		jobCtx.OutputCtx.Counter.Add(counter.CntrTask, counter.FieldTotal, 1)
-	}
-	if r.Flag&fuzzTypes.ReactExit != 0 {
-		jobCtx.Close()
-		fmt.Println("exit by react")
-		os.Exit(0)
 	}
 	return
 }
@@ -196,22 +189,28 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 	defer func() { err = errors.Join(err, jobCtx.Close()) }()
 	defer func() { // 此defer语句必须在输出上下文关闭前执行，因此放在上面这行的下面
 		timeLapsed = time.Since(timeStart)
-		err = errors.Join(err, outCtx.LogFmtMsg("job#%d completed, time spent: %v", timeLapsed))
+		err = errors.Join(err, outCtx.LogFmtMsg("job#%d completed, time spent: %v", jobCtx.JobId, timeLapsed))
 	}()
-
-	job = stagePreprocess.Preprocess(job, job.Preprocess.Preprocessors, jobCtx.OutputCtx)
 
 	if len(job.Preprocess.PlTemp) == 0 {
 		err = errors.Join(err, outCtx.LogFmtMsg("Job#%d has no fuzz keyword, skip", jid))
 		return
 	}
 
-	// fuzz关键字的处理
-	var iterateLen int
-	var keywords []string
-	var payloadLists [][]string
-	var lengths []int
+	genPayloads(jobCtx)
 
+	// fuzz关键字的处理
+	var (
+		iterateLen   int
+		keywords     []string
+		payloadLists [][]string
+		lengths      []int
+	)
+
+	keywords, lengths, payloadLists = getKeywordsPayloads(job)
+	if len(keywords) == 0 {
+		err = errors.Join(err, fmt.Errorf("job#%d has no fuzz keyword, skip", jobCtx.JobId))
+	}
 	parsedTmpl := tmplReplace.ParseReqTmpl(&job.Preprocess.ReqTemplate, keywords) // 请求模板
 
 	iter := &(job.Control.IterCtrl)
@@ -219,27 +218,23 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 		iterName := job.Control.IterCtrl.Iterator.Name
 		// sniper模式或者递归模式，仅允许单个fuzz关键字
 		if iterName == "sniper" || job.React.RecursionControl.MaxRecursionDepth > 0 {
-			if len(job.Preprocess.PlTemp) > 1 {
-				err = errors.Join(err, errors.New("job specified sniper or recursion, "+
-					"but provided multiple keywords"))
+			if len(keywords) > 1 {
+				err = errors.Join(err, fmt.Errorf("job#%d specified sniper or recursion, "+
+					"but provided multiple keywords", jobCtx.JobId))
 				return
 			}
-			for kw, pt := range job.Preprocess.PlTemp {
-				iterateLen = len(pt.PlList)
-				if iterName == "sniper" {
-					iterateLen *= parsedTmpl.KeywordCount(0)
-				}
-				keywords = []string{kw}
-				break
+			if iter.Iterator.Name == "sniper" {
+				iterateLen *= parsedTmpl.KeywordCount(0)
 			}
 			routinePool.RegisterExecutor(taskSingleKeyword, rp.ExecMajor)
 		} else { // 多关键字模式
-			keywords, lengths, payloadLists = getKeywordsPayloads(job)
 			iterateLen = iterLen(job.Control.IterCtrl.Iterator, lengths)
 			routinePool.RegisterExecutor(taskMultiKeyword, rp.ExecMajor)
 		}
 		iter.End = iterateLen
 	}
+
+	job = stagePreprocess.Preprocess(job, jobCtx.OutputCtx)
 
 	routinePool.RegisterExecutor(taskNoKeywords, rp.ExecMinor)
 	routinePool.Start()
@@ -260,8 +255,6 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 
 	iterIndexes := make([]int, len(keywords)) // payload下标组合，每次迭代时改变
 
-	plTmp := job.Preprocess.PlTemp
-
 	newJobs = make([]*fuzzTypes.Fuzz, 0)
 	var newJobsTmp []*fuzzTypes.Fuzz
 
@@ -275,14 +268,24 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 
 	// fuzz循环，若循环尾为-1则代表无限循环，什么时候结束取决于迭代器逻辑
 	for i := iter.Start; i < iter.End || iter.End == -1; i++ {
-		tc.IterInd = i
+		// 只有进入fuzz循环了，才能停止任务（其实是我懒得设计那么多select了）
+		select {
+		case <-jobCtx.GlobCtx.Done():
+			return
+		default:
+		}
+
+		tcInLoop := resourcePool.GetTaskCtx()
+		*tcInLoop = tc
+
+		tcInLoop.IterInd = i
 		// 根据迭代器决定迭代下标，递归模式不走这个分支
 		if iter.Iterator.Name != "sniper" && job.React.RecursionControl.MaxRecursionDepth <= 0 {
 			iterIndex(lengths, i, iterIndexes, iter.Iterator)
 
 			hasValid := false
-			for j, keyword := range keywords { // 根据下标选择每个关键字对应的payload
-				if iterIndexes[j] < 0 || iterIndexes[j] >= len(plTmp[keyword].PlList) {
+			for j, _ := range keywords { // 根据下标选择每个关键字对应的payload
+				if iterIndexes[j] < 0 || iterIndexes[j] >= len(payloadLists[j]) {
 					payloads[j] = ""
 				} else {
 					payloads[j] = payloadLists[j][iterIndexes[j]]
@@ -297,15 +300,15 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 
 			copied := resourcePool.StringSlices.Get(len(payloads))
 			copy(copied, payloads)
-			tc.Payloads = copied
+			tcInLoop.Payloads = copied
 		} else { // sniper模式或者递归模式
 			snipLen := len(payloadLists[0])
 			payload := payloadLists[0][i%snipLen]
-			tc.Payloads = []string{payload}
-			tc.SnipLen = snipLen
+			tcInLoop.Payloads = []string{payload}
+			tcInLoop.SnipLen = snipLen
 		}
 
-		jobStop, newJobsTmp = trySubmit(jobCtx, &tc, rp.ExecMajor)
+		jobStop, newJobsTmp = trySubmit(jobCtx, tcInLoop, rp.ExecMajor)
 		newJobs = append(newJobs, newJobsTmp...)
 		if jobStop {
 			return
@@ -350,6 +353,7 @@ func NewJobCtx(job *fuzzTypes.Fuzz, parentId int) (jobCtx *fuzzCtx.JobCtx, err e
 	}
 
 	routinePool := rp.NewRp(job.Control.PoolSize)
+	globCtx, cancel := context.WithCancel(context.Background())
 
 	jobCtx = &fuzzCtx.JobCtx{
 		JobId:     jid,
@@ -357,6 +361,8 @@ func NewJobCtx(job *fuzzTypes.Fuzz, parentId int) (jobCtx *fuzzCtx.JobCtx, err e
 		RP:        routinePool,
 		Job:       job,
 		OutputCtx: outCtx,
+		Cancel:    cancel,
+		GlobCtx:   globCtx,
 	}
 	return
 }
