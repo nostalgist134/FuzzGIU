@@ -84,10 +84,10 @@ type (
 		Request             *Req   `json:"request,omitempty"`               // 发送的请求
 		Proxy               string `json:"proxy,omitempty"`                 // 使用的代理
 		Retry               int    `json:"retry,omitempty"`                 // 错误重试次数
-		HttpFollowRedirects bool   `json:"http_follow_redirects,omitempty"` // http重定向
 		RetryCode           string `json:"retry_code,omitempty"`            // 返回特定状态码时重试
 		RetryRegex          string `json:"retry_regex,omitempty"`           // 返回匹配正则时重试
 		Timeout             int    `json:"timeout,omitempty"`               // 超时
+		HttpFollowRedirects bool   `json:"http_follow_redirects,omitempty"` // http重定向
 	}
 
 	// OutputSetting 输出相关设置
