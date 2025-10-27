@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/opt"
 	"github.com/nostalgist134/FuzzGIU/components/plugin"
+	"github.com/nostalgist134/FuzzGIU/libfgiu"
+	"log"
 	"os"
 )
 
@@ -28,7 +30,7 @@ func initEnv() {
 }
 
 func main() {
-	opt := opt.ParseOptCmdline()
+	o := opt.ParseOptCmdline()
 	if len(os.Args) == 1 {
 		fmt.Println("Checking/initializing environment...")
 		initEnv()
@@ -36,5 +38,15 @@ func main() {
 		fmt.Println("For help, use -h flag")
 		return
 	}
-	_ = opt
+	j, _ := libfgiu.Opt2fuzz(o)
+	fuzzer, err := libfgiu.NewFuzzer(10)
+	if err != nil {
+		log.Fatalf("failed to create fuzzer: %v\n", err)
+	}
+	fuzzer.Start()
+	err = fuzzer.Submit(j)
+	if err != nil {
+		log.Fatalf("failed to submit job: %v\n", err)
+	}
+	fuzzer.Wait()
 }

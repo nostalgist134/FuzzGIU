@@ -202,18 +202,18 @@ func parseRequestFile(fileName string) (req *fuzzTypes.Req, raw []byte, err erro
 	return
 }
 
-// opt2fuzz 将opt结构转化为fuzz结构
-func opt2fuzz(opt *opt.Opt) (fuzz1 *fuzzTypes.Fuzz, pendingLogs []string) {
+// Opt2fuzz 将opt结构转化为fuzz结构
+func Opt2fuzz(opts *opt.Opt) (fuzz1 *fuzzTypes.Fuzz, pendingLogs []string) {
 	fuzz1 = new(fuzzTypes.Fuzz)
 	var err error
 
-	// opt.Request
+	// opts.Request
 	var req *fuzzTypes.Req
 	var raw []byte
 
 	// 指定从文件中读取请求结构（req结构的json或者http请求）
-	if opt.Request.ReqFile != "" {
-		req, raw, err = parseRequestFile(opt.Request.ReqFile)
+	if opts.Request.ReqFile != "" {
+		req, raw, err = parseRequestFile(opts.Request.ReqFile)
 		if req != nil {
 			fuzz1.Preprocess.ReqTemplate = *req
 		} else { // 如果不是json或http，则将其视作data
@@ -221,46 +221,46 @@ func opt2fuzz(opt *opt.Opt) (fuzz1 *fuzzTypes.Fuzz, pendingLogs []string) {
 		}
 	}
 
-	if opt.Request.ReqFile != "" {
+	if opts.Request.ReqFile != "" {
 		if os.IsNotExist(err) {
 			pendingLogs = append(pendingLogs,
-				fmt.Sprintf("request file %s not found, ignored\n", opt.Request.ReqFile))
+				fmt.Sprintf("request file %s not found, ignored\n", opts.Request.ReqFile))
 		} else if err != nil {
 			pendingLogs = append(pendingLogs,
-				fmt.Sprintf("error when parsing request file %s: %v, skipping\n", opt.Request.ReqFile, err))
+				fmt.Sprintf("error when parsing request file %s: %v, skipping\n", opts.Request.ReqFile, err))
 		}
 	}
 
 	// 无论文件是否读取成功，都读取命令行参数
-	if opt.Request.URL != "" { // -u指定的url优先级更高
-		fuzz1.Preprocess.ReqTemplate.URL = opt.Request.URL
+	if opts.Request.URL != "" { // -u指定的url优先级更高
+		fuzz1.Preprocess.ReqTemplate.URL = opts.Request.URL
 	}
 
-	if opt.Request.Data != "" {
-		fuzz1.Preprocess.ReqTemplate.Data = []byte(opt.Request.Data)
+	if opts.Request.Data != "" {
+		fuzz1.Preprocess.ReqTemplate.Data = []byte(opts.Request.Data)
 	}
 
-	fuzz1.Preprocess.ReqTemplate.HttpSpec.ForceHttps = opt.Request.HTTPS
+	fuzz1.Preprocess.ReqTemplate.HttpSpec.ForceHttps = opts.Request.HTTPS
 
-	if opt.Request.HTTP2 {
+	if opts.Request.HTTP2 {
 		fuzz1.Preprocess.ReqTemplate.HttpSpec.Version = "HTTP/2"
 	}
 
 	if len(fuzz1.Preprocess.ReqTemplate.HttpSpec.Headers) == 0 {
 		fuzz1.Preprocess.ReqTemplate.HttpSpec.Headers = make([]string, 0)
 	}
-	for _, h := range opt.Request.Headers {
+	for _, h := range opts.Request.Headers {
 		fuzz1.Preprocess.ReqTemplate.HttpSpec.Headers = append(fuzz1.Preprocess.ReqTemplate.HttpSpec.Headers, h)
 	}
 
-	fuzz1.Preprocess.ReqTemplate.HttpSpec.RandomAgent = opt.Request.RandomAgent
+	fuzz1.Preprocess.ReqTemplate.HttpSpec.RandomAgent = opts.Request.RandomAgent
 
-	if len(opt.Request.Cookies) > 0 {
+	if len(opts.Request.Cookies) > 0 {
 		cookies := strings.Builder{}
 		cookies.WriteString("Cookies: ")
-		for i, cookie := range opt.Request.Cookies {
+		for i, cookie := range opts.Request.Cookies {
 			cookies.WriteString(cookie)
-			if i != len(opt.Request.Cookies)-1 {
+			if i != len(opts.Request.Cookies)-1 {
 				cookies.WriteString("; ")
 			}
 		}
@@ -268,69 +268,69 @@ func opt2fuzz(opt *opt.Opt) (fuzz1 *fuzzTypes.Fuzz, pendingLogs []string) {
 			cookies.String())
 	}
 
-	fuzz1.Request.Proxies = opt.Request.Proxies
+	fuzz1.Request.Proxies = opts.Request.Proxies
 
-	fuzz1.Request.HttpFollowRedirects = opt.Request.FollowRedirect
+	fuzz1.Request.HttpFollowRedirects = opts.Request.FollowRedirect
 
 	// 若-r选项指定了http方法，且-X选项没出现过，才使用-r选项的
-	if opt.Request.Method != "" {
-		fuzz1.Preprocess.ReqTemplate.HttpSpec.Method = opt.Request.Method
+	if opts.Request.Method != "" {
+		fuzz1.Preprocess.ReqTemplate.HttpSpec.Method = opts.Request.Method
 	} else if fuzz1.Preprocess.ReqTemplate.HttpSpec.Method == "" { // 若-r、-X选项均没出现，使用默认的GET方法
 		fuzz1.Preprocess.ReqTemplate.HttpSpec.Method = "GET"
 	}
 
-	// opt.Filter
-	setMatch(&fuzz1.React.Filter, opt.Filter)
+	// opts.Filter
+	setMatch(&fuzz1.React.Filter, opts.Filter)
 
-	// opt.Match
-	setMatch(&fuzz1.React.Matcher, opt.Matcher)
+	// opts.Match
+	setMatch(&fuzz1.React.Matcher, opts.Matcher)
 
-	// opt.Output
-	fuzz1.Control.OutSetting.Verbosity = opt.Output.Verbosity
-	fuzz1.Control.OutSetting.OutputFormat = opt.Output.Fmt
-	fuzz1.React.IgnoreError = opt.Output.IgnoreError
-	fuzz1.Control.OutSetting.OutputFile = opt.Output.File
-	if opt.Output.NativeStdout {
+	// opts.Output
+	fuzz1.Control.OutSetting.Verbosity = opts.Output.Verbosity
+	fuzz1.Control.OutSetting.OutputFormat = opts.Output.Fmt
+	fuzz1.React.IgnoreError = opts.Output.IgnoreError
+	fuzz1.Control.OutSetting.OutputFile = opts.Output.File
+	if opts.Output.NativeStdout {
 		fuzz1.Control.OutSetting.ToWhere = outputFlag.OutToStdout
 	} else {
 		fuzz1.Control.OutSetting.ToWhere = outputFlag.OutToTview
 	}
 
-	// opt.ErrorHandling
-	fuzz1.Request.Retry = opt.ErrorHandling.Retry
-	fuzz1.Request.RetryCode = opt.ErrorHandling.RetryOnStatus
-	fuzz1.Request.RetryRegex = opt.ErrorHandling.RetryRegex
+	// opts.ErrorHandling
+	fuzz1.Request.Retry = opts.ErrorHandling.Retry
+	fuzz1.Request.RetryCode = opts.ErrorHandling.RetryOnStatus
+	fuzz1.Request.RetryRegex = opts.ErrorHandling.RetryRegex
 
-	// opt.PayloadSetting
+	// opts.PayloadSetting
 	fuzz1.Preprocess.PlTemp = make(map[string]fuzzTypes.PayloadTemp)
-	appendPayloadTmp(fuzz1.Preprocess.PlTemp, opt.Payload.Generators, 0, "plugin")
-	appendPayloadTmp(fuzz1.Preprocess.PlTemp, opt.Payload.Wordlists, 0, "wordlist")
-	appendPayloadTmp(fuzz1.Preprocess.PlTemp, opt.Payload.Processors, 1, "")
+	appendPayloadTmp(fuzz1.Preprocess.PlTemp, opts.Payload.Generators, 0, "plugin")
+	appendPayloadTmp(fuzz1.Preprocess.PlTemp, opts.Payload.Wordlists, 0, "wordlist")
+	appendPayloadTmp(fuzz1.Preprocess.PlTemp, opts.Payload.Processors, 1, "")
 
-	// opt.General
-	fuzz1.Request.Timeout = opt.General.Timeout
-	fuzz1.Control.PoolSize = opt.General.RoutinePoolSize
-	fuzz1.Control.Delay, err = time.ParseDuration(opt.General.Delay)
-	iterator, _ := plugin.ParsePluginsStr(opt.General.Iter)
+	// opts.General
+	fuzz1.Request.Timeout = opts.General.Timeout
+	fuzz1.Control.PoolSize = opts.General.RoutinePoolSize
+	fuzz1.Control.Delay, err = time.ParseDuration(opts.General.Delay)
+	iterator, _ := plugin.ParsePluginsStr(opts.General.Iter)
 	if len(iterator) > 1 {
 		log.Fatal("only single iterator is permitted")
 	}
-	if opt.General.Iter == "sniper" && len(fuzz1.Preprocess.PlTemp) > 1 {
+	if opts.General.Iter == "sniper" && len(fuzz1.Preprocess.PlTemp) > 1 {
 		log.Fatal("sniper mode only supports single fuzz keyword")
 	}
 
-	// opt.Plugin
+	// opts.Plugin
 	sb := strings.Builder{}
-	for i, preprocessors := range opt.Plugin.Preprocessors {
+	for i, preprocessors := range opts.Plugin.Preprocessors {
 		sb.WriteString(preprocessors)
-		if i != len(opt.Plugin.Preprocessors)-1 {
+		if i != len(opts.Plugin.Preprocessors)-1 {
 			sb.WriteString(",")
 		}
 	}
 	fuzz1.Preprocess.Preprocessors, _ = plugin.ParsePluginsStr(sb.String())
 	quitIfPathTraverse(fuzz1.Preprocess.Preprocessors)
 
-	reactPlugin, _ := plugin.ParsePluginsStr(opt.Plugin.Reactor)
+	reactPlugin, _ := plugin.ParsePluginsStr(opts.Plugin.Reactor)
 	if len(reactPlugin) == 0 {
 		fuzz1.React.Reactor = fuzzTypes.Plugin{}
 	} else if len(reactPlugin) > 1 {
@@ -339,15 +339,15 @@ func opt2fuzz(opt *opt.Opt) (fuzz1 *fuzzTypes.Fuzz, pendingLogs []string) {
 	fuzz1.React.Reactor = reactPlugin[0]
 	quitIfPathTraverse([]fuzzTypes.Plugin{fuzz1.React.Reactor})
 
-	// opt.RecursionControl
-	if opt.RecursionControl.Recursion {
+	// opts.RecursionControl
+	if opts.RecursionControl.Recursion {
 		if len(fuzz1.Preprocess.PlTemp) > 1 {
 			log.Fatal("recursion mode only supports single fuzz keyword")
 		}
-		fuzz1.React.RecursionControl.MaxRecursionDepth = opt.RecursionControl.RecursionDepth
-		fuzz1.React.RecursionControl.StatCodes = str2Ranges(opt.RecursionControl.RecursionStatus)
-		fuzz1.React.RecursionControl.Regex = opt.RecursionControl.RecursionRegex
-		fuzz1.React.RecursionControl.Splitter = opt.RecursionControl.RecursionSplitter
+		fuzz1.React.RecursionControl.MaxRecursionDepth = opts.RecursionControl.RecursionDepth
+		fuzz1.React.RecursionControl.StatCodes = str2Ranges(opts.RecursionControl.RecursionStatus)
+		fuzz1.React.RecursionControl.Regex = opts.RecursionControl.RecursionRegex
+		fuzz1.React.RecursionControl.Splitter = opts.RecursionControl.RecursionSplitter
 		for k, _ := range fuzz1.Preprocess.PlTemp {
 			// 递归关键字设置为从关键字列表中取的第一个键（递归模式只支持一个关键字，所以怎么取都无所谓了）
 			fuzz1.React.RecursionControl.Keyword = k

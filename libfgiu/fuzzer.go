@@ -194,6 +194,10 @@ func (f *Fuzzer) Start() *Fuzzer {
 	return f
 }
 
+func (f *Fuzzer) Wait() {
+	f.jp.wait()
+}
+
 // Stop 停止fuzzer的运行，并停止所有任务的运行
 func (f *Fuzzer) Stop() {
 	f.statMux.Lock()

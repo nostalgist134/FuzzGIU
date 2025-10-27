@@ -28,6 +28,7 @@ type jobExecPool struct {
 	// 说实话还是不如用一个stop chan
 	quitCtx context.Context
 	cancel  context.CancelFunc
+	wg      sync.WaitGroup
 }
 
 func nopExec(*fuzzCtx.JobCtx) (int, time.Duration, []*fuzzTypes.Fuzz, error) {
@@ -78,10 +79,12 @@ func (jp *jobExecPool) worker() {
 	for {
 		select {
 		case job := <-jp.jobQueue:
+			jp.wg.Add(1)
 			jp.runningJobs.Store(job.JobId, job)
 			jid, timeLapsed, newJobs, err := jp.executor(job)
 			jp.results <- result{jid, timeLapsed, newJobs, err}
 			jp.runningJobs.Delete(job.JobId)
+			jp.wg.Done()
 		case <-jp.quitCtx.Done():
 			return
 		}
@@ -96,6 +99,10 @@ func (jp *jobExecPool) start() {
 
 func (jp *jobExecPool) stop() {
 	jp.cancel()
+}
+
+func (jp *jobExecPool) wait() {
+	jp.wg.Wait()
 }
 
 func (jp *jobExecPool) findRunningJobById(jid int) (job *fuzzCtx.JobCtx, exist bool) {
