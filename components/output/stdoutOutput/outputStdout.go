@@ -60,7 +60,7 @@ func NewStdoutCtx(outSetting *fuzzTypes.OutputSetting, id int) (*Ctx, error) {
 	}
 
 	fmt.Printf("stdout_%d_begin\n", c.id)
-	ticker := time.NewTicker(400 * time.Millisecond)
+	ticker := time.NewTicker(500 * time.Millisecond)
 
 	go func() {
 		defer ticker.Stop()
@@ -102,13 +102,13 @@ func (c *Ctx) Close() error {
 	}
 	c.closed = true
 
+	// 发送信号关闭
+	c.cntrStop <- struct{}{}
+
 	// 若没有调用RegisterCounter（也就是c.counter==nil），往cntrReg管道中发送，这样可以避免计数器协程卡在<-c.cntrReg
 	if c.counter == nil {
 		c.cntrReg <- struct{}{}
 	}
-
-	// 发送信号关闭
-	c.cntrStop <- struct{}{}
 
 	// 等计数器协程完全结束，避免在下面输出结束信息后还打印计数器
 	<-c.okToClose

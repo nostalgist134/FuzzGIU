@@ -40,10 +40,6 @@ type (
 		RoutinePoolSize int    `json:"routine_pool_size,omitempty"`
 		Timeout         int    `json:"timeout,omitempty"`
 		Delay           string `json:"delay,omitempty"`
-		Passive         bool   `json:"passive,omitempty"`
-		PassiveAddr     string `json:"psv_addr,omitempty"`
-		Input           bool   `json:"input,omitempty"`
-		InputAddr       string `json:"input_addr,omitempty"`
 		Iter            string `json:"iter,omitempty"`
 	}
 	RecursionControl struct {
@@ -63,6 +59,13 @@ type (
 		Preprocessors sliceStr `json:"pre_processor,omitempty"`
 		Reactor       string   `json:"reactor,omitempty"`
 	}
+	ApiConfig struct {
+		HttpApi     bool   `json:"http_api,omitempty"`
+		ApiTLS      bool   `json:"api_tls,omitempty"`
+		ApiAddr     string `json:"api_addr,omitempty"`
+		TLSCertFile string `json:"tls_cert_file,omitempty"`
+		TLSKeyFile  string `json:"tls_key_file,omitempty"`
+	}
 	Opt struct {
 		Payload          *PayloadSetting
 		Plugin           *Plugin
@@ -73,5 +76,6 @@ type (
 		General          *General
 		ErrorHandling    *ErrorHandling
 		RecursionControl *RecursionControl
+		ApiConfig        *ApiConfig
 	}
 )

@@ -39,6 +39,7 @@ func (c *Ctx) Close() error {
 	if c.closed {
 		return errClosed
 	}
+	c.cli.CloseIdleConnections()
 	c.closed = true
 	return nil
 }

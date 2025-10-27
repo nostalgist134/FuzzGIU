@@ -6,7 +6,7 @@ require (
 	github.com/gizak/termui/v3 v3.1.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/labstack/echo/v4 v4.13.4
-	github.com/nostalgist134/FuzzGIUPluginKit v0.0.7
+	github.com/nostalgist134/FuzzGIUPluginKit v0.1.0-1
 	github.com/nostalgist134/reusableBytes v0.0.9
 	github.com/valyala/fasthttp v1.65.0
 	github.com/xyproto/randomstring v1.0.5

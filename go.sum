@@ -20,8 +20,8 @@ github.com/mattn/go-runewidth v0.0.2 h1:UnlwIPBGaTZfPQ6T1IGzPI0EkYAQmT9fAEJ/poFC
 github.com/mattn/go-runewidth v0.0.2/go.mod h1:LwmH8dsx7+W8Uxz3IHJYH5QSwggIsqBzpuz5H//U1FU=
 github.com/mitchellh/go-wordwrap v0.0.0-20150314170334-ad45545899c7 h1:DpOJ2HYzCv8LZP15IdmG+YdwD2luVPHITV96TkirNBM=
 github.com/mitchellh/go-wordwrap v0.0.0-20150314170334-ad45545899c7/go.mod h1:ZXFpozHsX6DPmq2I0TCekCxypsnAUbP2oI0UX1GXzOo=
-github.com/nostalgist134/FuzzGIUPluginKit v0.0.7 h1:dTEtBmG4ZCU/kv117CDTU8+Yfxe+qDNPPGtC0SBvbm4=
-github.com/nostalgist134/FuzzGIUPluginKit v0.0.7/go.mod h1:AiEvcPtJaq69JikRMZXMq2bOpQm+lPRe5Non19nz60o=
+github.com/nostalgist134/FuzzGIUPluginKit v0.1.0-1 h1:rI4Te7i3EbMQzrB07AF5gezfNcGtNDQj5GWTqu01W+M=
+github.com/nostalgist134/FuzzGIUPluginKit v0.1.0-1/go.mod h1:H/WPiiMuBxA9gx6HELC9U8rjZLyXlgZVrZOC0ssN3U8=
 github.com/nostalgist134/reusableBytes v0.0.9 h1:DQu3nEJ40w5wwyUW5NuoTDi9Mr73dFjDqkfxL4GedOs=
 github.com/nostalgist134/reusableBytes v0.0.9/go.mod h1:1p21T+oPrRE9K6dMgQ2xi0iE2G9SpjrsXsWd/D7WrCY=
 github.com/nsf/termbox-go v0.0.0-20190121233118-02980233997d h1:x3S6kxmy49zXVVyhcnrFqxvNVCBPb2KZ9hV2RBdS840=

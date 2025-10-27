@@ -161,6 +161,9 @@ func callSharedLib(plugin fuzzTypes.Plugin, relPath string, writeBuffer *reusabl
 			}
 		case string:
 			// 将字符串存到切片中，每个字符串的地址不同，就不会导致参数污染
+			// 注意：在底层string类型是一个{char *buffer, int len}的结构体，但在汇编层面是没有结构这个概念的，
+			// 一个寄存器最大就8字节，因此如果函数传入的结构体参数，且结构若大小大于8，则通过结构体指针传递，因此这
+			// 里可以直接传string的地址
 			strCache[j] = plugin.Args[k].(string)
 			argList[i] = uintptr(unsafe.Pointer(&strCache[j]))
 			j++
@@ -443,11 +446,12 @@ func IterIndex(p fuzzTypes.Plugin, lengths []int, out []int) {
 
 	needed, err := callSharedLib(p, RelPathIterator, rb, lengthsBytes)
 
-	// iterator不使用“先探测，后写入”的逻辑，因为理论上来讲写入的长度是可预测的（长度即为len(lengthsBytes)），因此长度不符合直接报错
+	// iterator不使用“先探测，后写入”的逻辑，因为理论上来讲写入的长度是可预测的（长度即为len(lengthsBytes)），因此长度不符合直接标记停止
 	if err != nil || needed > rb.Len() {
 		for i, _ := range out {
 			out[i] = -1
 		}
+		return
 	}
 
 	bytes2Ints(uintptr(rb.UnsafeBuffer()), out)

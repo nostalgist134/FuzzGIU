@@ -22,6 +22,7 @@ func ParseOptCmdline() *Opt {
 	recursionControl := &RecursionControl{}
 	errHandling := &ErrorHandling{}
 	pluginSettings := &Plugin{}
+	apiConfig := &ApiConfig{}
 
 	flag.Usage = usage
 
@@ -29,10 +30,6 @@ func ParseOptCmdline() *Opt {
 	flag.IntVar(&general.RoutinePoolSize, "t", 64, "routine pool size")
 	flag.IntVar(&general.Timeout, "timeout", 10, "timeout(second)")
 	flag.StringVar(&general.Delay, "delay", "0s", "delay between each job submission")
-	flag.BoolVar(&general.Input, "input", false, "enable input")
-	flag.StringVar(&general.InputAddr, "in-addr", "127.0.0.1:11451", "input listen address")
-	flag.BoolVar(&general.Passive, "passive", false, "run passive mode")
-	flag.StringVar(&general.PassiveAddr, "psv-addr", "0.0.0.0:14514", "passive mode listen address")
 	flag.StringVar(&general.Iter, "iter", "clusterbomb", "iterator to be used")
 
 	// 响应匹配器
@@ -102,6 +99,13 @@ func ParseOptCmdline() *Opt {
 	// 插件
 	flag.Var(&pluginSettings.Preprocessors, "preproc", "preprocessor plugin to be used")
 	flag.StringVar(&pluginSettings.Reactor, "react", "", "reactor plugin to be used")
+
+	// http api v0.2.0版本新增
+	flag.BoolVar(&apiConfig.HttpApi, "http-api", false, "enable http api mode")
+	flag.BoolVar(&apiConfig.ApiTLS, "api-tls", false, "run http api server on https")
+	flag.StringVar(&apiConfig.ApiAddr, "api-addr", "0.0.0.0:14514", "http api server listen address")
+	flag.StringVar(&apiConfig.TLSKeyFile, "tls-cert-key", "", "tls cert key file to be used")
+	flag.StringVar(&apiConfig.TLSCertFile, "tls-cert-file", "", "tls cert file to be used")
 
 	flag.Parse()
 	flagIsSet := make(map[string]bool)

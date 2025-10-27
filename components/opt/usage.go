@@ -29,6 +29,9 @@ func getSection(name string) string {
 		return "ERROR HANDLE"
 	case name == "preproc" || name == "react":
 		return "PLUGIN"
+	case name == "http-api" || name == "api-tls" || name == "api-addr" || name == "tls-cert-file" ||
+		name == "tls-cert-key":
+		return "HTTP-API-CONFIG"
 	default:
 		return "OTHER"
 	}
@@ -56,7 +59,7 @@ func usage() {
 	// 分组打印
 	for _, section := range []string{
 		"GENERAL", "MATCHER", "FILTER", "REQUEST", "PAYLOAD", "OUTPUT",
-		"RECURSION", "ERROR HANDLE", "PLUGIN", "OTHER",
+		"RECURSION", "ERROR HANDLE", "PLUGIN", "HTTP-API-CONFIG", "OTHER",
 	} {
 		flags := grouped[section]
 		if len(flags) == 0 {

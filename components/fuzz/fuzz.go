@@ -74,7 +74,7 @@ func handleReaction(jobCtx *fuzzCtx.JobCtx, r *fuzzTypes.Reaction) (stopJob bool
 	if r.Flag&fuzzTypes.ReactAddReq != 0 && r.NewReq != nil {
 		addReq = true
 
-		newTask := resourcePool.GetTaskCtx()
+		newTask := fuzzCtx.GetTaskCtx()
 		*newTask = fuzzCtx.TaskCtx{
 			JobCtx:      jobCtx,
 			ViaReaction: r,
@@ -276,7 +276,7 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 		default:
 		}
 
-		tcInLoop := resourcePool.GetTaskCtx()
+		tcInLoop := fuzzCtx.GetTaskCtx()
 		*tcInLoop = tc
 
 		tcInLoop.IterInd = i

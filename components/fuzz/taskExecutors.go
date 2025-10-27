@@ -14,7 +14,7 @@ import (
 
 // taskMultiKeyword 多关键字fuzz使用的执行函数
 func taskMultiKeyword(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
-	defer resourcePool.PutTaskCtx(c)
+	defer fuzzCtx.PutTaskCtx(c)
 
 	payloads := c.Payloads
 	job := c.JobCtx.Job
@@ -64,7 +64,7 @@ func taskMultiKeyword(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 
 // taskSingleKeyword 单关键字（sniper模式或者递归模式）使用的任务执行函数（单关键字的执行函数居然比多关键字的还复杂，笑死）
 func taskSingleKeyword(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
-	defer resourcePool.PutTaskCtx(c)
+	defer fuzzCtx.PutTaskCtx(c)
 
 	job := c.JobCtx.Job
 	i := c.IterInd
@@ -132,7 +132,7 @@ func taskSingleKeyword(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 
 // taskNoKeywords 用于没有包含payload信息的任务的执行，目前只有handleReaction时发现需要添加新请求时，才使用此函数
 func taskNoKeywords(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
-	defer resourcePool.PutTaskCtx(c)
+	defer fuzzCtx.PutTaskCtx(c)
 
 	job := c.JobCtx.Job
 	r := c.ViaReaction
