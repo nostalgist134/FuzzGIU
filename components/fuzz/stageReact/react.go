@@ -99,8 +99,8 @@ func React(jobCtx *fuzzCtx.JobCtx, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 		recursionJob = deriveRecursionJob(fuzz1, reqSend, recursionPos)
 	}
 
-	// 添加递归任务（如果自定义reactor没有添加）
-	if reaction.NewJob == nil && recursionJob != nil {
+	// 添加递归任务
+	if recursionJob != nil {
 		reaction.Flag |= fuzzTypes.ReactAddJob
 		reaction.NewJob = recursionJob
 	}
@@ -126,7 +126,7 @@ func React(jobCtx *fuzzCtx.JobCtx, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 	// reactor插件调用
 	if fuzz1.React.Reactor.Name != "" {
 		pluginReaction := plugin.React(fuzz1.React.Reactor, reqSend, resp)
-		if pluginReaction.Flag&fuzzTypes.ReactMerge != 0 {
+		if pluginReaction.Flag&fuzzTypes.ReactMerge != 0 { // 将默认响应逻辑产生的reaction归并
 			mergeReaction(pluginReaction, reaction)
 		} else {
 			resourcePool.PutReaction(reaction)

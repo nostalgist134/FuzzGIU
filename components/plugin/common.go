@@ -10,7 +10,10 @@ import (
 
 const sizeInt = 8
 
-func callError(outCtx *output.Ctx, relPath string, p fuzzTypes.Plugin, err error) {
+func pluginError(outCtx *output.Ctx, relPath string, p fuzzTypes.Plugin, err error) {
+	if outCtx == nil {
+		return
+	}
 	outCtx.LogFmtMsg("call %s failed: %v", filepath.Join(relPath, p.Name), err)
 }
 

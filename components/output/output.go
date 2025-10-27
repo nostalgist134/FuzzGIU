@@ -7,7 +7,9 @@ import (
 	co "github.com/nostalgist134/FuzzGIU/components/output/chanOutput"
 	"github.com/nostalgist134/FuzzGIU/components/output/counter"
 	fo "github.com/nostalgist134/FuzzGIU/components/output/fileOutput"
+	"github.com/nostalgist134/FuzzGIU/components/output/httpOutput"
 	"github.com/nostalgist134/FuzzGIU/components/output/outCtx"
+	"github.com/nostalgist134/FuzzGIU/components/output/outputFlag"
 	"github.com/nostalgist134/FuzzGIU/components/output/outputable"
 	so "github.com/nostalgist134/FuzzGIU/components/output/stdoutOutput"
 	"time"
@@ -49,21 +51,21 @@ func NewOutputCtx(outSetting *fuzzTypes.OutputSetting, jid int) (*Ctx, error) {
 
 	var err error
 
-	if toWhere&OutToFile != 0 {
+	if toWhere&outputFlag.OutToFile != 0 {
 		fc, err1 := fo.NewFileOutputCtx(outSetting, jid)
 		err = fmt.Errorf("file output init error: %w", err1)
 
 		oc.FileOutputCtx = fc
 	}
 
-	if toWhere&OutToChan != 0 {
+	if toWhere&outputFlag.OutToChan != 0 {
 		cc, err1 := co.NewOutputChanCtx(outSetting, jid)
 		err = errors.Join(err, err1)
 
 		oc.ChanOutputCtx = cc
 	}
 
-	if toWhere&OutToStdout != 0 {
+	if toWhere&outputFlag.OutToStdout != 0 {
 		sc, err1 := so.NewStdoutCtx(outSetting, jid)
 		err = errors.Join(err, err1)
 		oc.StdoutCtx = sc
@@ -74,11 +76,17 @@ func NewOutputCtx(outSetting *fuzzTypes.OutputSetting, jid int) (*Ctx, error) {
 		}
 	}
 
-	if toWhere&OutToDB != 0 {
+	if toWhere&outputFlag.OutToDB != 0 {
 		err = errors.Join(err, errDbOutputNotImplemented)
 	}
 
-	if toWhere&OutToTview != 0 { // todo
+	if toWhere&outputFlag.OutToHttp != 0 {
+		httpCtx, err1 := httpOutput.NewHttpOutputCtx(outSetting, 0)
+		err = errors.Join(err, err1)
+		oc.HttpCtx = httpCtx
+	}
+
+	if toWhere&outputFlag.OutToTview != 0 { // todo
 	}
 
 	return oc, nil
@@ -90,20 +98,24 @@ func (c *Ctx) Output(obj *OutObj) error {
 
 	var err error
 
-	if toWhere&OutToFile != 0 {
+	if toWhere&outputFlag.OutToFile != 0 {
 		err = errors.Join(err, c.FileOutputCtx.Output(obj))
 	}
 
-	if toWhere&OutToChan != 0 {
+	if toWhere&outputFlag.OutToChan != 0 {
 		err = errors.Join(err, c.ChanOutputCtx.Output(obj))
 	}
 
-	if toWhere&OutToStdout != 0 {
+	if toWhere&outputFlag.OutToStdout != 0 {
 		err = errors.Join(err, c.StdoutCtx.Output(obj))
 	}
 
-	if toWhere&OutToDB != 0 {
+	if toWhere&outputFlag.OutToDB != 0 {
 		err = errors.Join(err, errDbOutputNotImplemented)
+	}
+
+	if toWhere&outputFlag.OutToHttp != 0 {
+		err = errors.Join(err, c.HttpCtx.Output(obj))
 	}
 
 	return err
@@ -114,20 +126,24 @@ func (c *Ctx) Close() error {
 	toWhere := c.OutSetting.ToWhere
 	var err error
 
-	if toWhere&OutToFile != 0 {
+	if toWhere&outputFlag.OutToFile != 0 {
 		err = errors.Join(err, c.FileOutputCtx.Close())
 	}
 
-	if toWhere&OutToChan != 0 {
+	if toWhere&outputFlag.OutToChan != 0 {
 		err = errors.Join(err, c.ChanOutputCtx.Close())
 	}
 
-	if toWhere&OutToStdout != 0 {
+	if toWhere&outputFlag.OutToStdout != 0 {
 		err = errors.Join(err, c.StdoutCtx.Close())
 	}
 
-	if toWhere&OutToDB != 0 {
+	if toWhere&outputFlag.OutToDB != 0 {
 		err = errors.Join(err, errDbOutputNotImplemented)
+	}
+
+	if toWhere&outputFlag.OutToHttp != 0 {
+		err = errors.Join(err, c.HttpCtx.Close())
 	}
 
 	return err
@@ -138,20 +154,24 @@ func (c *Ctx) Log(log *outputable.Log) error {
 	toWhere := c.OutSetting.ToWhere
 	var err error
 
-	if toWhere&OutToFile != 0 {
+	if toWhere&outputFlag.OutToFile != 0 {
 		err = errors.Join(err, c.FileOutputCtx.Log(log))
 	}
 
-	if toWhere&OutToChan != 0 {
+	if toWhere&outputFlag.OutToChan != 0 {
 		err = errors.Join(err, c.ChanOutputCtx.Log(log))
 	}
 
-	if toWhere&OutToStdout != 0 {
+	if toWhere&outputFlag.OutToStdout != 0 {
 		err = errors.Join(err, c.StdoutCtx.Log(log))
 	}
 
-	if toWhere&OutToDB != 0 {
+	if toWhere&outputFlag.OutToDB != 0 {
 		err = errors.Join(err, errDbOutputNotImplemented)
+	}
+
+	if toWhere&outputFlag.OutToHttp != 0 {
+		err = errors.Join(err, c.HttpCtx.Log(log))
 	}
 
 	return err

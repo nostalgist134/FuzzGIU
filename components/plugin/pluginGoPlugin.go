@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
+	"github.com/nostalgist134/FuzzGIU/components/output"
 	"github.com/nostalgist134/FuzzGIU/components/resourcePool"
 	fgpkCommon "github.com/nostalgist134/FuzzGIUPluginKit/cmd/common"
 	"github.com/nostalgist134/FuzzGIUPluginKit/convention"
@@ -143,32 +144,31 @@ func Preprocess(p fuzzTypes.Plugin, fuzz1 *fuzzTypes.Fuzz) *fuzzTypes.Fuzz {
 }
 
 // PayloadGenerator 返回插件生成的payload切片
-func PayloadGenerator(p fuzzTypes.Plugin) []string {
+func PayloadGenerator(p fuzzTypes.Plugin, outCtx *output.Ctx) []string {
 	payloadsBytes, err := callSharedLib(p, RelPathPlGen)
 	if err != nil {
-		callError(RelPathPlGen, p, err)
+		pluginError(outCtx, RelPathPlGen, p, err)
 		return []string{}
 	}
 	return bytes2Strings(uintptr(unsafe.Pointer(&payloadsBytes[0])))
 }
 
 // PayloadProcessor 返回处理后的字符串
-func PayloadProcessor(p fuzzTypes.Plugin) string {
+func PayloadProcessor(p fuzzTypes.Plugin, outCtx *output.Ctx) string {
 	payload := p.Args[0].(string)
 	strBytes, err := callSharedLib(p, RelPathPlProc)
 	if err != nil {
-		callError(RelPathPlProc, p, err)
+		pluginError(outCtx, RelPathPlProc, p, err)
 		return payload
 	}
 	return unsafe.String(&strBytes[0], len(strBytes))
-
 }
 
-// DoRequest 根据sendMeat发送请求，并接收响应
-func SendRequest(p fuzzTypes.Plugin, m *fuzzTypes.RequestCtx) *fuzzTypes.Resp {
+// DoRequest 根据requestCtx发送请求，并接收响应
+func DoRequest(p fuzzTypes.Plugin, r *fuzzTypes.RequestCtx) *fuzzTypes.Resp {
 	resp := new(fuzzTypes.Resp)
 
-	mJson, err := json.Marshal(m)
+	mJson, err := json.Marshal(r)
 	if err != nil {
 		resp.ErrMsg = err.Error()
 		return resp
@@ -218,7 +218,10 @@ func React(p fuzzTypes.Plugin, req *fuzzTypes.Req, resp *fuzzTypes.Resp) *fuzzTy
 }
 
 func IterIndex(p fuzzTypes.Plugin, lengths []int, out []int) {
-	p.Args = append([]any{SelectIterIndex, lengths}, p.Args)
+	old := p.Args
+	p.Args = resourcePool.AnySlices.Get(len(p.Args) + 1)
+	p.Args[0] = lengths
+	copy(p.Args[1:], old)
 	intsBytes, err := callSharedLib(p, RelPathIterator)
 	if err != nil {
 		for i := 0; i < len(out); i++ {

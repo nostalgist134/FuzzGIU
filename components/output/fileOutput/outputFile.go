@@ -143,7 +143,7 @@ func (c *Ctx) Output(obj *outputable.OutObj) error {
 
 // Close 关闭文件输出上下文，注意：此方法不保证协程安全，调用时应该自行确定不会再调用Output方法以及此方法不会并发调用
 func (c *Ctx) Close() error {
-	if c.closed == true {
+	if c.closed {
 		return errCtxClosed
 	}
 	c.closed = true

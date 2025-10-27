@@ -257,13 +257,13 @@ func PayloadProcessor(p fuzzTypes.Plugin, outCtx *output.Ctx) string {
 	var needed int
 	var err error
 	if needed, err = callSharedLib(p, RelPathPlProc, rb); err != nil {
-		callError(outCtx, RelPathPlProc, p, err)
+		pluginError(outCtx, RelPathPlProc, p, err)
 		return ""
 	} else if needed > rb.Cap() {
 		rb.Resize(needed + needed>>1)
 		needed, err = callSharedLib(p, RelPathPlProc, rb)
 		if err != nil {
-			callError(outCtx, RelPathPlProc, p, err)
+			pluginError(outCtx, RelPathPlProc, p, err)
 			return ""
 		}
 	}
@@ -280,13 +280,13 @@ func PayloadGenerator(p fuzzTypes.Plugin, outCtx *output.Ctx) []string {
 	defer bp.Put(id)
 
 	if needed, err := callSharedLib(p, RelPathPlGen, rb); err != nil {
-		callError(outCtx, RelPathPlGen, p, err)
+		pluginError(outCtx, RelPathPlGen, p, err)
 		return []string{}
 	} else if needed > rb.Cap() {
 		rb.Resize(needed + needed>>1)
 		_, err = callSharedLib(p, RelPathPlGen, rb)
 		if err != nil {
-			callError(outCtx, RelPathPlGen, p, err)
+			pluginError(outCtx, RelPathPlGen, p, err)
 			return []string{}
 		}
 	}
@@ -310,7 +310,7 @@ func Preprocess(p fuzzTypes.Plugin, fuzz1 *fuzzTypes.Fuzz, outCtx *output.Ctx) *
 
 	var needed int
 	if needed, err = callSharedLib(p, RelPathPreprocessor, rb, marshaled); err != nil {
-		callError(outCtx, RelPathPreprocessor, p, err)
+		pluginError(outCtx, RelPathPreprocessor, p, err)
 		return fuzz1
 	} else if needed == -1 {
 		return fuzz1
@@ -318,7 +318,7 @@ func Preprocess(p fuzzTypes.Plugin, fuzz1 *fuzzTypes.Fuzz, outCtx *output.Ctx) *
 		rb.Resize(needed + needed>>1)
 		needed, err = callSharedLib(p, RelPathPreprocessor, rb, marshaled)
 		if err != nil {
-			callError(outCtx, RelPathPreprocessor, p, err)
+			pluginError(outCtx, RelPathPreprocessor, p, err)
 			return fuzz1
 		}
 	}

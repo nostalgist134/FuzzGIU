@@ -20,6 +20,7 @@ func PutReq(toPut *fuzzTypes.Req) {
 		return
 	}
 	StringSlices.Put(toPut.HttpSpec.Headers)
+	FieldSlices.Put(toPut.Fields)
 	*toPut = fuzzTypes.Req{}
 	reqPool.Put(toPut)
 }

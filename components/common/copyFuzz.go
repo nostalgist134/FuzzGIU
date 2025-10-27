@@ -23,9 +23,9 @@ func CopyFuzz(f *fuzzTypes.Fuzz) *fuzzTypes.Fuzz {
 	newFuzz.Preprocess.ReqTemplate = f.Preprocess.ReqTemplate
 	newFuzz.Preprocess.ReqTemplate.HttpSpec.Headers = append([]string{}, f.Preprocess.ReqTemplate.HttpSpec.Headers...)
 
-	// 拷贝 Send
-	newFuzz.Send.Proxies = append([]string{}, f.Send.Proxies...)
-	newFuzz.Send.Retry = f.Send.Retry
+	// 拷贝 Request
+	newFuzz.Request.Proxies = append([]string{}, f.Request.Proxies...)
+	newFuzz.Request.Retry = f.Request.Retry
 
 	// 拷贝 React
 	newFuzz.React.Reactor = f.React.Reactor

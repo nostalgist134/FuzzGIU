@@ -104,3 +104,12 @@ func (jp *jobExecPool) findRunningJobById(jid int) (job *fuzzCtx.JobCtx, exist b
 	}
 	return nil, false
 }
+
+func (jp *jobExecPool) getRunningJobIds() []int {
+	ids := make([]int, 0)
+	jp.runningJobs.Range(func(key any, val any) bool {
+		ids = append(ids, key.(int))
+		return true
+	})
+	return ids
+}

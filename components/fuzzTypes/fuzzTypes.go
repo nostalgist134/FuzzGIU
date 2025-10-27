@@ -24,8 +24,8 @@ type (
 
 	// Field 描述一个请求字段
 	Field struct {
-		Name  string `json:"name"`  // 字段名
-		Value string `json:"value"` // 字段值
+		Name  string `json:"name" xml:"name"`   // 字段名
+		Value string `json:"value" xml:"value"` // 字段值
 	}
 
 	HTTPSpec struct {
@@ -128,15 +128,15 @@ type (
 			Preprocessors []Plugin               `json:"preprocessors,omitempty"` // 使用的自定义预处理器
 			ReqTemplate   Req                    `json:"request_tmpl,omitempty"`  // 含有fuzz关键字的请求模板
 		} `json:"preprocess,omitempty"`
-		// 发包阶段的设置
-		Send struct {
+		// 请求阶段的设置
+		Request struct {
 			Proxies             []string `json:"proxies,omitempty"`               // 使用的代理
 			HttpFollowRedirects bool     `json:"http_follow_redirects,omitempty"` // 是否重定向
 			Retry               int      `json:"retry,omitempty"`                 // 错误重试次数
 			RetryCode           string   `json:"retry_code,omitempty"`            // 返回特定状态码时重试
 			RetryRegex          string   `json:"retry_regex,omitempty"`           // 返回匹配正则时重试
 			Timeout             int      `json:"timeout,omitempty"`               // 超时时间
-		} `json:"send,omitempty"`
+		} `json:"request,omitempty"`
 		// 响应阶段的设置
 		React struct {
 			Reactor          Plugin `json:"reactor,omitempty"`      // 响应处理插件
@@ -171,6 +171,8 @@ const (
 	ReactMatch
 	ReactAddReq
 	ReactMerge
+
+	InfiniteLoop = -1
 )
 
 /* -----------下面是给plugin类用的序列化/反序列化函数，由于plugin用了any切片，因此需要稍微特殊处理一下----------- */

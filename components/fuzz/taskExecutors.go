@@ -9,6 +9,7 @@ import (
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/nostalgist134/FuzzGIU/components/resourcePool"
 	"github.com/nostalgist134/FuzzGIU/components/tmplReplace"
+	"math/rand"
 )
 
 // taskMultiKeyword 多关键字fuzz使用的执行函数
@@ -29,16 +30,16 @@ func taskMultiKeyword(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 	defer resourcePool.PutReqCtx(rc)
 
 	*rc = fuzzTypes.RequestCtx{
-		Retry:               job.Send.Retry,
-		HttpFollowRedirects: job.Send.HttpFollowRedirects,
-		RetryCode:           job.Send.RetryCode,
-		RetryRegex:          job.Send.RetryRegex,
-		Timeout:             job.Send.Timeout,
+		Retry:               job.Request.Retry,
+		HttpFollowRedirects: job.Request.HttpFollowRedirects,
+		RetryCode:           job.Request.RetryCode,
+		RetryRegex:          job.Request.RetryRegex,
+		Timeout:             job.Request.Timeout,
 	}
 
 	// 代理轮询
-	if len(job.Send.Proxies) > 0 {
-		rc.Proxy = job.Send.Proxies[i%len(job.Send.Proxies)]
+	if len(job.Request.Proxies) > 0 {
+		rc.Proxy = job.Request.Proxies[i%len(job.Request.Proxies)]
 	}
 
 	var cacheId int32
@@ -78,16 +79,16 @@ func taskSingleKeyword(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 	defer resourcePool.PutReqCtx(rc)
 
 	*rc = fuzzTypes.RequestCtx{
-		Retry:               job.Send.Retry,
-		HttpFollowRedirects: job.Send.HttpFollowRedirects,
-		RetryCode:           job.Send.RetryCode,
-		RetryRegex:          job.Send.RetryRegex,
-		Timeout:             job.Send.Timeout,
+		Retry:               job.Request.Retry,
+		HttpFollowRedirects: job.Request.HttpFollowRedirects,
+		RetryCode:           job.Request.RetryCode,
+		RetryRegex:          job.Request.RetryRegex,
+		Timeout:             job.Request.Timeout,
 	}
 
 	// 代理轮询
-	if len(job.Send.Proxies) > 0 {
-		rc.Proxy = job.Send.Proxies[i%len(job.Send.Proxies)]
+	if len(job.Request.Proxies) > 0 {
+		rc.Proxy = job.Request.Proxies[i%len(job.Request.Proxies)]
 	}
 
 	processedPayload := payloads[0]
@@ -141,11 +142,16 @@ func taskNoKeywords(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 	defer resourcePool.PutReqCtx(rc)
 
 	*rc = fuzzTypes.RequestCtx{
-		Retry:               job.Send.Retry,
-		HttpFollowRedirects: job.Send.HttpFollowRedirects,
-		RetryCode:           job.Send.RetryCode,
-		RetryRegex:          job.Send.RetryRegex,
-		Timeout:             job.Send.Timeout,
+		Retry:               job.Request.Retry,
+		HttpFollowRedirects: job.Request.HttpFollowRedirects,
+		RetryCode:           job.Request.RetryCode,
+		RetryRegex:          job.Request.RetryRegex,
+		Timeout:             job.Request.Timeout,
+	}
+
+	// 随机代理
+	if len(job.Request.Proxies) > 0 {
+		rc.Proxy = job.Request.Proxies[rand.Int()%len(job.Request.Proxies)]
 	}
 
 	tmp := resourcePool.StringSlices.Get(1)

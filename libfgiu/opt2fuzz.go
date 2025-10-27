@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/nostalgist134/FuzzGIU/components/opt"
-	"github.com/nostalgist134/FuzzGIU/components/output"
+	"github.com/nostalgist134/FuzzGIU/components/output/outputFlag"
 	"github.com/nostalgist134/FuzzGIU/components/plugin"
 	"log"
 	"os"
@@ -268,9 +268,9 @@ func opt2fuzz(opt *opt.Opt) (fuzz1 *fuzzTypes.Fuzz, pendingLogs []string) {
 			cookies.String())
 	}
 
-	fuzz1.Send.Proxies = opt.Request.Proxies
+	fuzz1.Request.Proxies = opt.Request.Proxies
 
-	fuzz1.Send.HttpFollowRedirects = opt.Request.FollowRedirect
+	fuzz1.Request.HttpFollowRedirects = opt.Request.FollowRedirect
 
 	// 若-r选项指定了http方法，且-X选项没出现过，才使用-r选项的
 	if opt.Request.Method != "" {
@@ -291,15 +291,15 @@ func opt2fuzz(opt *opt.Opt) (fuzz1 *fuzzTypes.Fuzz, pendingLogs []string) {
 	fuzz1.React.IgnoreError = opt.Output.IgnoreError
 	fuzz1.Control.OutSetting.OutputFile = opt.Output.File
 	if opt.Output.NativeStdout {
-		fuzz1.Control.OutSetting.ToWhere = output.OutToStdout
+		fuzz1.Control.OutSetting.ToWhere = outputFlag.OutToStdout
 	} else {
-		fuzz1.Control.OutSetting.ToWhere = output.OutToTview
+		fuzz1.Control.OutSetting.ToWhere = outputFlag.OutToTview
 	}
 
 	// opt.ErrorHandling
-	fuzz1.Send.Retry = opt.ErrorHandling.Retry
-	fuzz1.Send.RetryCode = opt.ErrorHandling.RetryOnStatus
-	fuzz1.Send.RetryRegex = opt.ErrorHandling.RetryRegex
+	fuzz1.Request.Retry = opt.ErrorHandling.Retry
+	fuzz1.Request.RetryCode = opt.ErrorHandling.RetryOnStatus
+	fuzz1.Request.RetryRegex = opt.ErrorHandling.RetryRegex
 
 	// opt.PayloadSetting
 	fuzz1.Preprocess.PlTemp = make(map[string]fuzzTypes.PayloadTemp)
@@ -308,7 +308,7 @@ func opt2fuzz(opt *opt.Opt) (fuzz1 *fuzzTypes.Fuzz, pendingLogs []string) {
 	appendPayloadTmp(fuzz1.Preprocess.PlTemp, opt.Payload.Processors, 1, "")
 
 	// opt.General
-	fuzz1.Send.Timeout = opt.General.Timeout
+	fuzz1.Request.Timeout = opt.General.Timeout
 	fuzz1.Control.PoolSize = opt.General.RoutinePoolSize
 	fuzz1.Control.Delay, err = time.ParseDuration(opt.General.Delay)
 	iterator, _ := plugin.ParsePluginsStr(opt.General.Iter)

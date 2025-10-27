@@ -43,12 +43,15 @@ func iterLen(p fuzzTypes.Plugin, lengths []int) int {
 		return iterLenPitchfork(lengths, false)
 	case "pitchfork-cycle":
 		return iterLenPitchfork(lengths, true)
+	case "":
+		return 0
 	default:
-		tmp := fuzzTypes.Plugin{Name: p.Name, Args: resourcePool.AnySlices.Get(len(p.Args) + 1)}
+		tmp := fuzzTypes.Plugin{Name: p.Name, Args: resourcePool.AnySlices.Get(len(p.Args) + 2)}
 		defer resourcePool.AnySlices.Put(tmp.Args)
 
 		tmp.Args[0] = plugin.SelectIterLen
-		copy(tmp.Args[1:], p.Args)
+		tmp.Args[1] = 0 // 插件一旦编译后参数数量就无法改变了，这里做填充作用
+		copy(tmp.Args[2:], p.Args)
 
 		return plugin.IterLen(tmp, lengths)
 	}
@@ -93,6 +96,8 @@ func iterIndex(lengths []int, ind int, out []int, p fuzzTypes.Plugin) {
 		iterIndexPitchfork(lengths, ind, out)
 	case "pitchfork-cycle":
 		iterIndexPitchforkCycle(lengths, ind, out)
+	case "":
+		return
 	default:
 		tmp := fuzzTypes.Plugin{Name: p.Name, Args: resourcePool.AnySlices.Get(len(p.Args) + 2)}
 		defer resourcePool.AnySlices.Put(tmp.Args)

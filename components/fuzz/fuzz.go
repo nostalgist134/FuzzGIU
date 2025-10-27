@@ -74,14 +74,15 @@ func handleReaction(jobCtx *fuzzCtx.JobCtx, r *fuzzTypes.Reaction) (stopJob bool
 	if r.Flag&fuzzTypes.ReactAddReq != 0 && r.NewReq != nil {
 		addReq = true
 
-		newTask := fuzzCtx.TaskCtx{
+		newTask := resourcePool.GetTaskCtx()
+		*newTask = fuzzCtx.TaskCtx{
 			JobCtx:      jobCtx,
 			ViaReaction: r,
 		}
 
 		// 由于尝试提交任务的过程中，需要执行任务列表中的任务，过程中可能产生新的任务，需要处理
 		var newJobsFromTrySub []*fuzzTypes.Fuzz
-		stopJob, newJobsFromTrySub = trySubmit(jobCtx, &newTask, rp.ExecMinor)
+		stopJob, newJobsFromTrySub = trySubmit(jobCtx, newTask, rp.ExecMinor)
 		if newJobsFromTrySub != nil {
 			newJobs = append(newJobs, newJobsFromTrySub...)
 		}
@@ -267,7 +268,7 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 	}
 
 	// fuzz循环，若循环尾为-1则代表无限循环，什么时候结束取决于迭代器逻辑
-	for i := iter.Start; i < iter.End || iter.End == -1; i++ {
+	for i := iter.Start; i < iter.End || iter.End == fuzzTypes.InfiniteLoop; i++ {
 		// 只有进入fuzz循环了，才能停止任务（其实是我懒得设计那么多select了）
 		select {
 		case <-jobCtx.GlobCtx.Done():
@@ -331,7 +332,8 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 	return
 }
 
-func NewJobCtx(job *fuzzTypes.Fuzz, parentId int) (jobCtx *fuzzCtx.JobCtx, err error) {
+func NewJobCtx(job *fuzzTypes.Fuzz, parentId int, globCtx context.Context,
+	globCancel context.CancelFunc) (jobCtx *fuzzCtx.JobCtx, err error) {
 	if job == nil {
 		err = errors.New("nil job submitted")
 		return
@@ -353,7 +355,10 @@ func NewJobCtx(job *fuzzTypes.Fuzz, parentId int) (jobCtx *fuzzCtx.JobCtx, err e
 	}
 
 	routinePool := rp.NewRp(job.Control.PoolSize)
-	globCtx, cancel := context.WithCancel(context.Background())
+
+	if globCancel == nil || globCtx == nil {
+		globCtx, globCancel = context.WithCancel(context.Background())
+	}
 
 	jobCtx = &fuzzCtx.JobCtx{
 		JobId:     jid,
@@ -361,7 +366,7 @@ func NewJobCtx(job *fuzzTypes.Fuzz, parentId int) (jobCtx *fuzzCtx.JobCtx, err e
 		RP:        routinePool,
 		Job:       job,
 		OutputCtx: outCtx,
-		Cancel:    cancel,
+		Cancel:    globCancel,
 		GlobCtx:   globCtx,
 	}
 	return
