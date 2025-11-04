@@ -31,24 +31,7 @@ const errInteriorMarshal = "error in marshal/unmarshal in plugin, make sure your
 var registry = sync.Map{}
 var mu = sync.Mutex{}
 var bp = reusablebytes.BytesPool{}
-var uintptrSlices = sync.Pool{New: func() any { return make([]uintptr, 0) }}
-
-func getUintptrSlice(length int) []uintptr {
-	if length < 0 {
-		return nil
-	}
-	slice := uintptrSlices.Get().([]uintptr)
-	if cap(slice) < length {
-		slice = make([]uintptr, length) // 新建
-	} else {
-		slice = slice[:length] // 复用
-	}
-	return slice
-}
-
-func putUintptrSlice(toPut []uintptr) {
-	uintptrSlices.Put(toPut)
-}
+var uintptrSlices = resourcePool.NewSlicePool[uintptr](10)
 
 func init() {
 	bp.Init(128, 131072, 256)
@@ -69,9 +52,28 @@ func getArgCnt(plugin fuzzTypes.Plugin, writeBuffer *reusablebytes.ReusableBytes
 }
 
 // callSharedLib 调用插件的PluginWrapper函数 windows
-func callSharedLib(plugin fuzzTypes.Plugin, relPath string, writeBuffer *reusablebytes.ReusableBytes,
+// 其参数布局如下：
+//
+//	[writeBuffer, lenBuffer], [byteSlices[0], len(bytesSlices[0]), byteSlices[1], len(bytesSlices[1])], 用户自定义参数
+//
+// writeBuffer和byteSlices都是可变的，有些插件可能不使用，这种情况下就会从p.Args开始
+// 两个特殊的插件PayloadProcessor和Iterator在外部调用时会往p.Args中压入固定的参数，在这个文件中未体现，需要查看对应的外部调用代码；
+// DoRequest没有Args，因为它没办法指定自定义参数；其它插件的p.Args全部为用户自定义参数
+//
+// PayloadProcessor实际调用的参数布局如下：
+//
+//	writeBuffer, lenBuffer, payload/* string类型 */, 用户自定义参数
+//
+// Iterator.IterIndex实际调用时的参数布局如下:
+//
+//	writeBuffer, lenBuffer, lengthsBytes/*lengths int切片的字节表示*/, len(lengthsBytes), 用户自定义参数
+//
+// Iterator.IterLen实际调用的参数布局如下：
+//
+//	lengthsBytes, len(lengthsBytes), 用户自定义参数
+func callSharedLib(p fuzzTypes.Plugin, relPath string, writeBuffer *reusablebytes.ReusableBytes,
 	byteSlices ...[]byte) (int, error) {
-	registryName := filepath.Join(relPath, plugin.Name)
+	registryName := filepath.Join(relPath, p.Name)
 
 	var dll *syscall.DLL
 	var proc *syscall.Proc
@@ -90,7 +92,7 @@ func callSharedLib(plugin fuzzTypes.Plugin, relPath string, writeBuffer *reusabl
 			pRecord = record.(*pluginRecord)
 			proc = pRecord.proc
 		} else {
-			dll, err = syscall.LoadDLL(filepath.Join(BaseDir, relPath, plugin.Name+binSuffix))
+			dll, err = syscall.LoadDLL(filepath.Join(BaseDir, relPath, p.Name+binSuffix))
 			if err != nil {
 				return 0, err
 			}
@@ -105,13 +107,13 @@ func callSharedLib(plugin fuzzTypes.Plugin, relPath string, writeBuffer *reusabl
 		mu.Unlock()
 	}
 
-	if pi := pRecord.pInfo; pi != nil && len(pi.Params) != len(byteSlices)+len(plugin.Args) {
+	if pi := pRecord.pInfo; pi != nil && len(pi.Params) != len(byteSlices)+len(p.Args) {
 		return 0, fmt.Errorf("incorrect parameter count, expect %d, got %d", len(pi.Params),
-			len(byteSlices)+len(plugin.Args))
+			len(byteSlices)+len(p.Args))
 	}
 
-	argList := getUintptrSlice(getArgCnt(plugin, writeBuffer, byteSlices...))
-	defer putUintptrSlice(argList)
+	argList := uintptrSlices.Get(getArgCnt(p, writeBuffer, byteSlices...))
+	defer uintptrSlices.Put(argList)
 
 	i := 0
 
@@ -137,7 +139,7 @@ func callSharedLib(plugin fuzzTypes.Plugin, relPath string, writeBuffer *reusabl
 
 	// 分配一个string切片用于存储string类型参数，避免参数污染
 	strCnt := 0
-	for _, arg := range plugin.Args {
+	for _, arg := range p.Args {
 		if _, ok := arg.(string); ok {
 			strCnt++
 		}
@@ -147,14 +149,14 @@ func callSharedLib(plugin fuzzTypes.Plugin, relPath string, writeBuffer *reusabl
 
 	// 填入普通参数
 	j := 0
-	for k := 0; k < len(plugin.Args); k++ {
-		switch plugin.Args[k].(type) {
+	for k := 0; k < len(p.Args); k++ {
+		switch p.Args[k].(type) {
 		case int:
-			argList[i] = uintptr(plugin.Args[k].(int))
+			argList[i] = uintptr(p.Args[k].(int))
 		case float64:
-			argList[i] = uintptr(math.Float64bits(plugin.Args[k].(float64)))
+			argList[i] = uintptr(math.Float64bits(p.Args[k].(float64)))
 		case bool:
-			if plugin.Args[k] == false {
+			if p.Args[k] == false {
 				argList[i] = uintptr(0)
 			} else {
 				argList[i] = uintptr(1)
@@ -163,12 +165,12 @@ func callSharedLib(plugin fuzzTypes.Plugin, relPath string, writeBuffer *reusabl
 			// 将字符串存到切片中，每个字符串的地址不同，就不会导致参数污染
 			// 注意：在底层string类型是一个{char *buffer, int len}的结构体，但在汇编层面是没有结构这个概念的，
 			// 一个寄存器最大就8字节，因此如果函数传入的结构体参数，且结构若大小大于8，则通过结构体指针传递，因此这
-			// 里可以直接传string的地址
-			strCache[j] = plugin.Args[k].(string)
+			// 里可以直接传string的地址，因为PluginWrapper也是通过string作为参数
+			strCache[j] = p.Args[k].(string)
 			argList[i] = uintptr(unsafe.Pointer(&strCache[j]))
 			j++
 		default: // 不支持的参数类型，填入0（NULL）
-			err = errors.Join(err, fmt.Errorf("callSharedLib: unsupported arg %v, to nil", plugin.Args[k]))
+			err = errors.Join(err, fmt.Errorf("callSharedLib: unsupported arg %v, to nil", p.Args[k]))
 			argList[i] = uintptr(0)
 		}
 		i++
@@ -429,12 +431,7 @@ func React(p fuzzTypes.Plugin, req *fuzzTypes.Req, resp *fuzzTypes.Resp) *fuzzTy
 // 组 （实际上通过写入out实现），标记每个关键字使用的payload的下标
 // 迭代器调用前会通过下面的 IterLen 确定迭代长度，但是实现上这个函数是可选的，若选择不限迭代长度，也可
 // 在迭代器中返回一个元素全为无效元素（全为负数）的数组来标记结束
-// 实际上这个函数有2个隐藏的预定义参数，第一个是一个函数选择器，位于p.Args[0]，迭代器插件由于要在一个
-// 插件中调用两个导出函数（IterIndex与IterLen），但是一个插件只有一个PluginWrapper，因此在
-// PluginWrapper中实际上有一个选择器的逻辑，通过选择器选择IterIndex还是IterLen
-// ind，位于p.Args[1]，表示当前的迭代下标，但是这个参数是调用者
-// 传入（详见fuzz包中的iterator.go）
-// out数组中可以有为负数，如果出现负数，则对应的关键字使用空payload
+// 传入的p.Args布局为：selectorIterIndex, ind, ...
 func IterIndex(p fuzzTypes.Plugin, lengths []int, out []int) {
 	lengthsBytes, id := ints2Bytes(lengths)
 	defer bp.Put(id)
@@ -459,6 +456,7 @@ func IterIndex(p fuzzTypes.Plugin, lengths []int, out []int) {
 }
 
 // IterLen 是迭代器的可选功能，返回迭代长度，若返回-1，则不限迭代长度
+// 传入的p.Args布局为：selectorIterLen, 0, ...
 func IterLen(p fuzzTypes.Plugin, lengths []int) int {
 	lengthsBytes, id := ints2Bytes(lengths)
 	defer bp.Put(id)

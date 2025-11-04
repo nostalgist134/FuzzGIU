@@ -5,7 +5,7 @@ import (
 	"github.com/nostalgist134/reusableBytes"
 )
 
-var lazyPool = resourcePool.SlicePool[reusablebytes.Lazy]{}
+var lazyPool = resourcePool.NewSlicePool[reusablebytes.Lazy](20)
 
 // render 对模板进行渲染，返回通过分隔符分隔的fields切片
 func (t *ReplaceTemplate) render(payloads []string) ([]reusablebytes.Lazy, int32) {
@@ -57,15 +57,19 @@ func (t *ReplaceTemplate) renderSniper(payload string, pos int) ([]reusablebytes
 	for ; j <= pos && i < len(t.placeholders); j++ {
 		rb.WriteString(t.fragments[i])
 		if t.placeholders[i] == phSplitter {
-			j--
 			lazyFields[fieldInd] = rb.LazyFromAnchor()
 			fieldInd++
 			rb.Anchor()
+		} else { // 若为关键字占位符，则下标增加
+			j++
 		}
 		i++
 	}
 
-	rb.WriteString(payload)
+	// 如果i == len(t.placeholders)，则说明要么没有关键字，要么注入点下标超过了，这种情况下不写入payload
+	if i != len(t.placeholders) {
+		rb.WriteString(payload)
+	}
 
 	for ; i < len(t.placeholders); i++ {
 		rb.WriteString(t.fragments[i])

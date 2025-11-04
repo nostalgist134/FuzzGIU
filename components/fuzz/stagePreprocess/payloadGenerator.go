@@ -271,7 +271,6 @@ func PayloadGenerator(gen fuzzTypes.PlGen, outCtx *output.Ctx) []string {
 		outCtx.LogFmtMsg("unsupported generator type [%s]", generatorType)
 		payloads = []string{""}
 	}
-	// patchLog#3: 修改了payloadGenerator逻辑使得即使生成的payload列表为空也至少会传入一个空字符串，避免doFuzz主循环中curInd为0
 	if len(payloads) == 0 {
 		payloads = append(payloads, "")
 	}

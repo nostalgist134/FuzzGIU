@@ -72,19 +72,19 @@ func (t *ReplaceTemplate) parse(s string, splitterAndKeywords []string, headerNu
 	*/
 
 	// 关键字出现在字符串开头的特殊情况
-	if mergedOccur[0].KeywordInReq == 0 {
+	if mergedOccur[0].KeywordIndReq == 0 {
 		t.fragments = append(t.fragments, "") // 此时fragments[0]使用空字符串
-		t.placeholders = append(t.placeholders, mergedOccur[0].KeywordInSlice)
+		t.placeholders = append(t.placeholders, mergedOccur[0].KeywordIndKeywords)
 		i++
 		// 及时将sInd更新，避免关键字出现在开头时模板解析异常的问题
-		sInd = len(splitterAndKeywords[mergedOccur[0].KeywordInSlice])
+		sInd = len(splitterAndKeywords[mergedOccur[0].KeywordIndKeywords])
 	}
 
 	for ; i < len(mergedOccur); i++ {
-		t.fragments = append(t.fragments, s[sInd:mergedOccur[i].KeywordInReq])
+		t.fragments = append(t.fragments, s[sInd:mergedOccur[i].KeywordIndReq])
 		// placeholders数组标记了在关键字对应的下标出现的是哪一个关键字
-		t.placeholders = append(t.placeholders, mergedOccur[i].KeywordInSlice)
-		sInd = mergedOccur[i].KeywordInReq + len(splitterAndKeywords[mergedOccur[i].KeywordInSlice])
+		t.placeholders = append(t.placeholders, mergedOccur[i].KeywordIndKeywords)
+		sInd = mergedOccur[i].KeywordIndReq + len(splitterAndKeywords[mergedOccur[i].KeywordIndKeywords])
 	}
 
 	if sInd < len(s) {

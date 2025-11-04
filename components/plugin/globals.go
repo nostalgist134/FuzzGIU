@@ -5,8 +5,8 @@ import (
 )
 
 const (
-	pluginEntry         = "PluginWrapper"
-	BaseDir             = "./plugins/"
+	pluginEntry = "PluginWrapper"
+
 	RelPathPlGen        = "payloadGenerators/"
 	RelPathPlProc       = "payloadProcessors/"
 	RelPathPreprocessor = "preprocessors/"
@@ -18,6 +18,7 @@ const (
 	SelectIterLen   = 1
 )
 
+var BaseDir = "./plugins/"
 var binSuffix = ""
 
 func init() {

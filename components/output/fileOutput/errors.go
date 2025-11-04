@@ -6,7 +6,6 @@ import (
 
 var (
 	errEmptyFName     = errors.New("empty file name")
-	errCtxClosed      = errors.New("file output fuzzCtx is already closed")
-	errFileOutCtxNil  = errors.New("file output fuzzCtx is nil")
+	errFileOutCtxNil  = errors.New("file output context is nil")
 	errFilePointerNil = errors.New("file pointer is nil")
 )

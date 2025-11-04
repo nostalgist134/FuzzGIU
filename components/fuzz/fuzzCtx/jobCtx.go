@@ -30,6 +30,18 @@ func (jc *JobCtx) Stop() {
 	}
 }
 
+func (jc *JobCtx) Pause() {
+	if jc.RP != nil {
+		jc.RP.Pause()
+	}
+}
+
+func (jc *JobCtx) Resume() {
+	if jc.RP != nil {
+		jc.RP.Resume()
+	}
+}
+
 // Occupy 将jobCtx标记为占用，防止关闭
 func (jc *JobCtx) Occupy() {
 	jc.occupied.Add(1)
@@ -38,4 +50,8 @@ func (jc *JobCtx) Occupy() {
 // Release 将jobCtx占用数减一
 func (jc *JobCtx) Release() {
 	jc.occupied.Done()
+}
+
+func (jc *JobCtx) GetJobInfo() *fuzzTypes.Fuzz {
+	return jc.Job
 }

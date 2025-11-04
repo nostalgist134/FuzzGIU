@@ -2,8 +2,8 @@ package httpOutput
 
 import (
 	"bytes"
-	"errors"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
+	"github.com/nostalgist134/FuzzGIU/components/output/outputErrors"
 	"github.com/nostalgist134/FuzzGIU/components/output/outputable"
 	"net/http"
 	"net/url"
@@ -14,8 +14,6 @@ type Ctx struct {
 	cli    *http.Client
 	closed bool
 }
-
-var errClosed = errors.New("http output ctx is already closed")
 
 func NewHttpOutputCtx(outSetting *fuzzTypes.OutputSetting, _ int) (*Ctx, error) {
 	u, err := url.Parse(outSetting.HttpURL)
@@ -30,6 +28,16 @@ func NewHttpOutputCtx(outSetting *fuzzTypes.OutputSetting, _ int) (*Ctx, error) 
 }
 
 func (c *Ctx) Output(obj *outputable.OutObj) error {
+	if c.closed {
+		return outputErrors.ErrCtxClosed
+	}
+	if c.cli == nil {
+		return errNilHttpCli
+	}
+	if c.u == nil {
+		return errNilURLToPost
+	}
+
 	objBytes := obj.ToFormatBytes("json", false, 0)
 	_, err := c.cli.Post(c.u.String(), "application/json", bytes.NewReader(objBytes))
 	return err
@@ -37,7 +45,7 @@ func (c *Ctx) Output(obj *outputable.OutObj) error {
 
 func (c *Ctx) Close() error {
 	if c.closed {
-		return errClosed
+		return outputErrors.ErrCtxClosed
 	}
 	c.cli.CloseIdleConnections()
 	c.closed = true
@@ -45,6 +53,16 @@ func (c *Ctx) Close() error {
 }
 
 func (c *Ctx) Log(log *outputable.Log) error {
+	if c.closed {
+		return outputErrors.ErrCtxClosed
+	}
+	if c.cli == nil {
+		return errNilHttpCli
+	}
+	if c.u == nil {
+		return errNilURLToPost
+	}
+
 	logBytes := log.ToFormatBytes("json")
 	_, err := c.cli.Post(c.u.String(), "application/json", bytes.NewReader(logBytes))
 	return err

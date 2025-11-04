@@ -3,7 +3,7 @@ package stagePreprocess
 import (
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/nostalgist134/FuzzGIU/components/output"
-	plugin2 "github.com/nostalgist134/FuzzGIU/components/plugin"
+	"github.com/nostalgist134/FuzzGIU/components/plugin"
 )
 
 // Preprocess 预处理函数，用来对fuzz任务进行预处理与调整，可自定义
@@ -13,7 +13,7 @@ func Preprocess(fuzz *fuzzTypes.Fuzz, outCtx *output.Ctx) *fuzzTypes.Fuzz {
 	if len(preprocessors) > 0 {
 		// 遍历预处理器链
 		for _, p := range preprocessors {
-			newFuzz = plugin2.Preprocess(p, newFuzz, outCtx)
+			newFuzz = plugin.Preprocess(p, newFuzz, outCtx)
 		}
 	}
 	return newFuzz

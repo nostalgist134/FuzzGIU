@@ -149,7 +149,7 @@ func taskNoKeywords(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 		Timeout:             job.Request.Timeout,
 	}
 
-	// 随机代理
+	// 随机代理（因为这里没有i变量，所以不能轮询，就随便选一个）
 	if len(job.Request.Proxies) > 0 {
 		rc.Proxy = job.Request.Proxies[rand.Int()%len(job.Request.Proxies)]
 	}
@@ -157,6 +157,8 @@ func taskNoKeywords(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 	tmp := resourcePool.StringSlices.Get(1)
 	defer resourcePool.StringSlices.Put(tmp)
 
+	// 在通过handleReaction添加的请求中没有payload或者关键字，因此使用这两个参数作为输出
+	// 追溯消息的载体（React的payload与keyword参数仅供输出使用）
 	addedVia := fmt.Sprintf("add via react by %s:%s", k, p)
 	tmp[0] = addedVia
 

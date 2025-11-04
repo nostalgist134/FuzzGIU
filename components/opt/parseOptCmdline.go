@@ -54,7 +54,7 @@ func ParseOptCmdline() *Opt {
 	flag.StringVar(&filter.Lines, "fl", "", "filter amount of lines in response")
 
 	// 请求设置
-	flag.StringVar(&request.URL, "u", "", "url to giu")
+	flag.StringVar(&request.URL, "u", "", "url to fuzz")
 	flag.StringVar(&request.Data, "d", "", "request data")
 	flag.StringVar(&request.ReqFile, "r", "", "request file")
 	flag.StringVar(&request.Method, "X", "GET", "http method")
@@ -84,8 +84,8 @@ func ParseOptCmdline() *Opt {
 		"support single fuzz keyword)")
 	flag.IntVar(&recursionControl.RecursionDepth, "rec-depth", 2, "recursion depth(when recursion "+
 		"is enabled)")
-	flag.StringVar(&recursionControl.RecursionStatus, "rec-code",
-		"", "Recursion status code(http protocol only)")
+	flag.StringVar(&recursionControl.RecursionStatus, "rec-code", "",
+		"recursion status code(http protocol only)")
 	flag.StringVar(&recursionControl.RecursionRegex, "rec-regex", "", "recursion when matched regex")
 	flag.StringVar(&recursionControl.RecursionSplitter, "rec-splitter", "/",
 		"splitter to be used to split recursion positions")

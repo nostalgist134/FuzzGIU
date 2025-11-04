@@ -6,7 +6,7 @@ import (
 )
 
 func TestSlices(t *testing.T) {
-	sp := newSlicePool[string](30)
+	sp := NewSlicePool[string](30)
 	nishigiu := sp.Get(20)
 	fmt.Println(nishigiu)
 }

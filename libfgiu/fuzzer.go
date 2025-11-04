@@ -26,9 +26,8 @@ var (
 )
 
 type pendingJob struct {
-	job                *fuzzTypes.Fuzz
-	parentId           int
-	parentUnderHttpApi bool
+	job      *fuzzTypes.Fuzz
+	parentId int
 }
 
 // Fuzzer 用来执行模糊测试任务，允许多个任务并发执行，内部维护一个任务协程池
@@ -52,7 +51,7 @@ type WebApiConfig struct {
 }
 
 func (f *Fuzzer) daemon() {
-	for {
+	for { // 说实话这个循环有点复杂了，不过能跑就暂时如此吧
 		select {
 		case <-f.ctx.Done():
 			return
@@ -108,9 +107,9 @@ func (f *Fuzzer) daemon() {
 	}
 }
 
-// NewFuzzer 获取一个Fuzzer对象
+// NewFuzzer 获取一个Fuzzer对象，如果需要，可以将libfgiu包作为库使用，大部分的细节已经包装好了
 // concurrency 指定任务并发池的大小
-// apiConf 指定是否启动api模式及启动的配置，只要指定了这个参数就会启动api，但是若指定nil会使用默认配置
+// apiConf 指定是否启动api模式及启动的配置，只要指定了这个参数就会启动api，无论是不是nil，但是若指定nil会使用默认配置
 func NewFuzzer(concurrency int, apiConf ...*WebApiConfig) (*Fuzzer, error) {
 	quitCtx, cancel := context.WithCancel(context.Background())
 
@@ -121,6 +120,7 @@ func NewFuzzer(concurrency int, apiConf ...*WebApiConfig) (*Fuzzer, error) {
 		cancel: cancel,
 	}
 
+	f.jp.registerExecutor(fuzz.DoJobByCtx)
 	if len(apiConf) > 0 {
 		var err error
 		err = f.startHttpApi(apiConf[0])
@@ -128,8 +128,6 @@ func NewFuzzer(concurrency int, apiConf ...*WebApiConfig) (*Fuzzer, error) {
 			return f, err
 		}
 	}
-
-	f.jp.registerExecutor(fuzz.DoJobByCtx)
 	return f, nil
 }
 
@@ -148,32 +146,29 @@ func (f *Fuzzer) Do(job *fuzzTypes.Fuzz) (jid int, timeLapsed time.Duration, new
 }
 
 // Submit 用于非阻塞执行一个fuzz任务（提交到任务池中）
-func (f *Fuzzer) Submit(job *fuzzTypes.Fuzz) error {
+func (f *Fuzzer) Submit(job *fuzzTypes.Fuzz) (int, error) {
 	f.statMux.Lock()
 	switch f.stat {
 	case FuzzerStatInit:
-		return errNotStarted
+		return -1, errNotStarted
 	case FuzzerStatUsed:
-		return errFuzzerStopped
+		return -1, errFuzzerStopped
 	default:
 	}
 	f.statMux.Unlock()
 
 	if f.jp == nil {
-		return errJobPoolNil
-	}
-	if err := fuzz.ValidateJob(job); err != nil {
-		return err
+		return -1, errJobPoolNil
 	}
 	jc, err := fuzz.NewJobCtx(job, 0, f.ctx, f.cancel) // 使用submit提交的job其parentId都为0，代表最上层
 	if err != nil {
-		return err
+		return -1, err
 	}
 
 	if !f.jp.submit(jc) {
-		return errJobQuFull
+		return -1, errJobQuFull
 	}
-	return nil
+	return jc.JobId, nil
 }
 
 // Start 启动Fuzzer的任务池，在此之后可使用Submit方法向其中提交任务
@@ -199,15 +194,19 @@ func (f *Fuzzer) Wait() {
 }
 
 // Stop 停止fuzzer的运行，并停止所有任务的运行
-func (f *Fuzzer) Stop() {
+func (f *Fuzzer) Stop() error {
 	f.statMux.Lock()
 	defer f.statMux.Unlock()
 	if f.stat == FuzzerStatUsed {
-		return
+		return errFuzzerStopped
 	}
 	f.stat = FuzzerStatUsed
-	f.s.e.Shutdown(f.ctx)
+	var err error
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
+	defer cancel()
+	err = f.s.e.Shutdown(ctx)
 	f.cancel()
+	return err
 }
 
 // Status 获取fuzzer当前的状态

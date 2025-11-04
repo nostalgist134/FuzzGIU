@@ -4,12 +4,15 @@ import (
 	"errors"
 	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
+	"github.com/nostalgist134/FuzzGIU/components/resourcePool"
+	"strings"
 )
 
 var (
 	errNilJob        = errors.New("job is nil")
 	errNoKeywords    = errors.New("job has no fuzz keywords")
 	errEmptyIterator = errors.New("job uses a empty iterator")
+	errMultiKeywords = errors.New("job specified sniper or recursion but provided multiple keywords")
 )
 
 // ValidateJob 判断一个任务是否可执行
@@ -18,14 +21,26 @@ func ValidateJob(job *fuzzTypes.Fuzz) error {
 	if job == nil {
 		return errNilJob
 	}
-	if len(job.Preprocess.PlTemp) == 0 {
+	kwCount := len(job.Preprocess.PlTemp)
+	if kwCount == 0 {
 		errTot = errors.Join(errTot, errNoKeywords)
 	}
+	keywords := resourcePool.StringSlices.Get(kwCount)
+	defer resourcePool.StringSlices.Put(keywords)
+	i := 0
 	for kw, pl := range job.Preprocess.PlTemp {
+		keywords[i] = kw
+		for j := 0; j < i; j++ { // 判断是否有fuzz关键字互相包含的情况（这种情况会导致模板解析失败）
+			if strings.Contains(keywords[j], keywords[i]) || strings.Contains(keywords[i], keywords[j]) {
+				errTot = errors.Join(errTot, fmt.Errorf("keyword %s overlapped with %s",
+					keywords[j], keywords[i]))
+			}
+		}
 		if pl.Generators.Type != "wordlist" && pl.Generators.Type != "plugin" {
 			errTot = errors.Join(errTot, fmt.Errorf("unsupported payload generator type '%s' for keyword '%s'",
 				pl.Generators.Type, kw))
 		}
+		i++
 	}
 	if retry := job.Request.Retry; retry < 0 {
 		errTot = errors.Join(errTot, fmt.Errorf("invalid count of retry %d", retry))
@@ -45,6 +60,9 @@ func ValidateJob(job *fuzzTypes.Fuzz) error {
 	}
 	if iter.Iterator.Name == "" {
 		errTot = errors.Join(errTot, errEmptyIterator)
+	}
+	if len(keywords) > 1 && (iter.Iterator.Name == "sniper" || job.React.RecursionControl.MaxRecursionDepth > 0) {
+		errTot = errors.Join(errTot, errMultiKeywords)
 	}
 	return errTot
 }

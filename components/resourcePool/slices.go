@@ -11,9 +11,9 @@ type SlicePool[T any] struct {
 	defCap int       // 初始创建切片时的默认容量（减少首次分配开销）
 }
 
-// newSlicePool 创建新的切片对象池
+// NewSlicePool 创建新的切片对象池
 // defCap: 池为空时，新建切片的默认容量
-func newSlicePool[T any](defCap int) *SlicePool[T] {
+func NewSlicePool[T any](defCap int) *SlicePool[T] {
 	return &SlicePool[T]{
 		pool: sync.Pool{
 			New: func() any {
@@ -54,12 +54,12 @@ func (p *SlicePool[T]) Put(slice []T) {
 }
 
 // StringSlices 字符串切片池
-var StringSlices = newSlicePool[string](20)
+var StringSlices = NewSlicePool[string](20)
 
 // AnySlices any切片池
-var AnySlices = newSlicePool[any](20)
+var AnySlices = NewSlicePool[any](20)
 
 // IntSlices int切片池
-var IntSlices = newSlicePool[int](20)
+var IntSlices = NewSlicePool[int](20)
 
-var FieldSlices = newSlicePool[fuzzTypes.Field](20)
+var FieldSlices = NewSlicePool[fuzzTypes.Field](20)

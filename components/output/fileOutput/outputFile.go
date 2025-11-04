@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
+	"github.com/nostalgist134/FuzzGIU/components/output/outputErrors"
 	"github.com/nostalgist134/FuzzGIU/components/output/outputable"
 	"os"
 	"path/filepath"
@@ -109,7 +110,7 @@ func (c *Ctx) Output(obj *outputable.OutObj) error {
 		return errFilePointerNil
 	}
 	if c.closed {
-		return errCtxClosed
+		return outputErrors.ErrCtxClosed
 	}
 
 	formatted := obj.ToFormatBytes(c.outputFmt, false, c.outputVerbosity)
@@ -144,7 +145,7 @@ func (c *Ctx) Output(obj *outputable.OutObj) error {
 // Close 关闭文件输出上下文，注意：此方法不保证协程安全，调用时应该自行确定不会再调用Output方法以及此方法不会并发调用
 func (c *Ctx) Close() error {
 	if c.closed {
-		return errCtxClosed
+		return outputErrors.ErrCtxClosed
 	}
 	c.closed = true
 	err := fileEpilogue(c, c.outputFmt)
@@ -177,7 +178,7 @@ func (c *Ctx) Log(log *outputable.Log) error {
 	var err error
 
 	if c.closed {
-		return errCtxClosed
+		return outputErrors.ErrCtxClosed
 	} else if c.fLog == nil { // 若日志文件还未创建就创建一个
 		name, suf := cutSuffix(filepath.Base(c.f.Name()))
 		logFileName := filepath.Join(c.fileDir,

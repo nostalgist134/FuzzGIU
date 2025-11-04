@@ -50,7 +50,7 @@ func iterLen(p fuzzTypes.Plugin, lengths []int) int {
 		defer resourcePool.AnySlices.Put(tmp.Args)
 
 		tmp.Args[0] = plugin.SelectIterLen
-		tmp.Args[1] = 0 // 插件一旦编译后参数数量就无法改变了，这里做填充作用
+		tmp.Args[1] = 0
 		copy(tmp.Args[2:], p.Args)
 
 		return plugin.IterLen(tmp, lengths)

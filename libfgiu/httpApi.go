@@ -1,7 +1,6 @@
 package libfgiu
 
 import (
-	"errors"
 	"fmt"
 	"github.com/labstack/echo/v4"
 	"github.com/nostalgist134/FuzzGIU/components/common"
@@ -9,8 +8,6 @@ import (
 	"strconv"
 	"sync"
 )
-
-var errUnauth = errors.New("unauthorized")
 
 const (
 	defServAddr        = "127.0.0.1:11451"
@@ -48,69 +45,76 @@ func getApiConfig(config *WebApiConfig) (servAddr string, startTLS bool, certFil
 	return
 }
 
+func errorMsg(err error) map[string]string {
+	return map[string]string{"error": err.Error()}
+}
+
 func (f *Fuzzer) startHttpApi(apiConf *WebApiConfig) error {
 	addr, startTLS, certFileName, certKeyName := getApiConfig(apiConf)
 
 	acToken := common.RandMarker()
 	e := echo.New()
+	e.HideBanner = true
+	e.HidePort = true
+
+	auth := func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			tokenHeader := c.Request().Header.Get("Access-Token")
+			if tokenHeader != acToken {
+				return c.NoContent(401)
+			}
+			return next(c)
+		}
+	}
 
 	getJobById := func(c echo.Context) error {
-		tokenHeader := c.Request().Header.Get("Access-Token")
-		if tokenHeader != acToken {
-			return c.NoContent(401)
-		}
 		jid, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
-			return fmt.Errorf("failed to parse id: %w", err)
+			return c.JSON(400, errorMsg(fmt.Errorf("failed to parse id: %w", err)))
 		}
 		jc, exist := f.GetJob(int(jid))
-		if jc != nil {
-			defer jc.Release()
-		}
 		if !exist {
-			return fmt.Errorf("job#%d does not exist", jid)
+			return c.JSON(404, errorMsg(fmt.Errorf("job#%d not found", jid)))
 		}
+		defer jc.Release()
 		return c.JSON(200, jc.Job)
 	}
 
 	delJobById := func(c echo.Context) error {
-		tokenHeader := c.Request().Header.Get("Access-Token")
-		if tokenHeader != acToken {
-			return c.NoContent(401)
-		}
 		jid, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
-			return fmt.Errorf("failed to parse id: %w", err)
+			return c.JSON(400, errorMsg(fmt.Errorf("failed to parse job id: %w", err)))
 		}
-		return f.StopJob(int(jid))
+		err = f.StopJob(int(jid))
+		if err != nil {
+			return c.JSON(500, errorMsg(fmt.Errorf("failed to stop job#%d: %w", jid, err)))
+		}
+		return c.NoContent(204)
 	}
 
 	submitJob := func(c echo.Context) error {
-		tokenHeader := c.Request().Header.Get("Access-Token")
-		if tokenHeader != acToken {
-			return c.NoContent(401)
-		}
 		newJob := new(fuzzTypes.Fuzz)
 		err := c.Bind(newJob)
 		if err != nil {
-			return err
+			return c.JSON(400, errorMsg(fmt.Errorf("failed to unmarshal job: %w", err)))
 		}
-		return f.Submit(newJob)
+		jid, err := f.Submit(newJob)
+		if err != nil {
+			return c.JSON(500, errorMsg(fmt.Errorf("failed to submit job: %w", err)))
+		}
+		return c.JSON(200, map[string]int{"jid": jid})
 	}
 
 	getJids := func(c echo.Context) error {
-		tokenHeader := c.Request().Header.Get("Access-Token")
-		if tokenHeader != acToken {
-			return c.NoContent(401)
-		}
 		return c.JSON(200, f.GetJobIds())
 	}
 
 	// restful api
-	e.GET("/job/:id", getJobById)
-	e.DELETE("/job/:id", delJobById)
-	e.POST("/job", submitJob)
-	e.GET("/jobIds", getJids)
+	g := e.Group("/", auth)
+	g.GET("job/:id", getJobById)
+	g.DELETE("job/:id", delJobById)
+	g.POST("job", submitJob)
+	g.GET("jobIds", getJids)
 
 	f.s = &httpService{
 		e:           e,

@@ -8,10 +8,12 @@ import (
 	"github.com/nostalgist134/FuzzGIU/components/output/counter"
 	fo "github.com/nostalgist134/FuzzGIU/components/output/fileOutput"
 	"github.com/nostalgist134/FuzzGIU/components/output/httpOutput"
+	"github.com/nostalgist134/FuzzGIU/components/output/interfaceJobCtx"
 	"github.com/nostalgist134/FuzzGIU/components/output/outCtx"
 	"github.com/nostalgist134/FuzzGIU/components/output/outputFlag"
 	"github.com/nostalgist134/FuzzGIU/components/output/outputable"
 	so "github.com/nostalgist134/FuzzGIU/components/output/stdoutOutput"
+	"github.com/nostalgist134/FuzzGIU/components/output/tviewOutput"
 	"time"
 )
 
@@ -21,8 +23,8 @@ output 包用于处理FuzzGIU的输出结果，主要提供3类函数：InitOutp
 	Output函数用于根据输出上下文向指定输出流输出结果
 	Close函数用于关闭一个输出上下文
 
-	注意：仅有Output之间、Output与Log间、Log间的并发调用是保证协程安全的（通过子Ctx中的协程安全方法保证），Output与其它函数间的调用、其它函数
-	间的调用均不协程安全，需自行确定。代码会假设函数的调用遵循NewOutputCtx->Output或者Log（可以并发）->Close的过程
+	仅有Output之间、Output与Log间、Log之间、Output或Log与Close的并发调用是保证协程安全的（通过子Ctx中的协程安全方法与waitGroup保证），
+	其它函数间的调用均不协程安全，需自行确定。代码会假设函数的调用遵循NewOutputCtx->Output或者Log（可以并发）->Close的过程
 */
 
 type (
@@ -35,7 +37,7 @@ type (
 var errDbOutputNotImplemented = errors.New("db output not implemented yet")
 
 // NewOutputCtx 根据输出设置，生成一个输出上下文，从而在之后可以使用此上下文进行输出
-func NewOutputCtx(outSetting *fuzzTypes.OutputSetting, jid int) (*Ctx, error) {
+func NewOutputCtx(outSetting *fuzzTypes.OutputSetting, jobCtx interfaceJobCtx.IFaceJobCtx, jid int) (*Ctx, error) {
 	toWhere := outSetting.ToWhere
 	format := outSetting.OutputFormat
 
@@ -81,12 +83,15 @@ func NewOutputCtx(outSetting *fuzzTypes.OutputSetting, jid int) (*Ctx, error) {
 	}
 
 	if toWhere&outputFlag.OutToHttp != 0 {
-		httpCtx, err1 := httpOutput.NewHttpOutputCtx(outSetting, 0)
+		httpCtx, err1 := httpOutput.NewHttpOutputCtx(outSetting, jid)
 		err = errors.Join(err, err1)
 		oc.HttpCtx = httpCtx
 	}
 
-	if toWhere&outputFlag.OutToTview != 0 { // todo
+	if toWhere&outputFlag.OutToTview != 0 {
+		tviewCtx, err1 := tviewOutput.NewTviewOutputCtx(outSetting, jobCtx, jid)
+		err = errors.Join(err, err1)
+		oc.TviewOutputCtx = tviewCtx
 	}
 
 	return oc, nil
@@ -94,6 +99,8 @@ func NewOutputCtx(outSetting *fuzzTypes.OutputSetting, jid int) (*Ctx, error) {
 
 // Output 向输出上下文中输出数据
 func (c *Ctx) Output(obj *OutObj) error {
+	c.Wg.Add(1)
+	defer c.Wg.Done()
 	toWhere := c.OutSetting.ToWhere
 
 	var err error
@@ -121,8 +128,9 @@ func (c *Ctx) Output(obj *OutObj) error {
 	return err
 }
 
-// Close 关闭一个输出上下文
+// Close 关闭一个输出上下文（此函数会阻塞直到所有输出、日志都完成才真正关闭）
 func (c *Ctx) Close() error {
+	c.Wg.Wait()
 	toWhere := c.OutSetting.ToWhere
 	var err error
 
@@ -151,6 +159,9 @@ func (c *Ctx) Close() error {
 
 // Log 输出一条日志
 func (c *Ctx) Log(log *outputable.Log) error {
+	c.Wg.Add(1)
+	defer c.Wg.Done()
+
 	toWhere := c.OutSetting.ToWhere
 	var err error
 

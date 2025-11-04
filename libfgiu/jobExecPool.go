@@ -37,7 +37,7 @@ func nopExec(*fuzzCtx.JobCtx) (int, time.Duration, []*fuzzTypes.Fuzz, error) {
 
 func newJobExecPool(concurrency int, resultLen int, quitCtx context.Context,
 	cancelFunc context.CancelFunc) *jobExecPool {
-	if concurrency < 1 { // 懒得再写error了，直接返回nil得
+	if concurrency < 1 { // 懒得再写error了，直接返回nil得了
 		return nil
 	}
 	return &jobExecPool{

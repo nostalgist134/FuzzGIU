@@ -2,6 +2,7 @@ package chanOutput
 
 import (
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
+	"github.com/nostalgist134/FuzzGIU/components/output/outputErrors"
 	"github.com/nostalgist134/FuzzGIU/components/output/outputable"
 )
 
@@ -20,7 +21,7 @@ func NewOutputChanCtx(outSetting *fuzzTypes.OutputSetting, _ int) (*Ctx, error) 
 // Output 向管道推送一个OutObj
 func (c *Ctx) Output(obj *outputable.OutObj) error {
 	if c.closed {
-		return errChanClosed
+		return outputErrors.ErrCtxClosed
 	}
 	select {
 	case c.outChan <- obj:
@@ -33,7 +34,7 @@ func (c *Ctx) Output(obj *outputable.OutObj) error {
 // Close 关闭管道输出上下文，注意：不保证协程安全，需调用方自行判断，new以后若要关闭，需要确定已经没有协程在调用Output，然后才能调用
 func (c *Ctx) Close() error {
 	if c.closed {
-		return errChanClosed
+		return outputErrors.ErrCtxClosed
 	}
 	c.closed = true
 	close(c.outChan)

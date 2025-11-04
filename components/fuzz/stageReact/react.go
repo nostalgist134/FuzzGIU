@@ -9,12 +9,6 @@ import (
 	"github.com/nostalgist134/FuzzGIU/components/resourcePool"
 )
 
-// todo: 更新递归任务的生成逻辑，添加对req.Fields的支持
-// 	最好把递归任务的生成单独弄一个函数出来（已完成，deriveRecursionJob）
-
-// infoMarker 用来标识payload信息出现的位置
-var infoMarker = common.RandMarker()
-
 func valInRanges(v int, ranges []fuzzTypes.Range) bool {
 	for _, r := range ranges {
 		if v <= r.Upper && v >= r.Lower {
@@ -49,7 +43,7 @@ func matchResponse(resp *fuzzTypes.Resp, m *fuzzTypes.Match) bool {
 	if len(m.Regex) != 0 && common.RegexMatch(resp.RawResponse, m.Regex) == whenToRet {
 		return whenToRet
 	}
-	if m.Time.Upper != m.Time.Lower &&
+	if m.Time.Upper > m.Time.Lower && // time的上界与下界若相等或者下界更大，则视为无效（未设置时间条件）
 		(resp.ResponseTime < m.Time.Upper && resp.ResponseTime >= m.Time.Lower) == whenToRet {
 		return whenToRet
 	}
@@ -145,7 +139,7 @@ func React(jobCtx *fuzzCtx.JobCtx, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 		}
 		outCtx.Output(&o)
 	}
-	// 添加新单个请求的reaction，在输出消息后添加追溯信息(keyword:payload对)，易于追踪
+	// 添加新单个请求的reaction，在输出消息后添加追溯信息(keyword:payload对)，易于追踪，由于消息已经输出，所以改Msg段没问题
 	if reaction.Flag&fuzzTypes.ReactAddReq != 0 || reaction.Flag&fuzzTypes.ReactAddJob != 0 {
 		AppendReactTraceInfo(reaction, keywordsUsed, payloadEachKeyword)
 	}

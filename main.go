@@ -44,9 +44,9 @@ func main() {
 		log.Fatalf("failed to create fuzzer: %v\n", err)
 	}
 	fuzzer.Start()
-	err = fuzzer.Submit(j)
+	_, err = fuzzer.Submit(j)
 	if err != nil {
-		log.Fatalf("failed to submit job: %v\n", err)
+		log.Fatalf("failed to execute fuzz: %v\n", err)
 	}
 	fuzzer.Wait()
 }

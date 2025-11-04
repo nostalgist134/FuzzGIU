@@ -23,17 +23,20 @@ func DoRequest(rCtx *fuzzTypes.RequestCtx, scheme string) *fuzzTypes.Resp {
 	if scheme != "" {
 		uScheme = scheme
 	} else {
+		if rCtx.Request.URL == "" { // URL为空
+			ret = &fuzzTypes.Resp{ErrMsg: "empty URL to request"}
+			return ret
+		}
 		u, err := url.Parse(rCtx.Request.URL)
 		if err != nil { // 无法解析URL
-			ret = &fuzzTypes.Resp{}
-			ret.ErrMsg = err.Error()
+			ret = &fuzzTypes.Resp{ErrMsg: err.Error()}
 			return ret
 		}
 		uScheme = u.Scheme
 	}
 
 	switch uScheme {
-	case "http", "https", "":
+	case "http", "https", "": // 若没有scheme，默认使用http
 		resp, sendErr := doHttp.DoRequestHttp(rCtx, rCtx.Timeout, rCtx.HttpFollowRedirects,
 			rCtx.Retry, rCtx.RetryCode, rCtx.RetryRegex, rCtx.Proxy)
 		if sendErr != nil && resp != nil && resp.ErrMsg == "" {

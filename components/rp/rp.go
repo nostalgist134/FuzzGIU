@@ -16,11 +16,6 @@ const (
 	ExecMinor = int8(1)
 )
 
-// todo: 这个包循环import了，具体的是rp import fuzzCtx, fuzzCtx.JobCtx.RP -> import rp
-// 可能的解决方案：1.在这个包里再声明一次taskCtx，然后之后调用都强转
-// 	2.tsk.arg与executor的参数类型全改为使用unsafe.Pointer，不过这样需要改的内容会很多，而且需要另起一个池来管理execCtx
-//	已解决，在fuzzCtx中声明了一个rp接口，然后使用的时候不直接用rp类型而是用接口，这样就避免了
-
 type tsk struct {
 	arg       *fuzzCtx.TaskCtx
 	whichExec int8
@@ -29,6 +24,7 @@ type tsk struct {
 type RoutinePool struct {
 	tasks       chan tsk
 	results     chan *fuzzTypes.Reaction
+	resizeMu    sync.Mutex
 	concurrency int
 
 	wg        sync.WaitGroup
@@ -81,6 +77,8 @@ func (p *RoutinePool) Start() {
 		p.quit = make(chan struct{})
 	}
 	p.status = StatRunning
+	p.resizeMu.Lock()
+	defer p.resizeMu.Unlock()
 	for i := 0; i < p.concurrency; i++ {
 		go p.worker()
 	}
@@ -107,8 +105,6 @@ func (p *RoutinePool) worker() {
 		case StatRunning:
 			// 处于运行状态，释放锁并尝试获取任务
 			p.mu.Unlock()
-
-			// 阻塞等待任务或退出信号，避免忙循环
 			select {
 			case task, ok := <-p.tasks:
 				if !ok {
@@ -119,7 +115,6 @@ func (p *RoutinePool) worker() {
 				p.wg.Done()
 			case <-p.quit:
 				return
-			case <-time.After(5 * time.Millisecond): // 短暂超时
 			}
 		}
 	}
@@ -128,15 +123,14 @@ func (p *RoutinePool) worker() {
 // Submit 添加任务
 func (p *RoutinePool) Submit(execArg *fuzzCtx.TaskCtx, whichExec int8, timeout time.Duration) bool {
 	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	if p.status != StatRunning {
+		p.mu.Unlock()
 		return false
 	}
+	p.mu.Unlock()
 
 	p.wg.Add(1)
 
-	// 提交函数、执行可以用指针，这样可以减少栈分配，但是tsk结构必须是字面值复制，不然又要写一个资源池来管理
 	task := tsk{
 		arg:       execArg,
 		whichExec: whichExec,
@@ -216,9 +210,12 @@ func (p *RoutinePool) Resume() {
 }
 
 func (p *RoutinePool) Resize(size int) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if size == p.concurrency || size < 0 || p.status == StatStop {
+	if p.Status() == StatStop {
+		return
+	}
+	p.resizeMu.Lock()
+	defer p.resizeMu.Unlock()
+	if size == p.concurrency || size < 0 {
 		return
 	}
 	if size > p.concurrency {

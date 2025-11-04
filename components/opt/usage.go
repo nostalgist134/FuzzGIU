@@ -94,6 +94,12 @@ func usage() {
 	fmt.Println("\nADVANCED USAGE EXAMPLES:")
 	exampleUsage("recursive jobs",
 		"-u http://test.com/FUZZ -w dict.txt::FUZZ -R -rec-code 403 -rec-depth 4")
+	exampleUsage("http api mode", `http api mode allow you to run fuzzGIU as an http service to submit fuzz job via http request;
+each fuzz job submitted are marked with an id, you can use the URLs shown below to submit, 
+stop or inspect a job:
+	GET/DELETE /job/:id  -  get a JSON serialized job's structure by its id, or delete it
+	POST /job  -  submit a job by serialized job structure, responses its id or error when failed
+	GET /jobIds  -  get all running job ids`)
 	exampleUsage("use plugins",
 		"-u http://test.com/?id=FUZZ \\\n\t"+
 			"-pl-gen sqli::FUZZ  # will search ./plugins/payloadGenerators/sqli.(so/dll/dylib)",

@@ -1,9 +1,13 @@
 package stageReact
 
 import (
+	"github.com/nostalgist134/FuzzGIU/components/common"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"strings"
 )
+
+// infoMarker 用来标识payload信息出现的位置
+var infoMarker = common.RandMarker()
 
 // GetReactTraceInfo 获取reaction结构中的追溯信息
 func GetReactTraceInfo(reaction *fuzzTypes.Reaction) ([]string, []string) {

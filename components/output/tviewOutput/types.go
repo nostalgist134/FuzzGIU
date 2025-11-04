@@ -1,38 +1,26 @@
 package tviewOutput
 
 import (
-	"github.com/gizak/termui/v3/widgets"
-	"sync"
+	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
+	"github.com/nostalgist134/FuzzGIU/components/output/counter"
+	"github.com/nostalgist134/FuzzGIU/components/output/interfaceJobCtx"
+	"github.com/rivo/tview"
 )
 
-type screenOutputRegion struct {
-	Pg             *widgets.Paragraph
-	lines          []string
-	mu             sync.Mutex
-	lineInd        int
-	lineLeft       int
-	maxRenderLines int
-	rendered       bool
-	renderBuffer   []string
-	TopCorner      struct {
-		X int
-		Y int
-	}
-	BottomCorner struct {
-		X int
-		Y int
-	}
-}
-
-type Screen struct {
-	renderMu     sync.Mutex
-	logo         *screenOutputRegion
-	globInfo     screenOutputRegion
-	counterFrame screenOutputRegion
-	outputs      screenOutputRegion
-	logs         screenOutputRegion
-	selectInd    int
-}
-
 type Ctx struct {
+	id        int
+	job       *fuzzTypes.Fuzz
+	app       *tview.Application
+	flx       *tview.Flex
+	textViews []*tview.TextView
+	counter   *counter.Counter
+	jobCtx    interfaceJobCtx.IFaceJobCtx
+	closed    bool
+}
+
+type tviewScreen struct {
+	tviewApp  *tview.Application
+	pages     *tview.Pages
+	pageNames []string
+	list      *tview.List
 }

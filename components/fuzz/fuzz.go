@@ -179,7 +179,6 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 
 	job := jobCtx.Job
 	outCtx := jobCtx.OutputCtx
-	jid := jobCtx.JobId
 	routinePool := jobCtx.RP
 
 	// 递归边界
@@ -193,11 +192,6 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 		err = errors.Join(err, outCtx.LogFmtMsg("job#%d completed, time spent: %v", jobCtx.JobId, timeLapsed))
 	}()
 
-	if len(job.Preprocess.PlTemp) == 0 {
-		err = errors.Join(err, outCtx.LogFmtMsg("Job#%d has no fuzz keyword, skip", jid))
-		return
-	}
-
 	genPayloads(jobCtx)
 
 	// fuzz关键字的处理
@@ -209,9 +203,6 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 	)
 
 	keywords, lengths, payloadLists = getKeywordsPayloads(job)
-	if len(keywords) == 0 {
-		err = errors.Join(err, fmt.Errorf("job#%d has no fuzz keyword, skip", jobCtx.JobId))
-	}
 	parsedTmpl := tmplReplace.ParseReqTmpl(&job.Preprocess.ReqTemplate, keywords) // 请求模板
 
 	iter := &(job.Control.IterCtrl)
@@ -219,11 +210,6 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 		iterName := job.Control.IterCtrl.Iterator.Name
 		// sniper模式或者递归模式，仅允许单个fuzz关键字
 		if iterName == "sniper" || job.React.RecursionControl.MaxRecursionDepth > 0 {
-			if len(keywords) > 1 {
-				err = errors.Join(err, fmt.Errorf("job#%d specified sniper or recursion, "+
-					"but provided multiple keywords", jobCtx.JobId))
-				return
-			}
 			if iter.Iterator.Name == "sniper" {
 				iterateLen *= parsedTmpl.KeywordCount(0)
 			}
@@ -241,7 +227,7 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 	routinePool.Start()
 
 	outCtx.Counter.Set(counter.CntrTask, counter.FieldTotal, iterateLen)
-	outCtx.Counter.Clear(counter.CntrTask, counter.FieldCompleted)
+	outCtx.Counter.Set(counter.CntrTask, counter.FieldCompleted, iter.Start)
 
 	var plProcs = make([][]fuzzTypes.Plugin, len(keywords)) // payload处理器插件
 	for i, keyword := range keywords {
@@ -332,17 +318,25 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 	return
 }
 
+var (
+	errNilJobProvided    = errors.New("nil job provided")
+	errNilJobCtxProvided = errors.New("nil job context provided")
+)
+
 func NewJobCtx(job *fuzzTypes.Fuzz, parentId int, globCtx context.Context,
 	globCancel context.CancelFunc) (jobCtx *fuzzCtx.JobCtx, err error) {
 	if job == nil {
-		err = errors.New("nil job submitted")
+		err = errNilJobProvided
 		return
+	}
+	if err = ValidateJob(job); err != nil {
+		return nil, fmt.Errorf("failed to validate job: %w", err)
 	}
 	jid := getJobId()
 
 	var outCtx *output.Ctx
 	// 初始化输出流
-	outCtx, err = output.NewOutputCtx(&job.Control.OutSetting, jid)
+	outCtx, err = output.NewOutputCtx(&job.Control.OutSetting, jobCtx, jid)
 	if err != nil {
 		return
 	}
@@ -374,6 +368,13 @@ func NewJobCtx(job *fuzzTypes.Fuzz, parentId int, globCtx context.Context,
 
 // DoJobByCtx 根据jobCtx执行任务，返回其衍生出的所有任务
 func DoJobByCtx(jobCtx *fuzzCtx.JobCtx) (jid int, timeLapsed time.Duration, subJobs []*fuzzTypes.Fuzz, err error) {
+	if jobCtx == nil {
+		err = errNilJobCtxProvided
+		return
+	} else if jobCtx.Job == nil {
+		err = errNilJobProvided
+		return
+	}
 	jid = jobCtx.JobId
 	timeLapsed, subJobs, err = doJobInter(jobCtx)
 	return

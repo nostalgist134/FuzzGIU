@@ -17,6 +17,8 @@ import (
 	"unsafe"
 )
 
+// 傻逼nostalgist134注释写这么一点点，自己看看能看得懂吗
+
 type pluginRecord struct {
 	pluginSelf *goPlugin.Plugin
 	pluginFun  func(...any) ([]byte, error)
@@ -168,13 +170,13 @@ func PayloadProcessor(p fuzzTypes.Plugin, outCtx *output.Ctx) string {
 func DoRequest(p fuzzTypes.Plugin, r *fuzzTypes.RequestCtx) *fuzzTypes.Resp {
 	resp := new(fuzzTypes.Resp)
 
-	mJson, err := json.Marshal(r)
+	marshaled, err := json.Marshal(r)
 	if err != nil {
 		resp.ErrMsg = err.Error()
 		return resp
 	}
 
-	jsonBytes, err := callSharedLib(p, RelPathReqSender, mJson)
+	jsonBytes, err := callSharedLib(p, RelPathReqSender, marshaled)
 
 	err = json.Unmarshal(jsonBytes, resp)
 	if err != nil {
@@ -217,11 +219,19 @@ func React(p fuzzTypes.Plugin, req *fuzzTypes.Req, resp *fuzzTypes.Resp) *fuzzTy
 	return rct
 }
 
+// IterIndex
+// 外部调用这个函数时的arg列表如下
+// selectorIndex, ind, 用户自定义参数
+// windows上可以用jsons参数传递，这个可不行
 func IterIndex(p fuzzTypes.Plugin, lengths []int, out []int) {
 	old := p.Args
+
+	// lengths参数入arg列表
 	p.Args = resourcePool.AnySlices.Get(len(p.Args) + 1)
+	defer resourcePool.AnySlices.Put(p.Args)
 	p.Args[0] = lengths
-	copy(p.Args[1:], old)
+	copy(p.Args[1:], old) // 在此之后变成 lengths, selectorIndex, ind, ...，与插件模板指定顺序相同
+
 	intsBytes, err := callSharedLib(p, RelPathIterator)
 	if err != nil {
 		for i := 0; i < len(out); i++ {
@@ -234,8 +244,18 @@ func IterIndex(p fuzzTypes.Plugin, lengths []int, out []int) {
 	return
 }
 
+// IterLen
+// 外部调用此函数时的参数列表如下
+// selectorIterLen, 0, ...(由于插件编译后参数列表不能改变，且一个插件实际上只有一个调用入口，参数被写死了，所以填充一个0)
 func IterLen(p fuzzTypes.Plugin, lengths []int) int {
-	p.Args = append([]any{SelectIterLen, lengths}, p.Args)
+	old := p.Args
+
+	// lengths参数入arg列表
+	p.Args = resourcePool.AnySlices.Get(len(p.Args) + 1)
+	defer resourcePool.AnySlices.Put(p.Args)
+	p.Args[0] = lengths
+	copy(p.Args[1:], old) // 在此之后变成 lengths, selectorIterLen, 0, ...，与插件模板指定顺序相同
+
 	iterLenBytes, err := callSharedLib(p, RelPathIterator)
 	if err != nil {
 		return -1

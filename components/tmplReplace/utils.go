@@ -63,8 +63,8 @@ func (pq *priorityQueue) Pop() interface{} {
 
 // record 结果结构体，包含数值和其来源数组下标
 type record struct {
-	KeywordInReq   int // 关键字在Req字符串中的下标
-	KeywordInSlice int // 关键字在传入的关键字切片中的下标
+	KeywordIndReq      int // 关键字在Req字符串中的下标
+	KeywordIndKeywords int // 关键字在传入的关键字切片中的下标
 }
 
 // mergeK 返回排序值 + 所属数组下标，all credits to ChatGPT
@@ -86,8 +86,8 @@ func mergeK(arrays [][]int) []record {
 	for pq.Len() > 0 {
 		node := heap.Pop(pq).(heapNode)
 		result = append(result, record{
-			KeywordInReq:   node.value,
-			KeywordInSlice: node.arrayIdx,
+			KeywordIndReq:      node.value,
+			KeywordIndKeywords: node.arrayIdx,
 		})
 
 		// 如果该数组还有下一个元素，继续压入堆
