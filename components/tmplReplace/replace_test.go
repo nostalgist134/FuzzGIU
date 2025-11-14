@@ -12,7 +12,7 @@ var milaogiu = &fuzzTypes.Req{
 	HttpSpec: fuzzTypes.HTTPSpec{
 		Method:      "FUZZ1MIL_FUZZ2_AOGIU",
 		Headers:     []string{"NIS_FUZZ1_HI:GIU", "WOSHI:GIU", "MILAO:GIU"},
-		Version:     "2.99_FUZZ1_9",
+		Proto:       "2.99_FUZZ1_9",
 		ForceHttps:  false,
 		RandomAgent: false,
 	},
@@ -34,7 +34,7 @@ var milaogiu2 = &fuzzTypes.Req{
 	HttpSpec: fuzzTypes.HTTPSpec{
 		Method:      "FUZZ1MIL_FUZZ1_AOGIU",
 		Headers:     []string{"NIS_FUZZ1_HI:GIU", "WOSHI:GIU", "MILAO:GIU"},
-		Version:     "2.99_FUZZ1",
+		Proto:       "2.99_FUZZ1",
 		ForceHttps:  false,
 		RandomAgent: false,
 	},
@@ -51,7 +51,7 @@ func nop(_ any) {}
 func TestReq2Str(t *testing.T) {
 	least := &fuzzTypes.Req{
 		URL:      "http://milaogiu.com",
-		HttpSpec: fuzzTypes.HTTPSpec{Method: "GET", Version: "2.9"},
+		HttpSpec: fuzzTypes.HTTPSpec{Method: "GET", Proto: "2.9"},
 		Data:     []byte("MILAOGIU"),
 	} // least是一个“最小非空”的req实例，即使req结构为空，req2str也会解析least所包含的这4个字段
 	nop(milaogiu)
@@ -85,7 +85,7 @@ func TestParseReqTmpl(t *testing.T) {
 	r3, tr, _ := tmpl3.ReplaceTrack("woshigiu", -1)
 	fmt.Println(r3)
 	fmt.Println(tr)
-	fmt.Println(len(r3.HttpSpec.Version))
+	fmt.Println(len(r3.HttpSpec.Proto))
 	/*for i := 0; i < tmpl3.KeywordCount(0); i++ {
 		r2, _ := tmpl3.Replace([]string{"AAA"}, i)
 		fmt.Println(r2)

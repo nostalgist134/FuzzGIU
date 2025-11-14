@@ -62,27 +62,25 @@ func (f *Fuzzer) daemon() {
 				p := f.pendingJobs[done]
 				jc, err := fuzz.NewJobCtx(p.job, p.parentId, f.ctx, f.cancel)
 				if err != nil {
-					log.Printf("failed to init job, reason: %v", err)
+					log.Printf("failed to init job: %v", err)
 				}
 				if !f.jp.submit(jc) {
 					break // 池满，立即停止
 				}
 			}
-			// 保留未提交部分
 			f.pendingJobs = f.pendingJobs[done:]
 
-			// 消费协程池回捞结果
 			res, ok := f.jp.getResult()
 			if !ok {
-				time.Sleep(10 * time.Millisecond)
+				time.Sleep(20 * time.Millisecond)
 				continue
 			}
-			done = 0
-			for ; done < len(res.newJobs); done++ {
+
+			for done = 0; done < len(res.newJobs); done++ {
 				j := res.newJobs[done]
 				jc, err := fuzz.NewJobCtx(j, res.jid, f.ctx, f.cancel)
 				if err != nil {
-					log.Printf("failed to init job, reason: %v", err)
+					log.Printf("failed to init job: %v", err)
 					continue
 				}
 				if !f.jp.submit(jc) {
@@ -99,9 +97,8 @@ func (f *Fuzzer) daemon() {
 				}
 			}
 
-			// 3. 防止 CPU 空转
 			if len(f.pendingJobs) == 0 && !ok {
-				time.Sleep(50 * time.Millisecond)
+				time.Sleep(20 * time.Millisecond)
 			}
 		}
 	}
@@ -113,16 +110,20 @@ func (f *Fuzzer) daemon() {
 func NewFuzzer(concurrency int, apiConf ...*WebApiConfig) (*Fuzzer, error) {
 	quitCtx, cancel := context.WithCancel(context.Background())
 
+	jp, err := newJobExecPool(concurrency, concurrency*20, quitCtx, cancel)
+	if err != nil {
+		return nil, err
+	}
+
 	f := &Fuzzer{
 		stat:   FuzzerStatInit,
-		jp:     newJobExecPool(concurrency, concurrency*20, quitCtx, cancel),
+		jp:     jp,
 		ctx:    quitCtx,
 		cancel: cancel,
 	}
 
 	f.jp.registerExecutor(fuzz.DoJobByCtx)
 	if len(apiConf) > 0 {
-		var err error
 		err = f.startHttpApi(apiConf[0])
 		if err != nil {
 			return f, err
@@ -146,6 +147,7 @@ func (f *Fuzzer) Do(job *fuzzTypes.Fuzz) (jid int, timeLapsed time.Duration, new
 }
 
 // Submit 用于非阻塞执行一个fuzz任务（提交到任务池中）
+// 返回提交任务的id和错误
 func (f *Fuzzer) Submit(job *fuzzTypes.Fuzz) (int, error) {
 	f.statMux.Lock()
 	switch f.stat {
@@ -202,9 +204,11 @@ func (f *Fuzzer) Stop() error {
 	}
 	f.stat = FuzzerStatUsed
 	var err error
-	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
-	defer cancel()
-	err = f.s.e.Shutdown(ctx)
+	if f.s != nil && f.s.e != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
+		defer cancel()
+		err = f.s.e.Shutdown(ctx)
+	}
 	f.cancel()
 	return err
 }

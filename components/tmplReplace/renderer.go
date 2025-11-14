@@ -7,6 +7,8 @@ import (
 
 var lazyPool = resourcePool.NewSlicePool[reusablebytes.Lazy](20)
 
+// 笑死，这么简单的一个结构体，render函数写起来这么多还难写，写起来跟岩浆里面开炸弹一样
+
 // render 对模板进行渲染，返回通过分隔符分隔的fields切片
 func (t *ReplaceTemplate) render(payloads []string) ([]reusablebytes.Lazy, int32) {
 	rb, id := bp.Get()
@@ -33,7 +35,7 @@ func (t *ReplaceTemplate) render(payloads []string) ([]reusablebytes.Lazy, int32
 /*
 	我觉得有必要在这说一下trackPos的编码规则（虽然stageReact包里面已经说明过了，但难免有人没看到）
 	1. trackPos切片标记了Req结构的成员中插入的payload的尾部下标，按照HTTPSpec.Method->URL->
-	HTTPSpec.Version->HTTPSpec.Headers->Fields->Data的顺序
+	HTTPSpec.Proto->HTTPSpec.Headers->Fields->Data的顺序
 
 	2. 为了节省空间，trackPos采用扁平一维切片，靠值的正/负来标记字段是否结束，具体规则如下：
 	(1).若值为正，则代表当前字段还未结束，也就是说比如现在在读取Method字段的插入下标，然后读取的是正

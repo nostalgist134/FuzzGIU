@@ -10,6 +10,7 @@ import (
 	"github.com/nostalgist134/FuzzGIU/components/output/httpOutput"
 	"github.com/nostalgist134/FuzzGIU/components/output/interfaceJobCtx"
 	"github.com/nostalgist134/FuzzGIU/components/output/outCtx"
+	"github.com/nostalgist134/FuzzGIU/components/output/outputErrors"
 	"github.com/nostalgist134/FuzzGIU/components/output/outputFlag"
 	"github.com/nostalgist134/FuzzGIU/components/output/outputable"
 	so "github.com/nostalgist134/FuzzGIU/components/output/stdoutOutput"
@@ -38,6 +39,13 @@ var errDbOutputNotImplemented = errors.New("db output not implemented yet")
 
 // NewOutputCtx 根据输出设置，生成一个输出上下文，从而在之后可以使用此上下文进行输出
 func NewOutputCtx(outSetting *fuzzTypes.OutputSetting, jobCtx interfaceJobCtx.IFaceJobCtx, jid int) (*Ctx, error) {
+	if outSetting == nil {
+		return nil, outputErrors.ErrNilOutputSetting
+	}
+	if jobCtx == nil {
+		return nil, outputErrors.ErrNilJobCtx
+	}
+
 	toWhere := outSetting.ToWhere
 	format := outSetting.OutputFormat
 
@@ -45,9 +53,9 @@ func NewOutputCtx(outSetting *fuzzTypes.OutputSetting, jobCtx interfaceJobCtx.IF
 		return nil, fmt.Errorf("unsupported output format '%s'", format)
 	}
 
-	oc := new(Ctx)
+	outputCtx := new(Ctx)
 
-	oc.Counter = &Counter{
+	outputCtx.Counter = &Counter{
 		StartTime: time.Now(),
 	}
 
@@ -55,25 +63,32 @@ func NewOutputCtx(outSetting *fuzzTypes.OutputSetting, jobCtx interfaceJobCtx.IF
 
 	if toWhere&outputFlag.OutToFile != 0 {
 		fc, err1 := fo.NewFileOutputCtx(outSetting, jid)
-		err = fmt.Errorf("file output init error: %w", err1)
-
-		oc.FileOutputCtx = fc
+		err = err1
+		if err1 == nil {
+			outputCtx.FileOutputCtx = fc
+			outputCtx.ToWhere |= outputFlag.OutToFile
+		}
 	}
 
 	if toWhere&outputFlag.OutToChan != 0 {
 		cc, err1 := co.NewOutputChanCtx(outSetting, jid)
 		err = errors.Join(err, err1)
-
-		oc.ChanOutputCtx = cc
+		if err1 == nil {
+			outputCtx.ChanOutputCtx = cc
+			outputCtx.ToWhere |= outputFlag.OutToChan
+		}
 	}
 
 	if toWhere&outputFlag.OutToStdout != 0 {
 		sc, err1 := so.NewStdoutCtx(outSetting, jid)
 		err = errors.Join(err, err1)
-		oc.StdoutCtx = sc
+		if err1 == nil {
+			outputCtx.StdoutCtx = sc
+			outputCtx.ToWhere |= outputFlag.OutToStdout
+		}
 
 		if sc != nil { // Stdout对计数器的输出需要手动注册
-			err2 := sc.RegisterCounter(oc.Counter)
+			err2 := sc.RegisterCounter(outputCtx.Counter)
 			err = errors.Join(err, err2)
 		}
 	}
@@ -85,23 +100,34 @@ func NewOutputCtx(outSetting *fuzzTypes.OutputSetting, jobCtx interfaceJobCtx.IF
 	if toWhere&outputFlag.OutToHttp != 0 {
 		httpCtx, err1 := httpOutput.NewHttpOutputCtx(outSetting, jid)
 		err = errors.Join(err, err1)
-		oc.HttpCtx = httpCtx
+		if err1 == nil {
+			outputCtx.HttpCtx = httpCtx
+			outputCtx.ToWhere |= outputFlag.OutToHttp
+		}
 	}
 
 	if toWhere&outputFlag.OutToTview != 0 {
 		tviewCtx, err1 := tviewOutput.NewTviewOutputCtx(outSetting, jobCtx, jid)
 		err = errors.Join(err, err1)
-		oc.TviewOutputCtx = tviewCtx
+		if err1 == nil {
+			outputCtx.TviewOutputCtx = tviewCtx
+			outputCtx.ToWhere |= outputFlag.OutToTview
+		}
+
+		if tviewCtx != nil {
+			err2 := tviewCtx.RegisterCounter(outputCtx.Counter)
+			err = errors.Join(err, err2)
+		}
 	}
 
-	return oc, nil
+	return outputCtx, nil
 }
 
 // Output 向输出上下文中输出数据
 func (c *Ctx) Output(obj *OutObj) error {
 	c.Wg.Add(1)
 	defer c.Wg.Done()
-	toWhere := c.OutSetting.ToWhere
+	toWhere := c.ToWhere
 
 	var err error
 
@@ -125,13 +151,17 @@ func (c *Ctx) Output(obj *OutObj) error {
 		err = errors.Join(err, c.HttpCtx.Output(obj))
 	}
 
+	if toWhere&outputFlag.OutToTview != 0 {
+		err = errors.Join(err, c.TviewOutputCtx.Output(obj))
+	}
+
 	return err
 }
 
 // Close 关闭一个输出上下文（此函数会阻塞直到所有输出、日志都完成才真正关闭）
 func (c *Ctx) Close() error {
 	c.Wg.Wait()
-	toWhere := c.OutSetting.ToWhere
+	toWhere := c.ToWhere
 	var err error
 
 	if toWhere&outputFlag.OutToFile != 0 {
@@ -162,7 +192,7 @@ func (c *Ctx) Log(log *outputable.Log) error {
 	c.Wg.Add(1)
 	defer c.Wg.Done()
 
-	toWhere := c.OutSetting.ToWhere
+	toWhere := c.ToWhere
 	var err error
 
 	if toWhere&outputFlag.OutToFile != 0 {
@@ -183,6 +213,10 @@ func (c *Ctx) Log(log *outputable.Log) error {
 
 	if toWhere&outputFlag.OutToHttp != 0 {
 		err = errors.Join(err, c.HttpCtx.Log(log))
+	}
+
+	if toWhere&outputFlag.OutToTview != 0 {
+		err = errors.Join(err, c.TviewOutputCtx.Log(log))
 	}
 
 	return err

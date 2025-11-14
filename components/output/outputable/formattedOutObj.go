@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
+	"strings"
 	"unsafe"
 )
 
-var coloredSplit = "[----------------------------------------------------------------------------------------------------](fg:red)"
-var split = "----------------------------------------------------------------------------------------------------"
+const strNil = "{nil}"
 
 func outObj2Json(obj *OutObj) []byte {
 	outObjJson, err := json.Marshal(obj)
@@ -29,144 +30,221 @@ func outObj2Xml(obj *OutObj) []byte {
 	return outObjXml
 }
 
-func obj2NativeFmt(obj *OutObj, verbosity int) []byte {
-	bb := bytes.Buffer{}
-	var respFirstLine []byte
-
-	if obj == nil {
-		return nil
+func getBytesFirstLine(b []byte) []byte {
+	i := -1
+	if i = bytes.Index(b, []byte("\r\n")); i != -1 {
+		return b[:i]
 	}
-
-	if obj.Response != nil && obj.Response.RawResponse != nil {
-		if i := bytes.Index(obj.Response.RawResponse, []byte{'\n'}); i == -1 {
-			respFirstLine = obj.Response.RawResponse
-		} else {
-			respFirstLine = obj.Response.RawResponse[:i]
-		}
+	if i = bytes.IndexByte(b, '\n'); i != -1 {
+		return b[:i]
 	}
-
-	if len(respFirstLine) == 0 {
-		respFirstLine = []byte{'[', 'n', 'i', 'l', ']'}
-	}
-	if respFirstLine[len(respFirstLine)-1] == '\r' {
-		respFirstLine = respFirstLine[:len(respFirstLine)-1]
-	}
-	writeFmtStr := func(title string, val string) {
-		if val == "" {
-			return
-		}
-		bb.WriteString(fmt.Sprintf("%-8s : %s\n", title, val))
-	}
-	// 输出fuzz关键字和payload
-	if len(obj.Keywords) != 0 {
-		bb.WriteString("PAYLOAD :\n")
-		if len(obj.Keywords) == 1 {
-			bb.WriteString(fmt.Sprintf("    %s", obj.Keywords[0]))
-			bb.WriteByte('\n')
-		} else {
-			for i, k := range obj.Keywords {
-
-				bb.WriteString(fmt.Sprintf("    %-8s : %s", k, obj.Payloads[i]))
-				bb.WriteByte('\n')
-			}
-		}
-	}
-	// 输出响应相关数据
-	resp := obj.Response
-	bb.WriteString(fmt.Sprintf("RESPONSE : [SIZE = %d|LINES = %d|WORDS = %d|TIME = %dms", resp.Size, resp.Lines,
-		resp.Words, resp.ResponseTime.Milliseconds()))
-	if resp.HttpResponse != nil {
-		bb.WriteString(fmt.Sprintf("|HTTP_CODE = %d", resp.HttpResponse.StatusCode))
-	}
-	bb.Write([]byte{']', '\n'})
-
-	// 输出Reaction自定义消息以及错误信息
-	writeFmtStr("MESSAGE", obj.Msg)
-	writeFmtStr("ERROR", resp.ErrMsg)
-
-	// 根据输出详细程度输出其它信息
-	switch verbosity {
-	case 1:
-		bb.WriteString(fmt.Sprintf(" └> %s\n", string(respFirstLine)))
-	case 2:
-		writeFmtStr("URL", obj.Request.URL)
-		writeFmtStr("REQ_DATA", string(obj.Request.Data))
-		bb.WriteString(fmt.Sprintf(" └> %s\n", string(respFirstLine)))
-	case 3:
-		j, _ := json.MarshalIndent(obj.Request, "", "  ")
-		bb.Write(j)
-		bb.Write([]byte("\n    |\n    V\n"))
-		bb.Write(obj.Response.RawResponse)
-		bb.WriteByte('\n')
-	}
-	bb.WriteString(split)
-	return bb.Bytes()
+	return b
 }
 
-func obj2ColoredNativeFmt(obj *OutObj, verbosity int) []byte {
-	bb := bytes.Buffer{}
-	var respFirstLine []byte
-	if i := bytes.Index(obj.Response.RawResponse, []byte{'\n'}); i == -1 {
-		respFirstLine = obj.Response.RawResponse
+func clearColors(colors []string, useColor bool) {
+	if useColor {
+		return
+	}
+	for i, _ := range colors {
+		colors[i] = ""
+	}
+}
+
+func getColorSplitter(color bool) string {
+	if color {
+		return "[-]"
+	}
+	return ""
+}
+
+func kwPlPair(keywords, payloads []string, color bool, level int) string {
+	sb := strings.Builder{}
+	sp := getColorSplitter(color)
+	indent := strings.Repeat("\t", level)
+	colors := []string{"[#3af4f1]"}
+	clearColors(colors, color)
+	for i := 0; i < len(keywords) && i < len(payloads); i++ {
+		sb.WriteString(indent)
+		sb.WriteString(colors[0])
+		sb.WriteString(keywords[i])
+		sb.WriteString(sp)
+		sb.WriteString(" : ")
+		sb.WriteString(payloads[i])
+		sb.WriteByte('\n')
+	}
+	if sb.Len() == 0 {
+		sb.WriteString(indent)
+		sb.WriteString(strNil)
+		sb.WriteByte('\n')
+	}
+	return sb.String()
+}
+
+func resp2FmtNative(resp *fuzzTypes.Resp, color bool, verbosity int) string {
+	sb := strings.Builder{}
+
+	defer sb.WriteByte('\n')
+
+	if resp == nil {
+		sb.WriteString("{nil response}\n")
+		return sb.String()
+	}
+
+	colors := []string{"[#46f758]", "[blue]", "[#3af4f1]", "[orange]", "[#ff5bee]"}
+	colorSp := getColorSplitter(color)
+	clearColors(colors, color)
+
+	httpStat := 0
+	if resp.HttpResponse != nil {
+		httpStat = resp.HttpResponse.StatusCode
+	}
+	sb.WriteString(
+		fmt.Sprintf(
+			"%sRESP_STATUS%s : {%sSIZE%s: %d|%sLINES%s: %d|%sWORDS%s: %d|%sTIME%s: %v|%sHTTP_STATUS%s: %d}\n",
+			colors[4], colorSp, colors[2], colorSp, resp.Size, colors[2], colorSp, resp.Lines, colors[2], colorSp,
+			resp.Words, colors[2], colorSp, resp.ResponseTime, colors[2], colorSp, httpStat))
+
+	if resp.HttpRedirectChain != "" {
+		sb.WriteString(fmt.Sprintf("%sHTTP_REDIRECT%s : ", colors[3], colorSp))
+		sb.WriteString(resp.HttpRedirectChain)
+	}
+
+	rawRespToWrite := resp.RawResponse
+	if rawRespToWrite == nil {
+		rawRespToWrite = []byte(strNil)
+	} else if len(rawRespToWrite) == 0 {
+		rawRespToWrite = []byte("{empty raw response}")
+	}
+	if verbosity >= 3 {
+		sb.WriteString(fmt.Sprintf("%sRAW_RESPONSE%s↓\n", colors[0], colorSp))
+		sb.Write(rawRespToWrite)
 	} else {
-		respFirstLine = obj.Response.RawResponse[:i]
-	}
-	if len(respFirstLine) == 0 {
-		respFirstLine = []byte{'[', 'n', 'i', 'l', ']'}
-	}
-	if respFirstLine[len(respFirstLine)-1] == '\r' {
-		respFirstLine = respFirstLine[:len(respFirstLine)-1]
-	}
-	writeFmtStr := func(title string, val string) {
-		if val == "" {
-			return
+		sb.WriteString(fmt.Sprintf("%s└>%s ", colors[0], colorSp))
+		sb.WriteString(colors[1])
+
+		rawRespToWrite = getBytesFirstLine(rawRespToWrite)
+		if len(rawRespToWrite) == 0 {
+			rawRespToWrite = []byte("{empty response first line}")
 		}
-		bb.WriteString(fmt.Sprintf("[%-8s](fg:yellow) : %s\n", title, val))
+		sb.Write(rawRespToWrite)
+
+		sb.WriteString(colorSp)
 	}
-	// 输出fuzz关键字和payload
-	if len(obj.Keywords) != 0 {
-		bb.WriteString("[PAYLOAD](fg:yellow) :\n")
-		if len(obj.Keywords) == 1 {
-			bb.WriteString(fmt.Sprintf("    %s", obj.Payloads[0]))
-			bb.WriteByte('\n')
+	sb.WriteByte('\n')
+	return sb.String()
+}
+
+func req2FmtNative(req *fuzzTypes.Req, color bool, verbosity int) string {
+	colors := []string{"[orange]", "[#7589e4]", "[#efc894]", "[#46f758]"}
+	colorSp := getColorSplitter(color)
+	clearColors(colors, color)
+
+	sb := strings.Builder{}
+
+	writeStringColor := func(s string) {
+		sb.WriteString(colors[0])
+		sb.WriteString(s)
+		sb.WriteString(colorSp)
+	}
+
+	writeWTitle := func(content, title string, level int) {
+		sb.Write(bytes.Repeat([]byte{'\t'}, level))
+		writeStringColor(title)
+		sb.WriteString(" : ")
+		if content == "" {
+			sb.WriteString(strNil)
 		} else {
-			for i, k := range obj.Keywords {
-				bb.WriteString(fmt.Sprintf("    [%-8s](fg:blue) : %s", k, obj.Payloads[i]))
-				bb.WriteByte('\n')
+			sb.WriteString(content)
+		}
+		sb.WriteByte('\n')
+	}
+
+	switch verbosity {
+	case 2:
+		url := ""
+		if req != nil {
+			url = req.URL
+		}
+		writeWTitle(url, "URL", 0)
+		return sb.String()
+	case 3:
+		sb.WriteString(fmt.Sprintf("%sREQUEST%s>\n", colors[1], colorSp))
+		if req == nil {
+			sb.WriteByte('\t')
+			sb.WriteString(strNil)
+			sb.WriteByte('\n')
+			return sb.String()
+		}
+
+		writeWTitle(req.HttpSpec.Method, "METHOD", 1)
+		writeWTitle(req.URL, "URL", 1)
+		writeWTitle(req.HttpSpec.Proto, "HTTP_PROTO", 1)
+
+		sb.WriteString(fmt.Sprintf("\t%sHTTP_HEADERS%s>\n", colors[3], colorSp))
+		if len(req.HttpSpec.Headers) == 0 {
+			sb.WriteString("\t\t")
+			sb.WriteString(strNil)
+		} else {
+			for i, h := range req.HttpSpec.Headers {
+				sb.WriteString("\t\t")
+				sb.WriteString(h)
+				if i != len(req.HttpSpec.Headers)-1 {
+					sb.WriteByte('\n')
+				}
 			}
 		}
+		sb.WriteByte('\n')
+
+		sb.WriteString(fmt.Sprintf("\t%sFIELDS%s>\n", colors[3], colorSp))
+		if len(req.Fields) == 0 {
+			sb.WriteString("\t\t")
+			sb.WriteString(strNil)
+			sb.WriteByte('\n')
+		} else {
+			for _, f := range req.Fields {
+				writeWTitle(f.Value, f.Name, 2)
+			}
+		}
+
+		sb.WriteString(fmt.Sprintf("\t%sDATA%s : ", colors[1], colorSp))
+		dataToWrite := []byte(strNil)
+		if len(req.Data) != 0 {
+			dataToWrite = req.Data
+		}
+		sb.WriteByte('`')
+		sb.WriteString(colors[2])
+		sb.Write(dataToWrite)
+		sb.WriteString(colorSp)
+		sb.WriteByte('`')
 	}
-	// 输出响应相关数据
-	resp := obj.Response
-	bb.WriteString(fmt.Sprintf("[RESPONSE](fg:yellow) : {SIZE = %d|LINES = %d|WORDS = %d|TIME = %dms",
-		resp.Size, resp.Lines, resp.Words, resp.ResponseTime.Milliseconds()))
-	if resp.HttpResponse != nil {
-		bb.WriteString(fmt.Sprintf("|HTTP_CODE = %d", resp.HttpResponse.StatusCode))
+	sb.WriteByte('\n')
+	return sb.String()
+}
+
+func nativeOutObj(obj *OutObj, color bool, verbosity int) []byte {
+	if obj == nil {
+		return []byte(strNil)
 	}
-	bb.Write([]byte{'}', '\n'})
-	if resp.HttpRedirectChain != "" {
-		writeFmtStr("HTTP_RDR", resp.HttpRedirectChain)
+	colors := []string{"[#3af4f1]", "[#7589e4]", "[red]"}
+	colorSp := getColorSplitter(color)
+	clearColors(colors, color)
+	buf := bytes.Buffer{}
+	tagWColor := func(tag string) {
+		buf.WriteString(fmt.Sprintf("%s%s%s>\n", colors[1], tag, colorSp))
 	}
-	// 输出Reaction自定义消息以及错误信息
-	writeFmtStr("MESSAGE", obj.Msg)
-	writeFmtStr("ERROR", resp.ErrMsg)
-	// 根据输出详细程度输出其它信息
-	switch verbosity {
-	case 1:
-		bb.WriteString(fmt.Sprintf(" [└>](fg:green) [%s](fg:cyan)\n", string(respFirstLine)))
-	case 2:
-		writeFmtStr("URL", obj.Request.URL)
-		writeFmtStr("REQ_DATA", string(obj.Request.Data))
-		bb.WriteString(fmt.Sprintf(" [└>](fg:green) [%s](fg:cyan)\n", string(respFirstLine)))
-	case 3:
-		j, _ := json.MarshalIndent(obj.Request, "", "  ")
-		bb.Write(j)
-		bb.WriteString("\n    |\n    V\n")
-		bb.Write(obj.Response.RawResponse)
-		bb.WriteByte('\n')
+	if verbosity == 3 {
+		buf.WriteString(fmt.Sprintf("JOB#%s%d%s\n", colors[0], obj.Jid, colorSp))
 	}
-	bb.WriteString(coloredSplit)
-	return bb.Bytes()
+	tagWColor("PAYLOADS")
+	buf.WriteString(kwPlPair(obj.Keywords, obj.Payloads, color, 1))
+	buf.WriteString(req2FmtNative(obj.Request, color, verbosity))
+	if obj.Msg != "" {
+		buf.WriteString(fmt.Sprintf("%sMSG%s : ", colors[2], colorSp))
+		buf.WriteString(obj.Msg)
+		buf.WriteByte('\n')
+	}
+	buf.WriteString(resp2FmtNative(obj.Response, color, verbosity))
+	return buf.Bytes()
 }
 
 // ToFormatBytes 将OutObj转化为特定表示格式的字节流
@@ -177,7 +255,7 @@ func (o *OutObj) ToFormatBytes(format string, color bool, verbosity int) []byte 
 	case "json", "json-line":
 		return outObj2Json(o)
 	case "native":
-		return obj2NativeFmt(o, verbosity)
+		return nativeOutObj(o, color, verbosity)
 	}
 
 	return nil

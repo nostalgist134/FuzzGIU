@@ -1,4 +1,4 @@
-package doHttp
+package requestHttp
 
 import (
 	"bytes"
@@ -79,7 +79,7 @@ func fuzzReq2HttpReq(fuzzReq *fuzzTypes.Req) (*http.Request, error) {
 		return nil, err
 	}
 	// proto，即HTTP/1.1部分
-	httpReq.Proto = fuzzReq.HttpSpec.Version
+	httpReq.Proto = fuzzReq.HttpSpec.Proto
 	// http请求头部分
 	for i := 0; i < len(fuzzReq.HttpSpec.Headers); i++ {
 		indColon := strings.Index(fuzzReq.HttpSpec.Headers[i], ":")
@@ -152,7 +152,7 @@ func DoRequestHttp(reqCtx *fuzzTypes.RequestCtx, timeout int, httpRedirect bool,
 	request := reqCtx.Request
 
 	// HTTP/1.x 使用FastHTTP
-	if request.HttpSpec.Version != "HTTP/2" {
+	if request.HttpSpec.Proto != "HTTP/2" {
 		return doRequestFastHttp(reqCtx, timeout, httpRedirect, retry, retryCode, retryRegex, proxy)
 	}
 

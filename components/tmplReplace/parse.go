@@ -17,7 +17,7 @@ func req2Str(req *fuzzTypes.Req) (stringified string, splitter string) {
 	sb.WriteString(req.URL)
 	sb.WriteString(splitter)
 
-	sb.WriteString(req.HttpSpec.Version)
+	sb.WriteString(req.HttpSpec.Proto)
 	sb.WriteString(splitter)
 
 	for _, header := range req.HttpSpec.Headers {

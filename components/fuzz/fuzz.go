@@ -62,7 +62,6 @@ func handleReaction(jobCtx *fuzzCtx.JobCtx, r *fuzzTypes.Reaction) (stopJob bool
 		if k != nil && p != nil {
 			jobCtx.OutputCtx.LogFmtMsg("Job#%d task with %s:%s added Job", jobCtx.JobId, k, p)
 		}
-		newJobs = make([]*fuzzTypes.Fuzz, 0)
 		newJobs = append(newJobs, r.NewJob)
 	}
 
@@ -186,7 +185,6 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 		return
 	}
 
-	defer func() { err = errors.Join(err, jobCtx.Close()) }()
 	defer func() { // 此defer语句必须在输出上下文关闭前执行，因此放在上面这行的下面
 		timeLapsed = time.Since(timeStart)
 		err = errors.Join(err, outCtx.LogFmtMsg("job#%d completed, time spent: %v", jobCtx.JobId, timeLapsed))
@@ -210,8 +208,8 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 		iterName := job.Control.IterCtrl.Iterator.Name
 		// sniper模式或者递归模式，仅允许单个fuzz关键字
 		if iterName == "sniper" || job.React.RecursionControl.MaxRecursionDepth > 0 {
-			if iter.Iterator.Name == "sniper" {
-				iterateLen *= parsedTmpl.KeywordCount(0)
+			if iter.Iterator.Name == "sniper" { // sniper模式的迭代长度=关键字的payload列表长度*关键字出现次数
+				iterateLen = parsedTmpl.KeywordCount(0) * lengths[0]
 			}
 			routinePool.RegisterExecutor(taskSingleKeyword, rp.ExecMajor)
 		} else { // 多关键字模式
@@ -323,23 +321,48 @@ var (
 	errNilJobCtxProvided = errors.New("nil job context provided")
 )
 
-func NewJobCtx(job *fuzzTypes.Fuzz, parentId int, globCtx context.Context,
-	globCancel context.CancelFunc) (jobCtx *fuzzCtx.JobCtx, err error) {
+func NewJobCtx(job *fuzzTypes.Fuzz, parentId int, ctx context.Context,
+	cancel context.CancelFunc) (jobCtx *fuzzCtx.JobCtx, err error) {
 	if job == nil {
 		err = errNilJobProvided
 		return
 	}
-	if err = ValidateJob(job); err != nil {
+
+	if err = ValidateJob(job); err != nil { // 先校验当前job是否有效
 		return nil, fmt.Errorf("failed to validate job: %w", err)
 	}
 	jid := getJobId()
 
-	var outCtx *output.Ctx
-	// 初始化输出流
-	outCtx, err = output.NewOutputCtx(&job.Control.OutSetting, jobCtx, jid)
+	// 分配一个新的协程池
+	var routinePool *rp.RoutinePool
+	routinePool, err = rp.NewRp(job.Control.PoolSize)
 	if err != nil {
 		return
 	}
+
+	if cancel == nil || ctx == nil {
+		ctx, cancel = context.WithCancel(context.Background())
+	}
+
+	jobCtx = &fuzzCtx.JobCtx{
+		JobId:    jid,
+		ParentId: parentId,
+		RP:       routinePool,
+		Job:      job,
+		Cancel:   cancel,
+		GlobCtx:  ctx,
+	}
+
+	// 新建一个输出上下文
+	var outCtx *output.Ctx
+	outCtx, err = output.NewOutputCtx(&job.Control.OutSetting, jobCtx, jid)
+	if err != nil {
+		if outCtx != nil {
+			err = errors.Join(err, outCtx.Close())
+		}
+		return
+	}
+	jobCtx.OutputCtx = outCtx
 
 	// 预加载插件
 	if err = preLoadJobPlugin(job); err != nil {
@@ -348,21 +371,6 @@ func NewJobCtx(job *fuzzTypes.Fuzz, parentId int, globCtx context.Context,
 		return
 	}
 
-	routinePool := rp.NewRp(job.Control.PoolSize)
-
-	if globCancel == nil || globCtx == nil {
-		globCtx, globCancel = context.WithCancel(context.Background())
-	}
-
-	jobCtx = &fuzzCtx.JobCtx{
-		JobId:     jid,
-		ParentId:  parentId,
-		RP:        routinePool,
-		Job:       job,
-		OutputCtx: outCtx,
-		Cancel:    globCancel,
-		GlobCtx:   globCtx,
-	}
 	return
 }
 
@@ -377,5 +385,6 @@ func DoJobByCtx(jobCtx *fuzzCtx.JobCtx) (jid int, timeLapsed time.Duration, subJ
 	}
 	jid = jobCtx.JobId
 	timeLapsed, subJobs, err = doJobInter(jobCtx)
+	err = jobCtx.Close()
 	return
 }

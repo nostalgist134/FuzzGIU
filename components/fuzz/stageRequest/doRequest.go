@@ -1,8 +1,8 @@
-package stageDoReq
+package stageRequest
 
 import (
-	"github.com/nostalgist134/FuzzGIU/components/fuzz/stageDoReq/doHttp"
-	"github.com/nostalgist134/FuzzGIU/components/fuzz/stageDoReq/doWs"
+	"github.com/nostalgist134/FuzzGIU/components/fuzz/stageRequest/requestHttp"
+	"github.com/nostalgist134/FuzzGIU/components/fuzz/stageRequest/requestWs"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/nostalgist134/FuzzGIU/components/plugin"
 	"net/url"
@@ -24,7 +24,7 @@ func DoRequest(rCtx *fuzzTypes.RequestCtx, scheme string) *fuzzTypes.Resp {
 		uScheme = scheme
 	} else {
 		if rCtx.Request.URL == "" { // URL为空
-			ret = &fuzzTypes.Resp{ErrMsg: "empty URL to request"}
+			ret = &fuzzTypes.Resp{ErrMsg: "empty url to request"}
 			return ret
 		}
 		u, err := url.Parse(rCtx.Request.URL)
@@ -37,14 +37,14 @@ func DoRequest(rCtx *fuzzTypes.RequestCtx, scheme string) *fuzzTypes.Resp {
 
 	switch uScheme {
 	case "http", "https", "": // 若没有scheme，默认使用http
-		resp, sendErr := doHttp.DoRequestHttp(rCtx, rCtx.Timeout, rCtx.HttpFollowRedirects,
+		resp, sendErr := requestHttp.DoRequestHttp(rCtx, rCtx.Timeout, rCtx.HttpFollowRedirects,
 			rCtx.Retry, rCtx.RetryCode, rCtx.RetryRegex, rCtx.Proxy)
 		if sendErr != nil && resp != nil && resp.ErrMsg == "" {
 			resp.ErrMsg = sendErr.Error()
 		}
 		ret = resp
 	case "ws", "wss":
-		ret = doWs.DoRequestWs(rCtx.Request, rCtx.Timeout, rCtx.Retry, rCtx.RetryRegex)
+		ret = requestWs.DoRequestWs(rCtx.Request, rCtx.Timeout, rCtx.Retry, rCtx.RetryRegex)
 	default:
 		p := fuzzTypes.Plugin{Name: uScheme}
 		ret = plugin.DoRequest(p, rCtx)

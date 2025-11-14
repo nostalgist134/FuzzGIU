@@ -9,7 +9,7 @@ import (
 func TestPluginMarshal(t *testing.T) {
 	p := Plugin{
 		Name: "NISHIGIU",
-		Args: []any{"NSGIU", 1, 9.0, false, "WOSHIGIU", -3},
+		Args: []any{"NSGIU", 1, 9.0, false, `WOSH"IGIU`, -3},
 	}
 	b, _ := json.Marshal(p)
 	fmt.Println(string(b))
@@ -24,7 +24,7 @@ func TestPluginMarshal(t *testing.T) {
 	r := wrapped{
 		A: 3,
 		B: 4,
-		C: Plugin{"NAME", []any{"woshigiu", 3, 9.7, false}},
+		C: Plugin{"NAME", []any{"wosh\"'igiu", 3, 9.7, false}},
 	}
 	b, _ = json.Marshal(r)
 	fmt.Println(string(b))

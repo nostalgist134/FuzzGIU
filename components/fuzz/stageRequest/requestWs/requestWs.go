@@ -1,4 +1,4 @@
-package doWs
+package requestWs
 
 import (
 	"bytes"

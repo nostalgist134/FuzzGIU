@@ -1,7 +1,6 @@
 package outCtx
 
 import (
-	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	co "github.com/nostalgist134/FuzzGIU/components/output/chanOutput"
 	"github.com/nostalgist134/FuzzGIU/components/output/counter"
 	fo "github.com/nostalgist134/FuzzGIU/components/output/fileOutput"
@@ -18,7 +17,7 @@ type OutputCtx struct {
 	ChanOutputCtx  *co.Ctx
 	StdoutCtx      *stdout.Ctx
 	HttpCtx        *httpOutput.Ctx
-	OutSetting     fuzzTypes.OutputSetting
+	ToWhere        int32
 	Counter        *counter.Counter
 	Wg             sync.WaitGroup
 }

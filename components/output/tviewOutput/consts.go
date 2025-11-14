@@ -3,13 +3,8 @@ package tviewOutput
 const (
 	IndJobInfo = iota
 	IndCounter
-	IndOutputs
+	IndOutput
 	IndLogs
-
-	titleJobInfo       = "JOB_INFO"
-	titleOutput        = "OUTPUT"
-	titleCounter       = "PROGRESS"
-	titlePausedCounter = "PROGRESS(PAUSED)"
-	titleLogger        = "LOGS"
-	titleLockedOutput  = "OUTPUT(LOCKED)"
+	IndOutputLocked
+	IndLogsLocked
 )

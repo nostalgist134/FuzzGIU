@@ -67,8 +67,8 @@ func parseHttpRequest(fileName string) (*fuzzTypes.Req, error) {
 		URL:  path,
 		Data: body,
 		HttpSpec: fuzzTypes.HTTPSpec{
-			Method:  method,
-			Version: version,
+			Method: method,
+			Proto:  version,
 		},
 	}
 

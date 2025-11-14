@@ -28,9 +28,10 @@ type ReplaceTemplate struct {
 
 var bp = new(reusablebytes.BytesPool).Init(128, 131072, 128)
 
-const phSplitter = 0
-
-const minimumFields = 4
+const (
+	phSplitter    = 0
+	minimumFields = 4
+)
 
 func toBytes(s string) []byte {
 	return unsafe.Slice(unsafe.StringData(s), len(s))
@@ -40,7 +41,7 @@ func toBytes(s string) []byte {
 func strings2Req(req *fuzzTypes.Req, fields []string, headerNum int) {
 	req.HttpSpec.Method = fields[0]
 	req.URL = fields[1]
-	req.HttpSpec.Version = fields[2]
+	req.HttpSpec.Proto = fields[2]
 	i := 3
 
 	if headerNum != 0 {

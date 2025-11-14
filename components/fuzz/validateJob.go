@@ -9,18 +9,40 @@ import (
 )
 
 var (
-	errNilJob        = errors.New("job is nil")
-	errNoKeywords    = errors.New("job has no fuzz keywords")
-	errEmptyIterator = errors.New("job uses a empty iterator")
-	errMultiKeywords = errors.New("job specified sniper or recursion but provided multiple keywords")
+	errNilJob               = errors.New("job is nil")
+	errNoKeywords           = errors.New("job has no fuzz keywords")
+	errEmptyIterator        = errors.New("job uses a empty iterator")
+	errEmptyURL             = errors.New("job uses a empty url")
+	errMultiKeywords        = errors.New("job specified sniper or recursion but provided multiple keywords")
+	errPreprocPathTraverse  = errors.New("preprocessors have path traverse")
+	errReactPathTraverse    = errors.New("reactor plugin has path traverse")
+	errIteratorPathTraverse = errors.New("iterator plugin has path traverse")
 )
 
-// ValidateJob 判断一个任务是否可执行
+func pluginPathTraverse(p fuzzTypes.Plugin) bool {
+	pName := strings.Replace(p.Name, "\\", "/", -1)
+	if strings.Contains(pName, "../") || strings.Contains(pName, "/..") {
+		return true
+	}
+	return false
+}
+
+func pluginsPathTraverse(plugins []fuzzTypes.Plugin) bool {
+	for _, p := range plugins {
+		if pluginPathTraverse(p) {
+			return true
+		}
+	}
+	return false
+}
+
+// ValidateJob 判断一个任务是否能够正常执行
 func ValidateJob(job *fuzzTypes.Fuzz) error {
-	var errTot error
 	if job == nil {
 		return errNilJob
 	}
+
+	var errTot error
 	kwCount := len(job.Preprocess.PlTemp)
 	if kwCount == 0 {
 		errTot = errors.Join(errTot, errNoKeywords)
@@ -37,10 +59,24 @@ func ValidateJob(job *fuzzTypes.Fuzz) error {
 			}
 		}
 		if pl.Generators.Type != "wordlist" && pl.Generators.Type != "plugin" {
-			errTot = errors.Join(errTot, fmt.Errorf("unsupported payload generator type '%s' for keyword '%s'",
-				pl.Generators.Type, kw))
+			errTot = errors.Join(errTot,
+				fmt.Errorf("unsupported payload generator type '%s' for keyword '%s'", pl.Generators.Type, kw))
+		} else if pl.Generators.Type == "plugin" && pluginsPathTraverse(pl.Generators.Gen) {
+			errTot = errors.Join(errTot, fmt.Errorf("keyword '%s' generator has path traverse", kw))
+		}
+		if pluginsPathTraverse(pl.Processors) {
+			errTot = errors.Join(errTot, fmt.Errorf("keyword '%s' processor has path traverse", kw))
 		}
 		i++
+	}
+	if pluginsPathTraverse(job.Preprocess.Preprocessors) {
+		errTot = errors.Join(errTot, errPreprocPathTraverse)
+	}
+	if pluginPathTraverse(job.Control.IterCtrl.Iterator) {
+		errTot = errors.Join(errTot, errIteratorPathTraverse)
+	}
+	if pluginPathTraverse(job.React.Reactor) {
+		errTot = errors.Join(errTot, errReactPathTraverse)
 	}
 	if retry := job.Request.Retry; retry < 0 {
 		errTot = errors.Join(errTot, fmt.Errorf("invalid count of retry %d", retry))
@@ -63,6 +99,9 @@ func ValidateJob(job *fuzzTypes.Fuzz) error {
 	}
 	if len(keywords) > 1 && (iter.Iterator.Name == "sniper" || job.React.RecursionControl.MaxRecursionDepth > 0) {
 		errTot = errors.Join(errTot, errMultiKeywords)
+	}
+	if job.Preprocess.ReqTemplate.URL == "" {
+		errTot = errors.Join(errTot, errEmptyURL)
 	}
 	return errTot
 }

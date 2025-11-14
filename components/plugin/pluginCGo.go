@@ -164,8 +164,8 @@ func callSharedLib(p fuzzTypes.Plugin, relPath string, writeBuffer *reusablebyte
 		case string:
 			// 将字符串存到切片中，每个字符串的地址不同，就不会导致参数污染
 			// 注意：在底层string类型是一个{char *buffer, int len}的结构体，但在汇编层面是没有结构这个概念的，
-			// 一个寄存器最大就8字节，因此如果函数传入的结构体参数，且结构若大小大于8，则通过结构体指针传递，因此这
-			// 里可以直接传string的地址，因为PluginWrapper也是通过string作为参数
+			// 一个寄存器最大就8字节，因此如果函数传入的结构体参数，且结构若大小大于8，在gcc中编译之后会通过结构体
+			// 指针传递，因此这里可以直接传string的地址，因为PluginWrapper也是通过string作为参数
 			strCache[j] = p.Args[k].(string)
 			argList[i] = uintptr(unsafe.Pointer(&strCache[j]))
 			j++
@@ -218,7 +218,7 @@ fgpk(github.com/nostalgist134/FuzzGIUpluginkit)这套工具链，使用fgpk编�
 这里要搞这么多弯弯绕绕纯粹是因为go的原生plugin库不支持windows，因此只能采用cgo和build-mode=c-shared做中间层，傻逼go语言
 
 原先还设计了另一套注册->调用框架，会把插件函数和参数都注册到registry中，但是我发现这种框架难以描述需要在单次调用过程中多次调用同一个插件的过程，因
-此先放在那，目前参数还是调用时动态传入
+此放弃了，目前参数还是调用时动态传入
 
 插件一旦加载就无法卸载，这是因为虽然go提供了syscall.FreeLibrary，但是linux/macOS端使用go原生plugin实现，它们是没办法卸载动态库的，保持一致；
 还有就是我发现在go中使用syscall.FreeLibrary必定导致io错乱，io系列包会变得完全不可用，一用就直接退出程序
@@ -461,7 +461,11 @@ func IterLen(p fuzzTypes.Plugin, lengths []int) int {
 	lengthsBytes, id := ints2Bytes(lengths)
 	defer bp.Put(id)
 
-	iterLen, err := callSharedLib(p, RelPathIterator, nil, lengthsBytes)
+	// iterLen不会使用这个参数，但是这个参数是写死在pluginWrapper中的，因此还是需要传一个非nil避免参数列表不对齐
+	foo, id2 := bp.Get()
+	defer bp.Put(id2)
+
+	iterLen, err := callSharedLib(p, RelPathIterator, foo, lengthsBytes)
 	if err != nil {
 		iterLen = -1
 	}

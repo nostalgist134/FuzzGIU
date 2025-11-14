@@ -27,7 +27,7 @@ func test2Exec(*fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 func BenchmarkRp(b *testing.B) {
 	b.ReportAllocs()
 	for j := 0; j < b.N; j++ {
-		p := NewRp(10)
+		p, _ := NewRp(10)
 		p.RegisterExecutor(testExec, ExecMajor)
 		p.RegisterExecutor(test2Exec, ExecMinor)
 		p.Start()
@@ -62,7 +62,7 @@ func BenchmarkRp(b *testing.B) {
 }
 
 func TestRp(t *testing.T) {
-	p := NewRp(10)
+	p, _ := NewRp(10)
 	p.RegisterExecutor(testExec, ExecMajor)
 	p.RegisterExecutor(test2Exec, ExecMinor)
 	p.Start()
@@ -103,7 +103,7 @@ func TestRp(t *testing.T) {
 }
 
 func TestRpResize(t *testing.T) {
-	p := NewRp(25)
+	p, _ := NewRp(25)
 	p.Start()
 	p.Resize(15)
 	time.Sleep(3 * time.Second)

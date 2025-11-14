@@ -1,4 +1,4 @@
-package doHttp
+package requestHttp
 
 import (
 	"crypto/tls"
@@ -38,7 +38,7 @@ func fuzzReq2FHReq(fr *fuzzTypes.Req, fhr *fasthttp.Request) {
 		u.SetScheme("https")
 	}
 	fhr.SetURI(u)
-	fhr.Header.SetProtocol(fr.HttpSpec.Version)
+	fhr.Header.SetProtocol(fr.HttpSpec.Proto)
 	for _, h := range fr.HttpSpec.Headers {
 		indCol := strings.Index(h, ":")
 		headerName := ""

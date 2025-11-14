@@ -11,6 +11,8 @@ import (
 	"strings"
 )
 
+// 笑死我了，这个文件怎么也变得这么长
+
 // 从字典文件中按行读取payload，跳过空行，用于wordlist generator
 func readLines(path string) ([]string, error) {
 	file, err := os.Open(path)

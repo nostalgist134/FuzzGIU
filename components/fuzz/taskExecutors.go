@@ -3,9 +3,9 @@ package fuzz
 import (
 	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/fuzz/fuzzCtx"
-	"github.com/nostalgist134/FuzzGIU/components/fuzz/stageDoReq"
 	"github.com/nostalgist134/FuzzGIU/components/fuzz/stagePreprocess"
 	"github.com/nostalgist134/FuzzGIU/components/fuzz/stageReact"
+	"github.com/nostalgist134/FuzzGIU/components/fuzz/stageRequest"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/nostalgist134/FuzzGIU/components/resourcePool"
 	"github.com/nostalgist134/FuzzGIU/components/tmplReplace"
@@ -56,7 +56,7 @@ func taskMultiKeyword(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 
 	rc.Request.HttpSpec.ForceHttps = job.Preprocess.ReqTemplate.HttpSpec.ForceHttps
 
-	resp := stageDoReq.DoRequest(rc, uScheme)
+	resp := stageRequest.DoRequest(rc, uScheme)
 	reaction := stageReact.React(c.JobCtx, rc.Request, resp, keywords, processedPayloads, nil)
 
 	return reaction
@@ -123,7 +123,7 @@ func taskSingleKeyword(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 
 	rc.Request.HttpSpec.ForceHttps = job.Preprocess.ReqTemplate.HttpSpec.ForceHttps
 
-	resp := stageDoReq.DoRequest(rc, uScheme)
+	resp := stageRequest.DoRequest(rc, uScheme)
 
 	reaction := stageReact.React(c.JobCtx, rc.Request, resp, keywords, processedPayloads, recPos)
 
@@ -162,7 +162,7 @@ func taskNoKeywords(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 	addedVia := fmt.Sprintf("add via react by %s:%s", k, p)
 	tmp[0] = addedVia
 
-	resp := stageDoReq.DoRequest(rc, "")
+	resp := stageRequest.DoRequest(rc, "")
 	reaction := stageReact.React(c.JobCtx, rc.Request, resp, []string{""},
 		tmp, nil)
 	return reaction

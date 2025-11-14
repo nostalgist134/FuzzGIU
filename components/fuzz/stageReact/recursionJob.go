@@ -2,7 +2,6 @@ package stageReact
 
 import (
 	"bytes"
-	"github.com/nostalgist134/FuzzGIU/components/common"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"strings"
 )
@@ -98,7 +97,7 @@ func deriveRecursionJob(job *fuzzTypes.Fuzz, reqSend *fuzzTypes.Req, recPos []in
 	recKw := recCtrl.Keyword
 	recSp := recCtrl.Splitter
 
-	recJob := common.CopyFuzz(job)
+	recJob := job.Clone()
 	recJob.Control.IterCtrl.Iterator.Name = ""
 
 	recJob.React.RecursionControl.RecursionDepth++
@@ -116,8 +115,8 @@ func deriveRecursionJob(job *fuzzTypes.Fuzz, reqSend *fuzzTypes.Req, recPos []in
 		derived.URL, recPos, curPos)
 
 	// VERSION
-	derived.HttpSpec.Version, curPos = insertRecursionMarker(recKw, recSp,
-		derived.HttpSpec.Version, recPos, curPos)
+	derived.HttpSpec.Proto, curPos = insertRecursionMarker(recKw, recSp,
+		derived.HttpSpec.Proto, recPos, curPos)
 
 	// HEADERS
 	for i := 0; i < len(derived.HttpSpec.Headers); i++ {

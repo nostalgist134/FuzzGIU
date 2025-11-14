@@ -40,7 +40,7 @@ func stringifyRequest(req *fuzzTypes.Req) string {
 	stringified.WriteString(fmt.Sprintf("\t\tHTTP_METHOD : %s\n", req.HttpSpec.Method))
 	stringified.WriteString("\t\tHTTP_HEADERS>\n")
 	stringified.WriteString(stringifyStringSlice(req.HttpSpec.Headers, 3))
-	stringified.WriteString(fmt.Sprintf("\t\tHTTP_PROTO   : %s\n", req.HttpSpec.Version))
+	stringified.WriteString(fmt.Sprintf("\t\tHTTP_PROTO   : %s\n", req.HttpSpec.Proto))
 	stringified.WriteString(fmt.Sprintf("\t\tFORCE_HTTPS  : %v\n", req.HttpSpec.ForceHttps))
 	stringified.WriteString(fmt.Sprintf("\t\tRANDOM_AGENT : %v\n", req.HttpSpec.RandomAgent))
 
@@ -93,7 +93,7 @@ func stringifyMatch(match *fuzzTypes.Match) string {
 func stringifyIteration(iteration *fuzzTypes.Iteration) string {
 	stringified := strings.Builder{}
 	stringified.WriteString(fmt.Sprintf("\tITERATOR    : %s\n",
-		fuzzTypes.Plugins2Expr([]fuzzTypes.Plugin{iteration.Iterator})))
+		fuzzTypes.Plugin2Expr(iteration.Iterator)))
 	stringified.WriteString(fmt.Sprintf("\tSTART_INDEX : %d", iteration.Start))
 	return stringified.String()
 }
@@ -130,10 +130,10 @@ func stringifyOutputSetting(outSetting *fuzzTypes.OutputSetting) string {
 func stringifyJobInfo(jobInfo *fuzzTypes.Fuzz) string {
 	return fmt.Sprintf(`KEYWORDS>
 %s
+
 REQUEST>
 %s
 
-PROXIES: %v
 MATCHER>
 %s
 
@@ -152,6 +152,8 @@ RECURSION_CONTROL>
 	CURRENT_RECURSION : %d
 	RECURSION_REGEX   : %s
 	RECURSION_CODES   : %s
+
+PROXIES      : %v
 REACTOR      : %s
 PREPROCESSOR : %s
 CONCURRENCY  : %d
@@ -164,7 +166,6 @@ OUTPUT_SETTINGS>
 %s`,
 		stringifyMap(jobInfo.Preprocess.PlTemp),
 		stringifyRequest(&jobInfo.Preprocess.ReqTemplate),
-		jobInfo.Request.Proxies,
 		stringifyMatch(&jobInfo.React.Matcher),
 		stringifyMatch(&jobInfo.React.Filter),
 		jobInfo.Request.HttpFollowRedirects,
@@ -176,7 +177,8 @@ OUTPUT_SETTINGS>
 		jobInfo.React.RecursionControl.RecursionDepth,
 		jobInfo.React.RecursionControl.Regex,
 		stringifyRanges(jobInfo.React.RecursionControl.StatCodes),
-		fuzzTypes.Plugins2Expr([]fuzzTypes.Plugin{jobInfo.React.Reactor}),
+		jobInfo.Request.Proxies,
+		fuzzTypes.Plugin2Expr(jobInfo.React.Reactor),
 		fuzzTypes.Plugins2Expr(jobInfo.Preprocess.Preprocessors),
 		jobInfo.Control.PoolSize,
 		jobInfo.Control.Delay,

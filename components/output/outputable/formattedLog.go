@@ -27,8 +27,11 @@ func log2Xml(log *Log) []byte {
 }
 
 func log2NativeFmt(log *Log) []byte {
-	return []byte(fmt.Sprintf("[LOG @ JOB#%d %s] %s", log.Jid, log.Time.Format("02/01/2006 15:04:05"),
-		log.Msg))
+	if log.Jid != 0 {
+		return []byte(fmt.Sprintf("[LOG @ JOB#%d %s] %s", log.Jid, log.Time.Format("02/01/2006 15:04:05"),
+			log.Msg))
+	}
+	return []byte(fmt.Sprintf("[LOG %s] %s", log.Time.Format("02/01/2006 15:04:05"), log.Msg))
 }
 
 // ToFormatBytes 将log转化为指定格式的字节流表示
@@ -49,6 +52,7 @@ func (log *Log) ToFormatBytes(format string) []byte {
 	}
 }
 
+// ToFormatStr 转为格式化字符串
 func (log *Log) ToFormatStr(format string) string {
 	fmtBytes := log.ToFormatBytes(format)
 	return unsafe.String(&fmtBytes[0], len(fmtBytes))

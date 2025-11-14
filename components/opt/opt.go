@@ -35,6 +35,7 @@ type (
 		Fmt          string `json:"fmt,omitempty"`
 		IgnoreError  bool   `json:"ignore_error,omitempty"`
 		NativeStdout bool   `json:"native_stdout,omitempty"`
+		TviewOutput  bool   `json:"tview_output,omitempty"`
 	}
 	General struct {
 		RoutinePoolSize int    `json:"routine_pool_size,omitempty"`

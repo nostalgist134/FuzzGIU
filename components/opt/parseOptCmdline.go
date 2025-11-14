@@ -56,7 +56,8 @@ func ParseOptCmdline() *Opt {
 	// 请求设置
 	flag.StringVar(&request.URL, "u", "", "url to fuzz")
 	flag.StringVar(&request.Data, "d", "", "request data")
-	flag.StringVar(&request.ReqFile, "r", "", "request file")
+	flag.StringVar(&request.ReqFile, "r", "", "read request(json or http, if parsable) or "+
+		"data(unparsable) from file")
 	flag.StringVar(&request.Method, "X", "GET", "http method")
 	flag.Var(&request.Cookies, "b", "http cookies")
 	flag.Var(&request.Headers, "H", "http headers to be used")
@@ -73,11 +74,11 @@ func ParseOptCmdline() *Opt {
 
 	// 输出设置
 	flag.StringVar(&output.File, "o", "", "file to output")
-	flag.StringVar(&output.Fmt, "fmt", "native", "output file format(native, xml or json. only "+
-		"for file output)")
+	flag.StringVar(&output.Fmt, "fmt", "native", "output format(native, xml or json)")
 	flag.IntVar(&output.Verbosity, "v", 1, "verbosity level(native output format only)")
 	flag.BoolVar(&output.IgnoreError, "ie", false, "ignore errors(will not output error message)")
 	flag.BoolVar(&output.NativeStdout, "ns", false, "native stdout")
+	flag.BoolVar(&output.TviewOutput, "tview", true, "tview output")
 
 	// 递归控制
 	flag.BoolVar(&recursionControl.Recursion, "R", false, "enable recursion mode(only "+

@@ -2,6 +2,7 @@ package libfgiu
 
 import (
 	"context"
+	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/fuzz/fuzzCtx"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"sync"
@@ -36,9 +37,9 @@ func nopExec(*fuzzCtx.JobCtx) (int, time.Duration, []*fuzzTypes.Fuzz, error) {
 }
 
 func newJobExecPool(concurrency int, resultLen int, quitCtx context.Context,
-	cancelFunc context.CancelFunc) *jobExecPool {
-	if concurrency < 1 { // 懒得再写error了，直接返回nil得了
-		return nil
+	cancelFunc context.CancelFunc) (*jobExecPool, error) {
+	if concurrency < 1 {
+		return nil, fmt.Errorf("concurrency %d is invalid", concurrency)
 	}
 	return &jobExecPool{
 		concurrency: concurrency,
@@ -47,7 +48,7 @@ func newJobExecPool(concurrency int, resultLen int, quitCtx context.Context,
 		results:     make(chan result, resultLen),
 		quitCtx:     quitCtx,
 		cancel:      cancelFunc,
-	}
+	}, nil
 }
 
 func (jp *jobExecPool) registerExecutor(executor jobExecutor) {
@@ -59,6 +60,7 @@ func (jp *jobExecPool) registerExecutor(executor jobExecutor) {
 func (jp *jobExecPool) submit(jobCtx *fuzzCtx.JobCtx) bool {
 	select {
 	case jp.jobQueue <- jobCtx:
+		jp.wg.Add(1)
 		return true
 	default:
 		return false
@@ -79,13 +81,14 @@ func (jp *jobExecPool) worker() {
 	for {
 		select {
 		case job := <-jp.jobQueue:
-			jp.wg.Add(1)
+			fmt.Println("[debug] worker got one job")
 			jp.runningJobs.Store(job.JobId, job)
 			jid, timeLapsed, newJobs, err := jp.executor(job)
 			jp.results <- result{jid, timeLapsed, newJobs, err}
 			jp.runningJobs.Delete(job.JobId)
 			jp.wg.Done()
 		case <-jp.quitCtx.Done():
+			fmt.Println("[debug] quit")
 			return
 		}
 	}

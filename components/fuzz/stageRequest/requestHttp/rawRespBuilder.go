@@ -1,4 +1,4 @@
-package doHttp
+package requestHttp
 
 import (
 	"bytes"
@@ -52,14 +52,7 @@ func buildRawHTTPResponse1(resp *fasthttp.Response) ([]byte, []byte) {
 		resp.StatusCode(),
 		resp.Header.StatusMessage())
 	// 写 header
-	resp.Header.VisitAll(func(key, value []byte) {
-		buf.Write(key)
-		buf.WriteString(": ")
-		buf.Write(value)
-		buf.WriteString("\r\n")
-	})
-	// 空行分隔 header 与 body
-	buf.WriteString("\r\n")
+	buf.Write(resp.Header.Header())
 	// 写 body
 	respBody := resp.Body()
 	buf.Write(respBody)

@@ -7,6 +7,7 @@ import (
 	"sync"
 )
 
+// JobCtx 用于描述当前任务的环境 inspired by eprocess win kernel
 type JobCtx struct {
 	JobId     int
 	ParentId  int

@@ -31,7 +31,7 @@ type (
 	HTTPSpec struct {
 		Method      string   `json:"method,omitempty" xml:"method,omitempty"`
 		Headers     []string `json:"headers,omitempty" xml:"header>headers,omitempty"`
-		Version     string   `json:"version,omitempty" xml:"version,omitempty"`
+		Proto       string   `json:"proto,omitempty" xml:"proto,omitempty"`
 		ForceHttps  bool     `json:"force_https,omitempty" xml:"force_https,omitempty"`
 		RandomAgent bool     `json:"http_random_agent,omitempty"`
 	}
@@ -185,7 +185,7 @@ go默认情况下会将json字节中所有的数字转化为float64，这也就�
 插件系统调用约定中仅仅允许int、float64、string以及bool这4种类型的参数，因此其它的就不考虑了
 不过这么做的缺点就是：如果使用的fuzzTypes包没有这套序列化函数，就没办法正常序列化与反序列化，不过这个问题目前也只
 影响preprocessor类插件以及web api，fgpk默认使用github上的最新版fuzzTypes包，大体上没什么问题；但是web api
-提交job就必须提交与这套反序列化相同的job，到时候可能得再搞一套小工具出来
+提交job就必须提交与这套反序列化相同的job，到时候可能得再搞一套小工具出来方便外部使用
 */
 type marshalInterior struct {
 	Name string   `json:"name"`
@@ -230,7 +230,10 @@ func (p *Plugin) UnmarshalJSON(data []byte) error {
 			}
 			p.Args[i] = int(intVal)
 		case "bool":
-			boolVal, _ := strconv.ParseBool(val)
+			boolVal, err := strconv.ParseBool(val)
+			if err != nil {
+				return fmt.Errorf("incorrect %s value at arg index %d", typ, i)
+			}
 			p.Args[i] = boolVal
 		case "float64":
 			floatVal, err := strconv.ParseFloat(val, 64)

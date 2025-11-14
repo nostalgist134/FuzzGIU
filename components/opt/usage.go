@@ -3,13 +3,14 @@ package opt
 import (
 	"flag"
 	"fmt"
+	"github.com/nostalgist134/FuzzGIU/components/version"
 	"os"
 	"strings"
 )
 
 func getSection(name string) string {
 	switch {
-	case name == "u" || name == "d" || name == "r" || name == "t" || name == "timeout" || name == "delay" ||
+	case name == "u" || name == "d" || name == "t" || name == "timeout" || name == "delay" ||
 		name == "input" || name == "in-addr" || name == "passive" || name == "psv-addr" || name == "iter":
 		return "GENERAL"
 	case strings.HasPrefix(name, "m") && name != "mode":
@@ -17,11 +18,11 @@ func getSection(name string) string {
 	case strings.HasPrefix(name, "f") && name != "fmt":
 		return "FILTER"
 	case name == "X" || name == "b" || name == "H" || name == "http2" || name == "F" || name == "s" || name == "x" ||
-		name == "ra":
+		name == "ra" || name == "r":
 		return "REQUEST"
 	case strings.HasPrefix(name, "pl") || name == "w":
 		return "PAYLOAD"
-	case name == "o" || name == "fmt" || name == "v" || name == "ie" || name == "ns":
+	case name == "o" || name == "fmt" || name == "v" || name == "ie" || name == "ns" || name == "tview":
 		return "OUTPUT"
 	case strings.HasPrefix(name, "rec") || name == "R":
 		return "RECURSION"
@@ -37,17 +38,23 @@ func getSection(name string) string {
 	}
 }
 
-func exampleUsage(title string, cmdLines ...string) {
+func exampleUsage(title string, execute bool, cmdLines ...string) {
 	fmt.Println(title + ":")
-	for _, c := range cmdLines {
-		fmt.Printf("    %s %s\n\n", os.Args[0], c)
+	if !execute {
+		for _, c := range cmdLines {
+			fmt.Printf("    %s\n", c)
+		}
+		return
 	}
+	for _, c := range cmdLines {
+		fmt.Printf("    %s %s\n", os.Args[0], c)
+	}
+	fmt.Println()
 }
 
 func usage() {
-	fmt.Printf("Usage of %s:\n", os.Args[0])
-	fmt.Printf("\t%s [options]\n", os.Args[0])
-	fmt.Println("options are shown below. when fuzzGIU is executed without any args,\n" +
+	fmt.Println(version.GetLogoVersionSlogan())
+	fmt.Println("options are shown below. when FuzzGIU is executed without any args,\n" +
 		"it will init and create plugin directory")
 	grouped := map[string][]*flag.Flag{}
 
@@ -59,7 +66,7 @@ func usage() {
 	// 分组打印
 	for _, section := range []string{
 		"GENERAL", "MATCHER", "FILTER", "REQUEST", "PAYLOAD", "OUTPUT",
-		"RECURSION", "ERROR HANDLE", "PLUGIN", "HTTP-API-CONFIG", "OTHER",
+		"RECURSION", "ERROR HANDLE", "PLUGIN", "HTTP_API", "OTHER",
 	} {
 		flags := grouped[section]
 		if len(flags) == 0 {
@@ -75,32 +82,37 @@ func usage() {
 		}
 	}
 	fmt.Println("\nSIMPLE USAGE EXAMPLES:")
-	exampleUsage("fuzz URL", "-u http://test.com/FUZZ -w dict.txt::FUZZ",
-		"-u http://test.com/MILAOGIU -w dict.txt  # use default keyword")
-	exampleUsage("fuzz Request data", "-u http://test.com -w dict.txt::FUZZ -d \"test=FUZZ\"")
-	exampleUsage("use filters and matchers",
+	exampleUsage("fuzz URL", true, "-u http://test.com/FUZZ -w dict.txt::FUZZ",
+		"-u http://test.com/MILAOGIU -w dict.txt  # use default keyword \"MILAOGIU\"")
+	exampleUsage("fuzz Request data", true,
+		"-u http://test.com -w dict.txt::FUZZ -d \"test=FUZZ\"")
+	exampleUsage("use filters and matchers", true,
 		"-w http://test.com/FUZZ -w dic.txt::FUZZ -mc 407 -fc 403-406 \\\n\t-ms 123-154 -fs 10-100,120")
-	exampleUsage("use embedded payload processor to process payload",
+	exampleUsage("use embedded payload processor to process payload", true,
 		"-u http://test.com -w dict.txt::FUZZ -d \"test=FUZZ\" "+
 			"\\\n\t-pl-processor suffix(\".txt\"),base64::FUZZ  # base64 encode")
-	exampleUsage("use embedded payload generators",
+	exampleUsage("use embedded payload generators", true,
 		"-u http://test.com/FUZZ \\\n\t"+
-			"-pl-gen int(0,100,10)::FUZZ  # generate integer 0~100 with base 10")
-	exampleUsage("use multiple fuzz keywords and keyword process mode",
+			"-pl-gen int(0,100,10)::FUZZ  # generate integer 0~100 with base 10",
+		"-u http://test.com/FUZZ \\\n\t"+
+			"-pl-gen permute('abcdefghijk',-1)::FUZZ # permutation of a-k",
+		"-u http://test.com/FUZZ \\\n\t"+
+			"-pl-gen permuteex('abcdefghijklm',2,3,-1)::FUZZ # permutation of a-m, length from 2 to 3")
+	exampleUsage("use multiple fuzz keywords and keyword process mode", true,
 		"-u http://FUZZ1/FUZZ2 -w dic1.txt::FUZZ1 \\\n\t-w dic2.txt::FUZZ2  # default mode is \"clusterbomb\"",
 		"-u http://FUZZ3/FUZZ4 -w dic3.txt::FUZZ3 \\\n\t-w dic4.txt::FUZZ4 -mode pitchfork-cycle")
 	fmt.Println("refer to flag help information as above" +
 		" or https://github.com/nostalgist134/FuzzGIU/wiki for more usages")
 	fmt.Println("\nADVANCED USAGE EXAMPLES:")
-	exampleUsage("recursive jobs",
+	exampleUsage("recursive jobs", true,
 		"-u http://test.com/FUZZ -w dict.txt::FUZZ -R -rec-code 403 -rec-depth 4")
-	exampleUsage("http api mode", `http api mode allow you to run fuzzGIU as an http service to submit fuzz job via http request;
-each fuzz job submitted are marked with an id, you can use the URLs shown below to submit, 
-stop or inspect a job:
-	GET/DELETE /job/:id  -  get a JSON serialized job's structure by its id, or delete it
-	POST /job  -  submit a job by serialized job structure, responses its id or error when failed
-	GET /jobIds  -  get all running job ids`)
-	exampleUsage("use plugins",
+	exampleUsage("http api mode", false, "http api mode allow you to run FuzzGIU as an http "+
+		"service to submit fuzz job via http request;\n    each fuzz job submitted are marked with an id, you can "+
+		"use the URLs shown below to submit,\n    stop or inspect a job:\n"+
+		"\tGET/DELETE /job/:id  -  get a JSON serialized job's structure by its id, or delete it\n"+
+		"\tPOST /job  -  submit a job by serialized job structure, responses its id or error when failed\n"+
+		"\tGET /jobIds  -  get all running job ids\n")
+	exampleUsage("use plugins", true,
 		"-u http://test.com/?id=FUZZ \\\n\t"+
 			"-pl-gen sqli::FUZZ  # will search ./plugins/payloadGenerators/sqli.(so/dll/dylib)",
 		"-u http://test.com -D \"name=admin&pass=PASS\" -w dict.txt::PASS "+
@@ -111,12 +123,9 @@ stop or inspect a job:
 		"-u http://test.com/FUZZ -w dict.txt::FUZZ "+
 			"\\\n\t-preproc job_dispatch  # ./plugins/preprocessors/job_dispatch.(so/dll/dylib)",
 		"-u http://test.com/FUZZ -w dict.txt::FUZZ "+
-			"\\\n\t-react fingerprint  # plugins/reactors/fingerprint.(so/dll/dylib)")
-	fmt.Printf(`
-	when fuzzGIU is executed without any args, it will init and create plugin directory "./plugins" to refer to plugins. 
-	there are 5 types of plugins can be used on current version: Preprocessor, PayloadGenerator, PayloadProcessor, 
-	RequestSender and Reactor. every plugin is of shared library format of current operating system, fuzzGIU will try to 
-	find plugin by plugin type and name at ./plugins/[pluginType], make sure you put the plugin file to the right 
-	directory. you can find the usage of each type of plugin on https://github.com/nostalgist134/FuzzGIU/wiki. if you 
-	want to develop your own plugin, go check https://github.com/nostalgist134/FuzzGIUPluginKit, have fun :)`)
+			"\\\n\t-react fingerprint  # ./plugins/reactors/fingerprint.(so/dll/dylib)",
+		"-u http://test.com/FUZZ -w dict.txt::FUZZ "+
+			"\\\n\t -iter random_index # ./plugins/iterators/random_index.(so/dll/dylib)")
+	fmt.Println("FuzzGIU uses dynamic linked library as plugin carriers, if you want to develop your own plugins" +
+		",\ngo check https://github.com/nostalgist134/FuzzGIUPluginKit and wiki of FuzzGIU, have fun:)")
 }

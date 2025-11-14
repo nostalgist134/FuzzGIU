@@ -1,6 +1,7 @@
 package counter
 
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -164,16 +165,40 @@ func (c *Counter) Snapshot() Counter {
 	return Counter{
 		StartTime: time.Time{},
 		TaskRate:  int64(c.GetTaskRate()),
-		JobProgress: Progress{
-			Completed: int64(c.Get(CntrJob, FieldCompleted)),
-			Total:     int64(c.Get(CntrJob, FieldTotal)),
-		},
 		TaskProgress: Progress{
 			Completed: int64(c.Get(CntrTask, FieldCompleted)),
 			Total:     int64(c.Get(CntrTask, FieldTotal)),
 		},
-		ticker: nil,
-		mu:     sync.Mutex{},
-		stop:   nil,
 	}
+}
+
+// formatDuration 把 time.Duration 格式化为 00:00:00 格式（支持负数）
+func formatDuration(d time.Duration) string {
+	// 1. 提取总秒数（避免浮点数精度问题）
+	totalSec := int64(d / time.Second)
+	if totalSec == 0 {
+		return "00:00:00"
+	}
+
+	// 2. 处理负数符号
+	sign := ""
+	if totalSec < 0 {
+		sign = "-"
+		totalSec = -totalSec // 转为正数计算
+	}
+
+	// 3. 拆解小时、分钟、秒
+	hours := totalSec / 3600
+	remainingSec := totalSec % 3600
+	minutes := remainingSec / 60
+	seconds := remainingSec % 60
+
+	// 4. 格式化（%02d 确保不足两位补0）
+	return fmt.Sprintf("%s%02d:%02d:%02d", sign, hours, minutes, seconds)
+}
+
+func (c *Counter) ToFmt() string {
+	s := c.Snapshot()
+	return fmt.Sprintf("task:[%d / %d]   rate:[%d t/s]   duration:[%s]", s.TaskProgress.Completed,
+		s.TaskProgress.Total, s.TaskRate, formatDuration(time.Since(s.StartTime)))
 }

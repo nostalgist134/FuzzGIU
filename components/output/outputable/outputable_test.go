@@ -2,6 +2,7 @@ package outputable
 
 import (
 	"fmt"
+	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"testing"
 	"time"
 )
@@ -18,13 +19,17 @@ func TestLog_ToFormatBytes(t *testing.T) {
 
 func TestOutObj_ToFormatStr(t *testing.T) {
 	o := &OutObj{
-		Jid:      9,
-		Keywords: []string{"NISHIGIU", "WOSHIGIU", "MILAOGIU"},
-		Payloads: []string{"WOSHIGIU", "MILAOGIU", "NISHIGIU"},
-		Request:  nil,
-		Response: nil,
-		Msg:      "MILAOGIU",
-		Time:     time.Now(),
+		Jid: 9,
+		Request: &fuzzTypes.Req{URL: "https://nishigiu.com", Data: []byte("NISHI=GIU&WOSHI=GIU\nMILOGIU"),
+			HttpSpec: fuzzTypes.HTTPSpec{Method: "GET", Headers: []string{"NISHI: GIU", "WOSHI: GIU", "MILAO: GIU"},
+				Proto: "2.99", ForceHttps: true, RandomAgent: true}, Fields: []fuzzTypes.Field{
+				{"NISHIGIU", "WOSHIGIU"}, {"NISHIGIU", "MILAOGIU"},
+			}},
+		Response: &fuzzTypes.Resp{RawResponse: []byte("NISHIGIUWOSHGIUMILAOGIU\nWOSHIGIUNISHIGIUMILAOGIU"),
+			ResponseTime: 834194 * time.Microsecond},
+		Msg:  "MILAOGIU",
+		Time: time.Now(),
 	}
-	fmt.Println(o.ToFormatStr("json-line", false, 0))
+	f := o.ToFormatStr("native", true, 2)
+	fmt.Println(f)
 }
