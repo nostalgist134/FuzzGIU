@@ -42,11 +42,11 @@ var milaogiu2 = &fuzzTypes.Req{
 	Data:   []byte("NISHIG_FUZZ2_IUWOSH_FUZZ1_IGIU_FUZZ1_MILAOGIU"),
 }
 
+var milaogiu3 = &fuzzTypes.Req{URL: "https://www.baidu.com/FUZZ", HttpSpec: fuzzTypes.HTTPSpec{Method: "GET"}}
+
 func TestCountFields(t *testing.T) {
 
 }
-
-func nop(_ any) {}
 
 func TestReq2Str(t *testing.T) {
 	least := &fuzzTypes.Req{
@@ -54,7 +54,7 @@ func TestReq2Str(t *testing.T) {
 		HttpSpec: fuzzTypes.HTTPSpec{Method: "GET", Proto: "2.9"},
 		Data:     []byte("MILAOGIU"),
 	} // least是一个“最小非空”的req实例，即使req结构为空，req2str也会解析least所包含的这4个字段
-	nop(milaogiu)
+	_ = milaogiu
 	stringified, splitter := req2Str(least)
 	fmt.Println(stringified)
 	fmt.Println(splitter)
@@ -90,4 +90,11 @@ func TestParseReqTmpl(t *testing.T) {
 		r2, _ := tmpl3.Replace([]string{"AAA"}, i)
 		fmt.Println(r2)
 	}*/
+}
+
+func Test4(t *testing.T) {
+	tmpl1 := ParseReqTmpl(milaogiu3, []string{"FUZZ"})
+	r0, err := tmpl1.Replace([]string{"FCKeditor/editor/filemanager/browser/default/browser.html?Type=Image&Connector=connectors/jsp/connector"}, -1)
+	fmt.Println(r0)
+	fmt.Println(err)
 }

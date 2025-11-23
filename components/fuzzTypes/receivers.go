@@ -42,12 +42,12 @@ func (f *Fuzz) Clone() *Fuzz {
 
 	// 拷贝 Preprocess
 	newFuzz.Preprocess.Preprocessors = cloneSlice(f.Preprocess.Preprocessors)
-	newFuzz.Preprocess.PlTemp = make(map[string]PayloadTemp)
-	for k, v := range f.Preprocess.PlTemp {
-		newFuzz.Preprocess.PlTemp[k] = PayloadTemp{
+	newFuzz.Preprocess.PlMeta = make(map[string]*PayloadMeta)
+	for k, v := range f.Preprocess.PlMeta {
+		newFuzz.Preprocess.PlMeta[k] = &PayloadMeta{
 			Generators: PlGen{v.Generators.Type, clonePlugins(v.Generators.Gen)},
 			Processors: clonePlugins(v.Processors),
-			// PlList不复制，因为doJobInter会自动生成一份
+			// PlList不复制，因为这个部分通常比较大，如果用户确实有需要可自行复制
 		}
 	}
 	newFuzz.Preprocess.ReqTemplate = f.Preprocess.ReqTemplate.LiteralClone()
@@ -125,7 +125,7 @@ func countWords(data []byte) int {
 	return count
 }
 
-// Statistic 根据rawResponse计算返回包的统计数据（词数、返回包大小、行数等）
+// Statistic 根据rawResponse计算返回包的统计数据（词数、返回包大小、行数）
 func (resp *Resp) Statistic() {
 	if len(resp.RawResponse) == 0 {
 		resp.Lines = 0

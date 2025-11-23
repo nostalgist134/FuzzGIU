@@ -5,8 +5,10 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/nostalgist134/FuzzGIU/components/common"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
+	"log"
 	"strconv"
 	"sync"
+	"time"
 )
 
 const (
@@ -27,11 +29,7 @@ func (s *httpService) wait() {
 	s.wg.Wait()
 }
 
-func getApiConfig(config *WebApiConfig) (servAddr string, startTLS bool, certFile string, certKey string) {
-	if config == nil {
-		servAddr, certFile, certKey = defServAddr, defApiCertFileName, defApiCertKeyName
-		return
-	}
+func getApiConfig(config WebApiConfig) (servAddr string, startTLS bool, certFile string, certKey string) {
 	if servAddr = config.ServAddr; servAddr == "" {
 		servAddr = defServAddr
 	}
@@ -41,7 +39,7 @@ func getApiConfig(config *WebApiConfig) (servAddr string, startTLS bool, certFil
 	if certKey = config.CertKeyName; certKey == "" {
 		certKey = defApiCertKeyName
 	}
-	startTLS = config.Tls
+	startTLS = config.TLS
 	return
 }
 
@@ -49,8 +47,16 @@ func errorMsg(err error) map[string]string {
 	return map[string]string{"error": err.Error()}
 }
 
-func (f *Fuzzer) startHttpApi(apiConf *WebApiConfig) error {
+func (f *Fuzzer) startHttpApi(apiConf WebApiConfig) error {
 	addr, startTLS, certFileName, certKeyName := getApiConfig(apiConf)
+
+	stopChan := make(chan struct{})
+
+	go func() {
+		<-stopChan
+		time.Sleep(20 * time.Millisecond)
+		f.Stop()
+	}()
 
 	acToken := common.RandMarker()
 	e := echo.New()
@@ -70,24 +76,25 @@ func (f *Fuzzer) startHttpApi(apiConf *WebApiConfig) error {
 	getJobById := func(c echo.Context) error {
 		jid, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
-			return c.JSON(400, errorMsg(fmt.Errorf("failed to parse id: %w", err)))
+			return c.JSON(400, errorMsg(fmt.Errorf("failed to parse id: %v", err)))
 		}
 		jc, exist := f.GetJob(int(jid))
 		if !exist {
 			return c.JSON(404, errorMsg(fmt.Errorf("job#%d not found", jid)))
 		}
-		defer jc.Release()
-		return c.JSON(200, jc.Job)
+		cloned := jc.Job.Clone()
+		jc.Release()
+		return c.JSON(200, cloned)
 	}
 
 	delJobById := func(c echo.Context) error {
 		jid, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
-			return c.JSON(400, errorMsg(fmt.Errorf("failed to parse job id: %w", err)))
+			return c.JSON(400, errorMsg(fmt.Errorf("failed to parse job id: %v", err)))
 		}
 		err = f.StopJob(int(jid))
 		if err != nil {
-			return c.JSON(500, errorMsg(fmt.Errorf("failed to stop job#%d: %w", jid, err)))
+			return c.JSON(500, errorMsg(fmt.Errorf("failed to stop job#%d: %v", jid, err)))
 		}
 		return c.NoContent(204)
 	}
@@ -96,11 +103,11 @@ func (f *Fuzzer) startHttpApi(apiConf *WebApiConfig) error {
 		newJob := new(fuzzTypes.Fuzz)
 		err := c.Bind(newJob)
 		if err != nil {
-			return c.JSON(400, errorMsg(fmt.Errorf("failed to unmarshal job: %w", err)))
+			return c.JSON(400, errorMsg(fmt.Errorf("failed to unmarshal job: %v", err)))
 		}
 		jid, err := f.Submit(newJob)
 		if err != nil {
-			return c.JSON(500, errorMsg(fmt.Errorf("failed to submit job: %w", err)))
+			return c.JSON(500, errorMsg(fmt.Errorf("failed to submit job: %v", err)))
 		}
 		return c.JSON(200, map[string]int{"jid": jid})
 	}
@@ -109,12 +116,18 @@ func (f *Fuzzer) startHttpApi(apiConf *WebApiConfig) error {
 		return c.JSON(200, f.GetJobIds())
 	}
 
+	stopFuzzer := func(c echo.Context) error {
+		stopChan <- struct{}{}
+		return c.JSON(200, map[string]string{"status": "stopped"})
+	}
+
 	// restful api
 	g := e.Group("/", auth)
 	g.GET("job/:id", getJobById)
 	g.DELETE("job/:id", delJobById)
 	g.POST("job", submitJob)
 	g.GET("jobIds", getJids)
+	g.GET("stop", stopFuzzer)
 
 	f.s = &httpService{
 		e:           e,
@@ -126,10 +139,14 @@ func (f *Fuzzer) startHttpApi(apiConf *WebApiConfig) error {
 	go func() {
 		f.s.wg.Add(1)
 		defer f.s.wg.Done()
+		var err error
 		if startTLS {
-			e.Logger.Fatal(e.StartTLS(addr, certFileName, certKeyName))
+			err = e.StartTLS(addr, certFileName, certKeyName)
 		} else {
-			e.Logger.Fatal(e.Start(addr))
+			err = e.Start(addr)
+		}
+		if err != nil && err.Error() != "http: Server closed" {
+			log.Fatal(err)
 		}
 	}()
 	return nil

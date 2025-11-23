@@ -89,7 +89,7 @@ func (t *ReplaceTemplate) renderSniper(payload string, pos int) ([]reusablebytes
 // renderTrack 渲染payload并且追踪替换位置
 func (t *ReplaceTemplate) renderTrack(payload string) ([]reusablebytes.Lazy, []int, int32) {
 	lazyFields := lazyPool.Get(t.fieldNum)
-	trackPos := make([]int, 0)
+	trackPos := resourcePool.IntSlices.Get(0)
 	rb, id := bp.Get()
 	i := 0
 	trackPosInd := -1        // nostalgist134你是不是傻逼，下面用append，这边用ind跟踪，为什么不能统一一下

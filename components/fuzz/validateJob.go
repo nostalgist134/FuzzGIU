@@ -43,14 +43,18 @@ func ValidateJob(job *fuzzTypes.Fuzz) error {
 	}
 
 	var errTot error
-	kwCount := len(job.Preprocess.PlTemp)
+	kwCount := len(job.Preprocess.PlMeta)
 	if kwCount == 0 {
 		errTot = errors.Join(errTot, errNoKeywords)
 	}
 	keywords := resourcePool.StringSlices.Get(kwCount)
 	defer resourcePool.StringSlices.Put(keywords)
 	i := 0
-	for kw, pl := range job.Preprocess.PlTemp {
+	for kw, pl := range job.Preprocess.PlMeta {
+		if pl == nil {
+			errTot = errors.Join(errTot, fmt.Errorf("keyword '%s' meta data is nil", kw))
+			continue
+		}
 		keywords[i] = kw
 		for j := 0; j < i; j++ { // 判断是否有fuzz关键字互相包含的情况（这种情况会导致模板解析失败）
 			if strings.Contains(keywords[j], keywords[i]) || strings.Contains(keywords[i], keywords[j]) {

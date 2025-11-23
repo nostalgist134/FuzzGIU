@@ -30,7 +30,7 @@ type RoutinePool struct {
 	wg        sync.WaitGroup
 	quit      chan struct{}
 	status    int8
-	mu        sync.Mutex
+	statMu    sync.Mutex
 	cond      *sync.Cond
 	executors [2]func(*fuzzCtx.TaskCtx) *fuzzTypes.Reaction
 }
@@ -46,7 +46,7 @@ func newRoutinePool(concurrency int) *RoutinePool {
 		concurrency: concurrency,
 		executors:   [2]func(*fuzzCtx.TaskCtx) *fuzzTypes.Reaction{nopExecutor, nopExecutor},
 	}
-	routinePool.cond = sync.NewCond(&routinePool.mu)
+	routinePool.cond = sync.NewCond(&routinePool.statMu)
 	return routinePool
 }
 
@@ -56,8 +56,8 @@ func (p *RoutinePool) RegisterExecutor(executor func(*fuzzCtx.TaskCtx) *fuzzType
 	if which != ExecMinor && which != ExecMajor {
 		return
 	}
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	p.statMu.Lock()
+	defer p.statMu.Unlock()
 	if p.status == StatRunning {
 		return
 	}
@@ -66,8 +66,8 @@ func (p *RoutinePool) RegisterExecutor(executor func(*fuzzCtx.TaskCtx) *fuzzType
 
 // Start 启动所有 worker
 func (p *RoutinePool) Start() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	p.statMu.Lock()
+	defer p.statMu.Unlock()
 	if p.status == StatRunning {
 		return
 	}
@@ -93,22 +93,22 @@ func (p *RoutinePool) worker() {
 		default:
 		}
 		// 检查状态并决定是否等待
-		p.mu.Lock()
+		p.statMu.Lock()
 		switch p.status {
 		case StatStop:
-			p.mu.Unlock()
+			p.statMu.Unlock()
 			return
 		case StatPause:
 			// 处于暂停状态，等待唤醒
 			p.cond.Wait()
-			p.mu.Unlock()
+			p.statMu.Unlock()
 		case StatRunning:
 			// 处于运行状态，释放锁并尝试获取任务
-			p.mu.Unlock()
+			p.statMu.Unlock()
 			select {
 			case task, ok := <-p.tasks:
-				if !ok {
-					continue
+				if !ok { // 管道关闭且没有值了，退出
+					return
 				}
 				result := p.executors[task.whichExec](task.arg)
 				p.results <- result
@@ -122,12 +122,12 @@ func (p *RoutinePool) worker() {
 
 // Submit 添加任务
 func (p *RoutinePool) Submit(execArg *fuzzCtx.TaskCtx, whichExec int8, timeout time.Duration) bool {
-	p.mu.Lock()
+	p.statMu.Lock()
 	if p.status != StatRunning {
-		p.mu.Unlock()
+		p.statMu.Unlock()
 		return false
 	}
-	p.mu.Unlock()
+	p.statMu.Unlock()
 
 	p.wg.Add(1)
 
@@ -171,17 +171,17 @@ func (p *RoutinePool) Wait(maxTime time.Duration) bool {
 
 // Stop 关闭管道，停止所有 worker
 func (p *RoutinePool) Stop() {
-	p.mu.Lock()
+	p.statMu.Lock()
 	if p.status == StatStop {
-		p.mu.Unlock()
+		p.statMu.Unlock()
 		return
 	}
-	p.mu.Unlock()
+	p.statMu.Unlock()
 
 	p.Clear()
 
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	p.statMu.Lock()
+	defer p.statMu.Unlock()
 	close(p.quit)
 	close(p.tasks)
 	close(p.results)
@@ -191,8 +191,8 @@ func (p *RoutinePool) Stop() {
 
 // Pause 暂停调度
 func (p *RoutinePool) Pause() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	p.statMu.Lock()
+	defer p.statMu.Unlock()
 	if p.status == StatRunning {
 		p.status = StatPause
 		p.cond.Broadcast()
@@ -201,8 +201,8 @@ func (p *RoutinePool) Pause() {
 
 // Resume 恢复调度
 func (p *RoutinePool) Resume() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	p.statMu.Lock()
+	defer p.statMu.Unlock()
 	if p.status == StatPause {
 		p.status = StatRunning
 		p.cond.Broadcast()
@@ -241,15 +241,15 @@ func (p *RoutinePool) GetSingleResult() *fuzzTypes.Reaction {
 }
 
 func (p *RoutinePool) Status() int8 {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	p.statMu.Lock()
+	defer p.statMu.Unlock()
 	s := p.status
 	return s
 }
 
 func (p *RoutinePool) WaitResume() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	p.statMu.Lock()
+	defer p.statMu.Unlock()
 
 	for p.status != StatRunning {
 		if p.status == StatStop {
@@ -261,12 +261,12 @@ func (p *RoutinePool) WaitResume() {
 
 // Clear 清空任务队列
 func (p *RoutinePool) Clear() {
-	p.mu.Lock()
+	p.statMu.Lock()
 	if p.status == StatStop {
-		p.mu.Unlock()
+		p.statMu.Unlock()
 		return
 	}
-	p.mu.Unlock()
+	p.statMu.Unlock()
 
 	p.Pause()
 	defer p.Resume()

@@ -2,7 +2,6 @@ package requestHttp
 
 import (
 	"bytes"
-	"crypto/tls"
 	"github.com/nostalgist134/FuzzGIU/components/common"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"io"
@@ -15,13 +14,13 @@ import (
 	"time"
 )
 
-// http agents 放到别的文件去了
-
 var cliPool = sync.Pool{
 	New: func() any {
 		return new(http.Client)
 	},
 }
+
+const defaultUa = "milaogiu browser (21.1)"
 
 // initHttpCli 初始化 Http 客户端，设置代理、超时、重定向等
 func initHttpCli(proxy string, timeout int, redirect bool, redirectChain *string) (*http.Client, error) {
@@ -29,9 +28,6 @@ func initHttpCli(proxy string, timeout int, redirect bool, redirectChain *string
 	cli := cliPool.Get().(*http.Client)
 
 	tr := http.DefaultTransport.(*http.Transport).Clone()
-	if tr.TLSClientConfig == nil {
-		tr.TLSClientConfig = &tls.Config{}
-	}
 	tr.TLSClientConfig.InsecureSkipVerify = true
 	tr.ForceAttemptHTTP2 = true
 	// 设置代理
@@ -103,7 +99,7 @@ func fuzzReq2HttpReq(fuzzReq *fuzzTypes.Req) (*http.Request, error) {
 		if fuzzReq.HttpSpec.RandomAgent {
 			httpReq.Header.Set("User-Agent", agents[rand.Int()%len(agents)])
 		} else {
-			httpReq.Header.Set("User-Agent", "milaogiu browser(114.54)")
+			httpReq.Header.Set("User-Agent", defaultUa)
 		}
 	}
 	return httpReq, err
@@ -119,42 +115,19 @@ func containRetryCode(code int, retryCodes []string) bool {
 	return false
 }
 
-func countWords(data []byte) int {
-	count := 0
-	inWord := false
-	for _, b := range data {
-		if b == ' ' || b == '\n' || b == '\t' || b == '\r' || b == '\f' || b == '\v' {
-			inWord = false
-		} else if !inWord {
-			inWord = true
-			count++
-		}
-	}
-	return count
-}
-
-func countLines(data []byte) int {
-	if len(data) == 0 {
-		return 0
-	}
-	line := bytes.Count(data, []byte{'\n'})
-	if data[len(data)-1] != '\n' {
-		line++
-	}
-	return line
-}
-
 // DoRequestHttp http发包函数
-func DoRequestHttp(reqCtx *fuzzTypes.RequestCtx, timeout int, httpRedirect bool, retry int,
-	retryCode, retryRegex, proxy string) (*fuzzTypes.Resp, error) {
-
-	resp := new(fuzzTypes.Resp)
+func DoRequestHttp(reqCtx *fuzzTypes.RequestCtx) (*fuzzTypes.Resp, error) {
 	request := reqCtx.Request
 
 	// HTTP/1.x 使用FastHTTP
 	if request.HttpSpec.Proto != "HTTP/2" {
-		return doRequestFastHttp(reqCtx, timeout, httpRedirect, retry, retryCode, retryRegex, proxy)
+		return doRequestFastHttp(reqCtx)
 	}
+
+	resp := new(fuzzTypes.Resp)
+
+	proxy, timeout, httpRedirect, retryCode, retry, retryRegex :=
+		reqCtx.Proxy, reqCtx.Timeout, reqCtx.HttpFollowRedirects, reqCtx.RetryCode, reqCtx.Retry, reqCtx.RetryRegex
 
 	httpReq, err := fuzzReq2HttpReq(request)
 	if err != nil {
@@ -197,7 +170,7 @@ func DoRequestHttp(reqCtx *fuzzTypes.RequestCtx, timeout int, httpRedirect bool,
 		}
 
 		// 构建响应
-		rawResp, bodyBytes, buildErr := buildRawHTTPResponse(httpResponse)
+		rawResp, body, buildErr := buildRawHTTPResponse(httpResponse)
 		if buildErr != nil {
 			if httpResponse.Body != nil {
 				httpResponse.Body.Close()
@@ -206,15 +179,11 @@ func DoRequestHttp(reqCtx *fuzzTypes.RequestCtx, timeout int, httpRedirect bool,
 			return resp, buildErr
 		}
 
+		resp.RawResponse = body
+		resp.Statistic()
 		resp.RawResponse = rawResp
 		resp.HttpResponse = httpResponse
 		resp.HttpRedirectChain = redirectChain
-
-		if rawResp != nil {
-			resp.Lines = countLines(bodyBytes)
-			resp.Words = countWords(bodyBytes)
-			resp.Size = len(bodyBytes)
-		}
 
 		// 检查是否需要重试
 		needRetry := containRetryCode(httpResponse.StatusCode, retryCodes) ||

@@ -33,6 +33,7 @@ type pendingJob struct {
 // Fuzzer 用来执行模糊测试任务，允许多个任务并发执行，内部维护一个任务协程池
 // 注意：此结构是一次性的，也就是说调用Stop之后就不能再调用Start启动，否则可
 // 能导致未定义行为，必须使用NewFuzzer重新获取
+// 这个结构体可以在其它的go代码中使用，只要遵循上面的原则就行
 type Fuzzer struct {
 	stat        int8
 	statMux     sync.Mutex
@@ -40,74 +41,92 @@ type Fuzzer struct {
 	cancel      context.CancelFunc
 	ctx         context.Context
 	pendingJobs []pendingJob
+	muPending   sync.Mutex
 	s           *httpService
 }
 
+// WebApiConfig 若要使用web api，指定web api的设置
 type WebApiConfig struct {
 	ServAddr     string
-	Tls          bool
+	TLS          bool
 	CertFileName string
 	CertKeyName  string
 }
 
 func (f *Fuzzer) daemon() {
-	for { // 说实话这个循环有点复杂了，不过能跑就暂时如此吧
+	for {
 		select {
 		case <-f.ctx.Done():
 			return
 		default:
-			// 消费本地 pending 队列
-			done := 0
-			for ; done < len(f.pendingJobs); done++ {
-				p := f.pendingJobs[done]
-				jc, err := fuzz.NewJobCtx(p.job, p.parentId, f.ctx, f.cancel)
+			var (
+				i            = 0
+				jobCtx       *fuzzCtx.JobCtx
+				err          error
+				lastConsumed bool
+			)
+			f.muPending.Lock()
+			// 循环1：消耗pendingJobs队列
+			for ; i < len(f.pendingJobs); i++ {
+				p := f.pendingJobs[i]
+				jobCtx, err = fuzz.NewJobCtx(p.job, p.parentId, f.ctx, f.cancel)
 				if err != nil {
-					log.Printf("failed to init job: %v", err)
-				}
-				if !f.jp.submit(jc) {
-					break // 池满，立即停止
-				}
-			}
-			f.pendingJobs = f.pendingJobs[done:]
-
-			res, ok := f.jp.getResult()
-			if !ok {
-				time.Sleep(20 * time.Millisecond)
-				continue
-			}
-
-			for done = 0; done < len(res.newJobs); done++ {
-				j := res.newJobs[done]
-				jc, err := fuzz.NewJobCtx(j, res.jid, f.ctx, f.cancel)
-				if err != nil {
-					log.Printf("failed to init job: %v", err)
-					continue
-				}
-				if !f.jp.submit(jc) {
-					break // 池满，立即停
+					log.Printf("[FUZZER] failed to init job: %v\n", err)
+				} else if !f.jp.submit(jobCtx) {
+					err = jobCtx.Close() // 关闭输出上下文，避免资源泄漏
+					if err != nil {
+						log.Printf("[JOB_CONTEXT] close error: %v\n", err)
+					}
+					break
+				} else if i == len(f.pendingJobs)-1 { // pendingJobs最后一个元素也被消费了，标记为true
+					lastConsumed = true
 				}
 			}
 
-			if done < len(res.newJobs) {
-				for _, j := range res.newJobs[done:] {
-					f.pendingJobs = append(f.pendingJobs, pendingJob{
-						job:      j,
-						parentId: res.jid,
-					})
-				}
+			if lastConsumed { // 如果最后一个元素也被消费了，则置空
+				f.pendingJobs = []pendingJob{}
+			} else { // 切到未消耗的部分
+				f.pendingJobs = f.pendingJobs[i:]
 			}
 
-			if len(f.pendingJobs) == 0 && !ok {
-				time.Sleep(20 * time.Millisecond)
+			// 循环2：从jp的结果队列中取衍生任务，直到jp结果队列为空
+			for {
+				res, ok := f.jp.getResult()
+				if !ok {
+					break
+				}
+				lastConsumed = false
+				// 尝试提交newJobs切片中任务，直到jp队列满或者提交全部完成
+				for i = 0; i < len(res.newJobs); i++ {
+					jobCtx, err = fuzz.NewJobCtx(res.newJobs[i], res.jid, f.ctx, f.cancel)
+					if err != nil {
+						log.Printf("[FUZZER] failed to init job: %v\n", err)
+					} else if !f.jp.submit(jobCtx) {
+						err = jobCtx.Close()
+						if err != nil {
+							log.Printf("[JOB_CONTEXT] close error: %v\n", err)
+						}
+						break
+					} else if i == len(res.newJobs)-1 {
+						lastConsumed = true
+					}
+				}
+				if !lastConsumed { // 将剩余未提交的任务存入pendingJobs队列中
+					for ; i < len(res.newJobs); i++ {
+						f.pendingJobs = append(f.pendingJobs, pendingJob{res.newJobs[i], res.jid})
+					}
+				}
 			}
+			f.muPending.Unlock()
+			time.Sleep(25 * time.Millisecond) // 短暂休眠，避免空转
 		}
 	}
 }
 
 // NewFuzzer 获取一个Fuzzer对象，如果需要，可以将libfgiu包作为库使用，大部分的细节已经包装好了
 // concurrency 指定任务并发池的大小
-// apiConf 指定是否启动api模式及启动的配置，只要指定了这个参数就会启动api，无论是不是nil，但是若指定nil会使用默认配置
-func NewFuzzer(concurrency int, apiConf ...*WebApiConfig) (*Fuzzer, error) {
+// apiConf 指定是否启动api模式及启动的配置，只要指定了这个参数就会启动api，如果要自定义配置，则指定具体配置
+func NewFuzzer(concurrency int, apiConf ...WebApiConfig) (*Fuzzer, error) {
 	quitCtx, cancel := context.WithCancel(context.Background())
 
 	jp, err := newJobExecPool(concurrency, concurrency*20, quitCtx, cancel)
@@ -122,7 +141,7 @@ func NewFuzzer(concurrency int, apiConf ...*WebApiConfig) (*Fuzzer, error) {
 		cancel: cancel,
 	}
 
-	f.jp.registerExecutor(fuzz.DoJobByCtx)
+	f.jp.registerExecutor(fuzz.DoJobByCtx) // 使用DoJobByCtx作为执行函数
 	if len(apiConf) > 0 {
 		err = f.startHttpApi(apiConf[0])
 		if err != nil {
@@ -191,8 +210,28 @@ func (f *Fuzzer) Start() *Fuzzer {
 	return f
 }
 
+// Wait 等待fuzzer对象直到其不再执行任何任务
 func (f *Fuzzer) Wait() {
-	f.jp.wait()
+	for {
+		if f.s != nil {
+			f.s.wait()
+		}
+		f.jp.wait()
+		if len(f.jp.jobQueue) == 0 && len(f.jp.results) == 0 {
+			f.muPending.Lock()
+			// 等待结束条件：
+			// 1.jobExecPool的任务队列为空
+			// 2.jobExecPool的结果队列为空
+			// 3.pendingJobs队列长度为0
+			if len(f.pendingJobs) == 0 {
+				f.muPending.Unlock()
+				return
+			}
+			f.muPending.Unlock()
+			time.Sleep(50 * time.Millisecond)
+			continue
+		}
+	}
 }
 
 // Stop 停止fuzzer的运行，并停止所有任务的运行
@@ -221,8 +260,8 @@ func (f *Fuzzer) Status() int8 {
 }
 
 // GetJob 获取当前协程池中一个正在运行的任务的任务上下文，并且标记1次占用，防止使用时就被关闭
-// 注意，获取到jobCtx后禁止更改，否则可能出现并发安全问题，并且需要手动调用jobCtx.Release
-// 释放，否则这个job永远不会完成
+// 注意，目前版本暂不支持获取到jobCtx后更改，否则可能出现并发安全问题，获取后需要手动调用
+// jobCtx.Release方法释放，否则会导致关闭时阻塞
 func (f *Fuzzer) GetJob(jid int) (jobCtx *fuzzCtx.JobCtx, ok bool) {
 	if f.jp == nil {
 		return
@@ -253,9 +292,10 @@ func (f *Fuzzer) StopJob(jid int) error {
 		return fmt.Errorf("job#%d not exist", jid)
 	}
 	jc.Stop()
-	return nil
+	return jc.Close()
 }
 
+// GetApiToken 如果启动了http api模式，获取api模式的token
 func (f *Fuzzer) GetApiToken() string {
 	if f.s != nil {
 		return f.s.accessToken

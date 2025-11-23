@@ -2,12 +2,12 @@ package opt
 
 import "flag"
 
-func (sliceStr *sliceStr) String() string {
+func (s *sliceStr) String() string {
 	return ""
 }
 
-func (sliceStr *sliceStr) Set(value string) error {
-	*sliceStr = append(*sliceStr, value)
+func (s *sliceStr) Set(value string) error {
+	*s = append(*s, value)
 	return nil
 }
 
@@ -20,7 +20,7 @@ func ParseOptCmdline() *Opt {
 	request := &Request{}
 	payload := &PayloadSetting{}
 	recursionControl := &RecursionControl{}
-	errHandling := &ErrorHandling{}
+	errHandling := &Retry{}
 	pluginSettings := &Plugin{}
 	apiConfig := &ApiConfig{}
 
@@ -30,7 +30,8 @@ func ParseOptCmdline() *Opt {
 	flag.IntVar(&general.RoutinePoolSize, "t", 64, "routine pool size")
 	flag.IntVar(&general.Timeout, "timeout", 10, "timeout(second)")
 	flag.StringVar(&general.Delay, "delay", "0s", "delay between each job submission")
-	flag.StringVar(&general.Iter, "iter", "clusterbomb", "iterator to be used")
+	flag.StringVar(&general.Iter, "iter", "clusterbomb", "embedded/plugin iterator to be "+
+		"used(embedded: clusterbomb, pitchfork, pitchfork-cycle)")
 
 	// 响应匹配器
 	flag.StringVar(&matcher.Code, "mc", "200,204,301,302,307,401,403,405,500",
@@ -48,8 +49,7 @@ func ParseOptCmdline() *Opt {
 	flag.StringVar(&filter.Size, "fs", "", "filter response size")
 	flag.StringVar(&filter.Mode, "fmode", "or", "filter set operator")
 	flag.StringVar(&filter.Regex, "fr", "", "filter regexp")
-	flag.StringVar(&filter.Time, "ft", "",
-		"filter time(millisecond) to the first response byte")
+	flag.StringVar(&filter.Time, "ft", "", "filter millisecond to the first response byte")
 	flag.StringVar(&filter.Words, "fw", "", "filter amount of words in response")
 	flag.StringVar(&filter.Lines, "fl", "", "filter amount of lines in response")
 
@@ -59,13 +59,13 @@ func ParseOptCmdline() *Opt {
 	flag.StringVar(&request.ReqFile, "r", "", "read request(json or http, if parsable) or "+
 		"data(unparsable) from file")
 	flag.StringVar(&request.Method, "X", "GET", "http method")
-	flag.Var(&request.Cookies, "b", "http cookies")
-	flag.Var(&request.Headers, "H", "http headers to be used")
 	flag.BoolVar(&request.HTTP2, "http2", false, "force http2")
 	flag.BoolVar(&request.FollowRedirect, "F", false, "follow redirects")
 	flag.BoolVar(&request.HTTPS, "s", false, "force https")
-	flag.Var(&request.Proxies, "x", "proxies")
 	flag.BoolVar(&request.RandomAgent, "ra", false, "http random agent")
+	flag.Var(&request.Cookies, "b", "http cookies")
+	flag.Var(&request.Headers, "H", "http headers to be used")
+	flag.Var(&request.Proxies, "x", "proxies")
 
 	// payload设置
 	flag.Var(&payload.Wordlists, "w", "wordlists to be used for payload")
@@ -73,7 +73,8 @@ func ParseOptCmdline() *Opt {
 	flag.Var(&payload.Processors, "pl-proc", "payload processors")
 
 	// 输出设置
-	flag.StringVar(&output.File, "o", "", "file to output")
+	flag.StringVar(&output.File, "out-file", "", "file to output")
+	flag.StringVar(&output.HttpUrl, "out-url", "", "post output to a http url")
 	flag.StringVar(&output.Fmt, "fmt", "native", "output format(native, xml or json)")
 	flag.IntVar(&output.Verbosity, "v", 1, "verbosity level(native output format only)")
 	flag.BoolVar(&output.IgnoreError, "ie", false, "ignore errors(will not output error message)")
@@ -131,9 +132,10 @@ func ParseOptCmdline() *Opt {
 		Matcher:          matcher,
 		Filter:           filter,
 		RecursionControl: recursionControl,
-		ErrorHandling:    errHandling,
+		Retry:            errHandling,
 		Plugin:           pluginSettings,
 		Request:          request,
 		Payload:          payload,
+		ApiConfig:        apiConfig,
 	}
 }

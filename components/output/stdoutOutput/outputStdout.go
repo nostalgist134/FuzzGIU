@@ -1,8 +1,6 @@
 package stdoutOutput
 
 import (
-	"encoding/json"
-	"encoding/xml"
 	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/nostalgist134/FuzzGIU/components/output/counter"
@@ -10,39 +8,7 @@ import (
 	"github.com/nostalgist134/FuzzGIU/components/output/outputFlag"
 	"github.com/nostalgist134/FuzzGIU/components/output/outputable"
 	"time"
-	"unsafe"
 )
-
-type counterInterior struct {
-	XMLName      xml.Name         `json:"-" xml:"progress"`
-	TaskRate     int64            `json:"task_rate,omitempty" xml:"task_rate,omitempty"`
-	TaskProgress counter.Progress `json:"task_progress,omitempty" xml:"task_progress,omitempty"`
-}
-
-func (c *counterInterior) ToFormatStr(format string) string {
-	var (
-		fmtBytes []byte
-		err      error
-	)
-	switch format {
-	case "xml":
-		fmtBytes, err = xml.Marshal(c)
-		if err != nil {
-			return ""
-		}
-	case "json", "json-line":
-		fmtBytes, err = json.Marshal(c)
-		if err != nil {
-			return ""
-		}
-	case "native":
-		return fmt.Sprintf("REQ:[%d / %d]   RATE:[%d r/s]",
-			c.TaskProgress.Completed, c.TaskProgress.Total, c.TaskRate)
-	default:
-		return ""
-	}
-	return unsafe.String(&fmtBytes[0], len(fmtBytes)) // 省一点空间，毕竟计数器打印还是挺频繁的
-}
 
 // NewStdoutCtx 创建一个新的stdout fuzzCtx
 func NewStdoutCtx(outSetting *fuzzTypes.OutputSetting, id int) (*Ctx, error) {
@@ -51,11 +17,12 @@ func NewStdoutCtx(outSetting *fuzzTypes.OutputSetting, id int) (*Ctx, error) {
 	}
 
 	c := &Ctx{
-		id:        id,
-		outputFmt: outSetting.OutputFormat,
-		cntrReg:   make(chan struct{}),
-		cntrStop:  make(chan struct{}),
-		okToClose: make(chan struct{}),
+		id:              id,
+		outputFmt:       outSetting.OutputFormat,
+		outputVerbosity: outSetting.Verbosity,
+		cntrReg:         make(chan struct{}),
+		cntrStop:        make(chan struct{}),
+		okToClose:       make(chan struct{}),
 	}
 
 	fmt.Printf("stdout_%d_begin\n", c.id)
@@ -70,12 +37,7 @@ func NewStdoutCtx(outSetting *fuzzTypes.OutputSetting, id int) (*Ctx, error) {
 				c.okToClose <- struct{}{}
 				return
 			case <-ticker.C:
-				snapshot := c.counter.Snapshot()
-				interior := counterInterior{
-					TaskRate:     snapshot.TaskRate,
-					TaskProgress: snapshot.TaskProgress,
-				}
-				fmt.Printf("[#%d COUNTER] %s\n", c.id, interior.ToFormatStr(c.outputFmt))
+				fmt.Printf("[#%d COUNTER] %s\n", c.id, c.counter.ToFmt())
 			}
 		}
 	}()
@@ -88,7 +50,7 @@ func (c *Ctx) Output(obj *outputable.OutObj) error {
 		return outputErrors.ErrCtxClosed
 	}
 	// 由于标准输出流是协程安全的，因此没必要加锁保护
-	fmt.Printf("[#%d OUTPUT] %s\n", c.id, obj.ToFormatStr(c.outputFmt, false, 0))
+	fmt.Printf("[#%d OUTPUT] %s\n", c.id, obj.ToFormatStr(c.outputFmt, false, c.outputVerbosity))
 
 	return nil
 }

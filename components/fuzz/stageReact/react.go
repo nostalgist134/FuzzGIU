@@ -128,7 +128,9 @@ func React(jobCtx *fuzzCtx.JobCtx, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 		}
 	}
 
-	o := output.OutObj{Msg: reaction.Output.Msg}
+	o := output.GetOutputObj()
+	defer output.PutOutputObj(o)
+	o.Msg = reaction.Output.Msg
 	// 生成并输出消息
 	if reaction.Flag&fuzzTypes.ReactOutput != 0 {
 		if !reaction.Output.Overwrite {
@@ -137,7 +139,7 @@ func React(jobCtx *fuzzCtx.JobCtx, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 			o.Request = reqSend
 			o.Response = resp
 		}
-		outCtx.Output(&o)
+		outCtx.Output(o)
 	}
 	// 添加新单个请求的reaction，在输出消息后添加追溯信息(keyword:payload对)，易于追踪，由于消息已经输出，所以改Msg段没问题
 	if reaction.Flag&fuzzTypes.ReactAddReq != 0 || reaction.Flag&fuzzTypes.ReactAddJob != 0 {

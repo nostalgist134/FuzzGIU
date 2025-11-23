@@ -5,11 +5,12 @@ import (
 )
 
 type Ctx struct {
-	id        int
-	closed    bool
-	outputFmt string
-	cntrStop  chan struct{}
-	cntrReg   chan struct{}
-	okToClose chan struct{}
-	counter   *counter.Counter
+	id              int
+	closed          bool
+	outputFmt       string
+	outputVerbosity int
+	cntrStop        chan struct{}
+	cntrReg         chan struct{}
+	okToClose       chan struct{}
+	counter         *counter.Counter
 }

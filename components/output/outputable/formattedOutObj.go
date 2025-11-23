@@ -90,9 +90,15 @@ func resp2FmtNative(resp *fuzzTypes.Resp, color bool, verbosity int) string {
 		return sb.String()
 	}
 
-	colors := []string{"[#46f758]", "[blue]", "[#3af4f1]", "[orange]", "[#ff5bee]"}
+	colors := []string{"[#46f758]", "[blue]", "[#3af4f1]", "[orange]", "[#ff5bee]", "[red]"}
 	colorSp := getColorSplitter(color)
 	clearColors(colors, color)
+
+	if resp.ErrMsg != "" {
+		sb.WriteString(fmt.Sprintf("%sERROR%s : ", colors[5], colorSp))
+		sb.WriteString(resp.ErrMsg)
+		sb.WriteByte('\n')
+	}
 
 	httpStat := 0
 	if resp.HttpResponse != nil {
@@ -107,6 +113,7 @@ func resp2FmtNative(resp *fuzzTypes.Resp, color bool, verbosity int) string {
 	if resp.HttpRedirectChain != "" {
 		sb.WriteString(fmt.Sprintf("%sHTTP_REDIRECT%s : ", colors[3], colorSp))
 		sb.WriteString(resp.HttpRedirectChain)
+		sb.WriteByte('\n')
 	}
 
 	rawRespToWrite := resp.RawResponse
@@ -178,7 +185,7 @@ func req2FmtNative(req *fuzzTypes.Req, color bool, verbosity int) string {
 
 		writeWTitle(req.HttpSpec.Method, "METHOD", 1)
 		writeWTitle(req.URL, "URL", 1)
-		writeWTitle(req.HttpSpec.Proto, "HTTP_PROTO", 1)
+		writeWTitle(req.HttpSpec.Proto, "PROTO", 1)
 
 		sb.WriteString(fmt.Sprintf("\t%sHTTP_HEADERS%s>\n", colors[3], colorSp))
 		if len(req.HttpSpec.Headers) == 0 {

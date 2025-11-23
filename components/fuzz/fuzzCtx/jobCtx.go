@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-// JobCtx 用于描述当前任务的环境 inspired by eprocess win kernel
+// JobCtx 单个fuzz任务上下文 inspired by eprocess win kernel
 type JobCtx struct {
 	JobId     int
 	ParentId  int
@@ -19,24 +19,28 @@ type JobCtx struct {
 	occupied  sync.WaitGroup
 }
 
+// Close 关闭任务上下文
 func (jc *JobCtx) Close() error {
 	jc.occupied.Wait()
 	jc.RP.ReleaseSelf()
 	return jc.OutputCtx.Close()
 }
 
+// Stop 停止当前任务
 func (jc *JobCtx) Stop() {
 	if jc.Cancel != nil {
 		jc.Cancel()
 	}
 }
 
+// Pause 暂停当前任务
 func (jc *JobCtx) Pause() {
 	if jc.RP != nil {
 		jc.RP.Pause()
 	}
 }
 
+// Resume 继续执行当前任务
 func (jc *JobCtx) Resume() {
 	if jc.RP != nil {
 		jc.RP.Resume()
@@ -53,6 +57,7 @@ func (jc *JobCtx) Release() {
 	jc.occupied.Done()
 }
 
+// GetJobInfo 获取当前任务的任务信息
 func (jc *JobCtx) GetJobInfo() *fuzzTypes.Fuzz {
 	return jc.Job
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/nostalgist134/FuzzGIU/components/fuzz/stageReact"
 	"github.com/nostalgist134/FuzzGIU/components/fuzz/stageRequest"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
+	"github.com/nostalgist134/FuzzGIU/components/output/counter"
 	"github.com/nostalgist134/FuzzGIU/components/resourcePool"
 	"github.com/nostalgist134/FuzzGIU/components/tmplReplace"
 	"math/rand"
@@ -23,6 +24,8 @@ func taskMultiKeyword(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 	repTmpl := c.RepTmpl
 	keywords := c.Keywords
 	uScheme := c.USchemeCache
+
+	defer c.JobCtx.OutputCtx.Counter.Complete(counter.CntrTask)
 
 	defer resourcePool.StringSlices.Put(payloads)
 
@@ -44,20 +47,18 @@ func taskMultiKeyword(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 
 	var cacheId int32
 
-	processedPayloads := resourcePool.StringSlices.Get(len(payloads))
-	defer resourcePool.StringSlices.Put(processedPayloads)
-
 	for j, eachPlProc := range plProc {
-		processedPayloads[j] = stagePreprocess.PayloadProcessor(c.JobCtx.OutputCtx, payloads[j], eachPlProc)
+		payloads[j] = stagePreprocess.PayloadProcessor(c.JobCtx.OutputCtx, payloads[j], eachPlProc)
 	}
 
-	rc.Request, cacheId = repTmpl.Replace(processedPayloads, -1)
+	rc.Request, cacheId = repTmpl.Replace(payloads, -1)
 	defer tmplReplace.ReleaseReqCache(cacheId)
 
 	rc.Request.HttpSpec.ForceHttps = job.Preprocess.ReqTemplate.HttpSpec.ForceHttps
+	rc.Request.HttpSpec.RandomAgent = job.Preprocess.ReqTemplate.HttpSpec.RandomAgent
 
 	resp := stageRequest.DoRequest(rc, uScheme)
-	reaction := stageReact.React(c.JobCtx, rc.Request, resp, keywords, processedPayloads, nil)
+	reaction := stageReact.React(c.JobCtx, rc.Request, resp, keywords, payloads, nil)
 
 	return reaction
 }
@@ -65,6 +66,8 @@ func taskMultiKeyword(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 // taskSingleKeyword 单关键字（sniper模式或者递归模式）使用的任务执行函数（单关键字的执行函数居然比多关键字的还复杂，笑死）
 func taskSingleKeyword(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 	defer fuzzCtx.PutTaskCtx(c)
+
+	defer c.JobCtx.OutputCtx.Counter.Complete(counter.CntrTask)
 
 	job := c.JobCtx.Job
 	i := c.IterInd
@@ -77,6 +80,8 @@ func taskSingleKeyword(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 
 	rc := resourcePool.GetReqCtx()
 	defer resourcePool.PutReqCtx(rc)
+
+	defer resourcePool.StringSlices.Put(payloads)
 
 	*rc = fuzzTypes.RequestCtx{
 		Retry:               job.Request.Retry,
@@ -91,41 +96,30 @@ func taskSingleKeyword(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 		rc.Proxy = job.Request.Proxies[i%len(job.Request.Proxies)]
 	}
 
-	processedPayload := payloads[0]
-	payload := payloads[0]
-
-	processedPayloads := resourcePool.StringSlices.Get(1)
-	defer resourcePool.StringSlices.Put(processedPayloads)
-
-	processedPayload = stagePreprocess.PayloadProcessor(c.JobCtx.OutputCtx, processedPayload, plProc[0])
-	processedPayloads[0] = processedPayload
+	payloads[0] = stagePreprocess.PayloadProcessor(c.JobCtx.OutputCtx, payloads[0], plProc[0])
 
 	var recPos []int
 	var cacheId int32
 
-	tmp := resourcePool.StringSlices.Get(1)
-	defer resourcePool.StringSlices.Put(tmp)
-
-	tmp[0] = payload
-
 	// payload替换
 	if job.Control.IterCtrl.Iterator.Name == "sniper" && // 同时启用sniper和递归
 		job.React.RecursionControl.RecursionDepth <= job.React.RecursionControl.MaxRecursionDepth {
-		rc.Request, recPos, cacheId = repTmpl.ReplaceTrack(payload, i/snipLen)
+		rc.Request, recPos, cacheId = repTmpl.ReplaceTrack(payloads[0], i/snipLen)
 	} else if job.React.RecursionControl.RecursionDepth <=
 		job.React.RecursionControl.MaxRecursionDepth { // 只启用递归
-		rc.Request, recPos, cacheId = repTmpl.ReplaceTrack(payload, -1)
+		rc.Request, recPos, cacheId = repTmpl.ReplaceTrack(payloads[0], -1)
 	} else { // 只启用sniper
-		rc.Request, cacheId = repTmpl.Replace(tmp, i/snipLen)
+		rc.Request, cacheId = repTmpl.Replace(payloads, i/snipLen)
 	}
 	defer tmplReplace.ReleaseReqCache(cacheId)
 	defer resourcePool.IntSlices.Put(recPos)
 
 	rc.Request.HttpSpec.ForceHttps = job.Preprocess.ReqTemplate.HttpSpec.ForceHttps
+	rc.Request.HttpSpec.RandomAgent = job.Preprocess.ReqTemplate.HttpSpec.RandomAgent
 
 	resp := stageRequest.DoRequest(rc, uScheme)
 
-	reaction := stageReact.React(c.JobCtx, rc.Request, resp, keywords, processedPayloads, recPos)
+	reaction := stageReact.React(c.JobCtx, rc.Request, resp, keywords, payloads, recPos)
 
 	return reaction
 }
@@ -133,6 +127,8 @@ func taskSingleKeyword(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 // taskNoKeywords 用于没有包含payload信息的任务的执行，目前只有handleReaction时发现需要添加新请求时，才使用此函数
 func taskNoKeywords(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 	defer fuzzCtx.PutTaskCtx(c)
+
+	defer c.JobCtx.OutputCtx.Counter.Complete(counter.CntrTask)
 
 	job := c.JobCtx.Job
 	r := c.ViaReaction
@@ -147,6 +143,7 @@ func taskNoKeywords(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 		RetryCode:           job.Request.RetryCode,
 		RetryRegex:          job.Request.RetryRegex,
 		Timeout:             job.Request.Timeout,
+		Request:             r.NewReq,
 	}
 
 	// 随机代理（因为这里没有i变量，所以不能轮询，就随便选一个）

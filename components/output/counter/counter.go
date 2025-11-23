@@ -15,7 +15,7 @@ type Progress struct {
 type Counter struct {
 	StartTime    time.Time `json:"start_time,omitempty" xml:"start_time,omitempty"`
 	TaskRate     int64     `json:"task_rate,omitempty" xml:"task_rate,omitempty"`
-	JobProgress  Progress  `json:"job_progress,omitempty" xml:"job_progress,omitempty"`
+	JobProgress  Progress  `json:"job_progress,omitempty" xml:"job_progress,omitempty"` // deprecated
 	TaskProgress Progress  `json:"task_progress,omitempty" xml:"task_progress,omitempty"`
 	ticker       *time.Ticker
 	mu           sync.Mutex
@@ -163,7 +163,7 @@ func (c *Counter) TimeFromAnchor() time.Duration {
 // Snapshot 获取当前计数器的状态
 func (c *Counter) Snapshot() Counter {
 	return Counter{
-		StartTime: time.Time{},
+		StartTime: c.StartTime,
 		TaskRate:  int64(c.GetTaskRate()),
 		TaskProgress: Progress{
 			Completed: int64(c.Get(CntrTask, FieldCompleted)),

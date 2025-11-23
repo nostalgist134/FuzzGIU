@@ -2,6 +2,7 @@ package fuzzTypes
 
 import (
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"testing"
 )
@@ -34,4 +35,19 @@ func TestPluginMarshal(t *testing.T) {
 	for _, a := range r2.C.Args {
 		fmt.Printf("%T\n", a)
 	}
+}
+
+func TestReqMarshal(t *testing.T) {
+	r := &Req{
+		URL: "MILAOGIU.com/WOSHIGIU",
+		HttpSpec: HTTPSpec{
+			Headers: []string{"NISHIG: IU", "WOSHI: GIU", "MILAO: GIU"},
+			Proto:   "HTTP/5.5",
+			Method:  "GIU",
+		},
+		Fields: nil,
+		Data:   []byte("NISHIGIUWOSHIGIUMILAOGIU"),
+	}
+	b, _ := xml.MarshalIndent(r, "", "  ")
+	fmt.Println(string(b))
 }

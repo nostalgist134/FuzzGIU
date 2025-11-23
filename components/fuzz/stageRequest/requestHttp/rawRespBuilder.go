@@ -46,11 +46,7 @@ func buildRawHTTPResponse(resp *http.Response) ([]byte, []byte, error) {
 // buildRawHTTPResponse1 将 fasthttp.Response 转为原始 HTTP 响应 []byte
 func buildRawHTTPResponse1(resp *fasthttp.Response) ([]byte, []byte) {
 	var buf bytes.Buffer
-	// 写状态行
-	fmt.Fprintf(&buf, "%s %d %s\r\n",
-		resp.Header.Protocol(),
-		resp.StatusCode(),
-		resp.Header.StatusMessage())
+
 	// 写 header
 	buf.Write(resp.Header.Header())
 	// 写 body

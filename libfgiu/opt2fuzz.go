@@ -1,6 +1,7 @@
 package libfgiu
 
 import (
+	"errors"
 	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/nostalgist134/FuzzGIU/components/opt"
@@ -13,12 +14,13 @@ import (
 	"time"
 )
 
-var globKeywords = make([]string, 0)
+const (
+	defaultKeyword = "MILAOGIU"
+	keywordSep     = "::"
+)
 
-const defaultKeyword = "MILAOGIU"
-
-func keywordOverlap(keyword string) (string, bool) {
-	for _, k := range globKeywords {
+func keywordOverlap(keyword string, keywords []string) (string, bool) {
+	for _, k := range keywords {
 		if strings.Contains(k, keyword) || strings.Contains(keyword, k) {
 			return k, true
 		}
@@ -44,17 +46,14 @@ func quitIfPathTraverse(p []fuzzTypes.Plugin) {
 	}
 }
 
-func appendPayloadTmp(tempMap map[string]fuzzTypes.PayloadTemp, pluginStrings []string, appendType int,
+func appendPayloadTmp(tempMap map[string]*fuzzTypes.PayloadMeta, pluginStrings []string, appendType int,
 	genType string) {
 	/*
 		-w C:/aaa.txt,Q:/az/www.txt::FUZZ1 -> "FUZZ1":{"C:/aaa.txt,Q:/az/www.txt|wordlist", processor, pllist}
 		-pl-gen giu1(1,2,3),zzwa(1,"6666412",3)::FUZZ2 -> "FUZZ2":{"giu1(1,2,3),zzwa(1,\"6666412\",3)|plugin", processor, pllist}
 		-pl-processor proc1(1,"hello"),proc2("1234214")::FUZZ2 -> "FUZZ2":{giu1(1,2,3),zzwa(1,"6666412",3)|plugin, "proc1(1,\"hello\"),proc2(\"1234214\")", pllist}
 	*/
-	const (
-		appendGen  = 0
-		keywordSep = "::"
-	)
+	keywords := make([]string, 0)
 	for _, tmp := range pluginStrings {
 		// 在命令行参数中，要使用的文件/插件与fuzz关键字使用"::"关联，
 		// 比如 -w C:\aaa.txt::FUZZ1, -pl-proc base64,suffix("123")::FUZZ2
@@ -73,13 +72,12 @@ func appendPayloadTmp(tempMap map[string]fuzzTypes.PayloadTemp, pluginStrings []
 		var oldProc []fuzzTypes.Plugin
 		_, keyExist := tempMap[keyword]
 		if !keyExist {
-			k, isOverlap := keywordOverlap(keyword)
+			k, isOverlap := keywordOverlap(keyword, keywords)
 			if isOverlap {
-				fmt.Fprintf(os.Stderr, "one keyword you added is one another's substring (%s and %s),\n"+
+				log.Fatalf("one keyword you added is one another's substring (%s and %s),\n"+
 					"which will lead to template parse error in the future, exitting now\n", k, keyword)
-				os.Exit(1)
 			}
-			globKeywords = append(globKeywords, keyword)
+			keywords = append(keywords, keyword)
 		}
 		// 添加新的payload生成器
 		if appendType == appendGen {
@@ -112,6 +110,25 @@ func appendPayloadTmp(tempMap map[string]fuzzTypes.PayloadTemp, pluginStrings []
 				return
 			}
 		}
+	}
+}
+
+func parseWordlistArg(wordlistArg string) (wordlists []string, keyword string) {
+	keyword = fuzzTypes.DefaultFuzzKeyword
+	wlists, kw, found := strings.Cut(wordlistArg, keywordSep)
+	if found {
+		keyword = kw
+	}
+	wordlists = strings.Split(wlists, ",")
+	return
+}
+
+func mergeWordlist(f *fuzzTypes.Fuzz, wordlistArgs []string) error {
+	if f.Preprocess.PlMeta == nil {
+		f.Preprocess.PlMeta = make(map[string]*fuzzTypes.PayloadMeta)
+	}
+	for _, wordlist := range wordlistArgs {
+
 	}
 }
 
@@ -190,12 +207,12 @@ func parseRequestFile(fileName string) (req *fuzzTypes.Req, raw []byte, err erro
 	if err != nil {
 		return
 	}
-	req, err = parseHttpRequest(fileName)
+	req, err = toHttpRequest(fileName)
 	if err == nil {
 		return
 	}
 	// 尝试解析为json
-	req, err = jsonRequest(fileName)
+	req, err = toJsonRequest(fileName)
 	if err == nil {
 		return
 	}
@@ -203,9 +220,8 @@ func parseRequestFile(fileName string) (req *fuzzTypes.Req, raw []byte, err erro
 }
 
 // Opt2fuzz 将opt结构转化为fuzz结构
-func Opt2fuzz(o *opt.Opt) (fuzz1 *fuzzTypes.Fuzz, pendingLogs []string) {
+func Opt2fuzz(o *opt.Opt) (fuzz1 *fuzzTypes.Fuzz, err error) {
 	fuzz1 = new(fuzzTypes.Fuzz)
-	var err error
 
 	/*--- o.Request ---*/
 	var req *fuzzTypes.Req
@@ -223,11 +239,9 @@ func Opt2fuzz(o *opt.Opt) (fuzz1 *fuzzTypes.Fuzz, pendingLogs []string) {
 
 	if o.Request.ReqFile != "" {
 		if os.IsNotExist(err) {
-			pendingLogs = append(pendingLogs,
-				fmt.Sprintf("request file %s not found, ignored\n", o.Request.ReqFile))
+			err = fmt.Errorf("request file %s not found\n", o.Request.ReqFile)
 		} else if err != nil {
-			pendingLogs = append(pendingLogs,
-				fmt.Sprintf("error when parsing request file %s: %v, skipping\n", o.Request.ReqFile, err))
+			err = fmt.Errorf("failed to parse request file %s: %v\n", o.Request.ReqFile, err)
 		}
 	}
 
@@ -246,9 +260,6 @@ func Opt2fuzz(o *opt.Opt) (fuzz1 *fuzzTypes.Fuzz, pendingLogs []string) {
 		fuzz1.Preprocess.ReqTemplate.HttpSpec.Proto = "HTTP/2"
 	}
 
-	if len(fuzz1.Preprocess.ReqTemplate.HttpSpec.Headers) == 0 {
-		fuzz1.Preprocess.ReqTemplate.HttpSpec.Headers = make([]string, 0)
-	}
 	for _, h := range o.Request.Headers {
 		fuzz1.Preprocess.ReqTemplate.HttpSpec.Headers = append(fuzz1.Preprocess.ReqTemplate.HttpSpec.Headers, h)
 	}
@@ -290,16 +301,23 @@ func Opt2fuzz(o *opt.Opt) (fuzz1 *fuzzTypes.Fuzz, pendingLogs []string) {
 	fuzz1.Control.OutSetting.OutputFormat = o.Output.Fmt
 	fuzz1.React.IgnoreError = o.Output.IgnoreError
 	fuzz1.Control.OutSetting.OutputFile = o.Output.File
+	if o.Output.File != "" {
+		fuzz1.Control.OutSetting.ToWhere |= outputFlag.OutToFile
+	}
+	fuzz1.Control.OutSetting.HttpURL = o.Output.HttpUrl
+	if o.Output.HttpUrl != "" {
+		fuzz1.Control.OutSetting.ToWhere |= outputFlag.OutToHttp
+	}
 	if o.Output.NativeStdout {
-		fuzz1.Control.OutSetting.ToWhere = outputFlag.OutToStdout
+		fuzz1.Control.OutSetting.ToWhere |= outputFlag.OutToStdout
 	} else if o.Output.TviewOutput {
-		fuzz1.Control.OutSetting.ToWhere = outputFlag.OutToTview
+		fuzz1.Control.OutSetting.ToWhere |= outputFlag.OutToTview
 	}
 
-	/*--- o.ErrorHandling ---*/
-	fuzz1.Request.Retry = o.ErrorHandling.Retry
-	fuzz1.Request.RetryCode = o.ErrorHandling.RetryOnStatus
-	fuzz1.Request.RetryRegex = o.ErrorHandling.RetryRegex
+	/*--- o.Retry ---*/
+	fuzz1.Request.Retry = o.Retry.Retry
+	fuzz1.Request.RetryCode = o.Retry.RetryOnStatus
+	fuzz1.Request.RetryRegex = o.Retry.RetryRegex
 
 	/*--- opts.PayloadSetting ---*/
 	fuzz1.Preprocess.PlTemp = make(map[string]fuzzTypes.PayloadTemp)
@@ -310,7 +328,9 @@ func Opt2fuzz(o *opt.Opt) (fuzz1 *fuzzTypes.Fuzz, pendingLogs []string) {
 	/*--- o.General ---*/
 	fuzz1.Request.Timeout = o.General.Timeout
 	fuzz1.Control.PoolSize = o.General.RoutinePoolSize
-	fuzz1.Control.Delay, err = time.ParseDuration(o.General.Delay)
+	var err1 error
+	fuzz1.Control.Delay, err1 = time.ParseDuration(o.General.Delay)
+	err = errors.Join(err, err1)
 	if o.General.Iter != "" {
 		iterator, _ := plugin.ParsePluginsStr(o.General.Iter)
 		if len(iterator) > 1 {

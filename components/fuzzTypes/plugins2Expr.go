@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// Plugins2Expr 将plugin类型转为字符串表达式
+// Plugins2Expr 将plugin切片转为字符串表达式
 func Plugins2Expr(plugins []Plugin) string {
 	sb := strings.Builder{}
 	for i, p := range plugins {
@@ -20,6 +20,7 @@ func Plugins2Expr(plugins []Plugin) string {
 	return sb.String()
 }
 
+// Plugin2Expr 单个plugin转为字符串表达式
 func Plugin2Expr(p Plugin) string {
 	if len(p.Args) == 0 && p.Name == "" {
 		return ""

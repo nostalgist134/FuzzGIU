@@ -467,7 +467,7 @@ func IterLen(p fuzzTypes.Plugin, lengths []int) int {
 
 	iterLen, err := callSharedLib(p, RelPathIterator, foo, lengthsBytes)
 	if err != nil {
-		iterLen = -1
+		iterLen = 0
 	}
 	return iterLen
 }

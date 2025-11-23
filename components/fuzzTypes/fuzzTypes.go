@@ -30,7 +30,7 @@ type (
 
 	HTTPSpec struct {
 		Method      string   `json:"method,omitempty" xml:"method,omitempty"`
-		Headers     []string `json:"headers,omitempty" xml:"header>headers,omitempty"`
+		Headers     []string `json:"headers,omitempty" xml:"headers>header,omitempty"`
 		Proto       string   `json:"proto,omitempty" xml:"proto,omitempty"`
 		ForceHttps  bool     `json:"force_https,omitempty" xml:"force_https,omitempty"`
 		RandomAgent bool     `json:"http_random_agent,omitempty"`
@@ -72,8 +72,15 @@ type (
 		Gen  []Plugin `json:"gen"`
 	}
 
-	// PayloadTemp 与单个关键字相关联的payload相关设置
+	// PayloadTemp 与单个关键字相关联的payload相关设置 deprecated
 	PayloadTemp struct {
+		Generators PlGen    `json:"generators,omitempty"`
+		Processors []Plugin `json:"processors,omitempty"`
+		PlList     []string `json:"pl_list,omitempty"`
+	}
+
+	// PayloadMeta 与单个关键字相关联的payload相关设置
+	PayloadMeta struct {
 		Generators PlGen    `json:"generators,omitempty"`
 		Processors []Plugin `json:"processors,omitempty"`
 		PlList     []string `json:"pl_list,omitempty"`
@@ -120,45 +127,60 @@ type (
 		} `json:"time,omitempty"`
 	}
 
+	// FuzzStagePreprocess fuzz任务预处理阶段的相关信息
+	FuzzStagePreprocess struct {
+		PlMeta        map[string]*PayloadMeta `json:"pl_meta,omitempty"`       // 任务使用的fuzz关键字与对应的payload信息
+		Preprocessors []Plugin                `json:"preprocessors,omitempty"` // 使用的自定义预处理器
+		ReqTemplate   Req                     `json:"request_tmpl,omitempty"`  // 含有fuzz关键字的请求模板
+	}
+
+	// FuzzStageRequest fuzz任务请求阶段使用的信息
+	FuzzStageRequest struct {
+		Proxies             []string `json:"proxies,omitempty"`               // 使用的代理
+		HttpFollowRedirects bool     `json:"http_follow_redirects,omitempty"` // 是否重定向
+		Retry               int      `json:"retry,omitempty"`                 // 错误重试次数
+		RetryCode           string   `json:"retry_code,omitempty"`            // 返回特定状态码时重试
+		RetryRegex          string   `json:"retry_regex,omitempty"`           // 返回匹配正则时重试
+		Timeout             int      `json:"timeout,omitempty"`               // 超时时间
+	}
+
+	// ReactRecursionControl fuzz任务响应阶段的递归控制信息
+	ReactRecursionControl struct {
+		RecursionDepth    int     `json:"recursion_depth,omitempty"`     // 当前递归深度
+		MaxRecursionDepth int     `json:"max_recursion_depth,omitempty"` // 最大递归深度
+		Keyword           string  `json:"keyword,omitempty"`             // 递归模板关键字
+		StatCodes         []Range `json:"stat_codes,omitempty"`          // 匹配的状态码
+		Regex             string  `json:"regex,omitempty"`               // 匹配正则
+		Splitter          string  `json:"splitter,omitempty"`            // 分隔payload与递归关键字的分隔符
+	}
+
+	// FuzzStageReact fuzz任务响应阶段相关信息
+	FuzzStageReact struct {
+		Reactor          Plugin                `json:"reactor,omitempty"`           // 响应处理插件
+		Filter           Match                 `json:"filter,omitempty"`            // 过滤
+		Matcher          Match                 `json:"matcher,omitempty"`           // 匹配
+		IgnoreError      bool                  `json:"ignore_error,omitempty"`      // 是否忽略发送过程中出现的错误
+		RecursionControl ReactRecursionControl `json:"recursion_control,omitempty"` // 递归控制
+	}
+
+	// FuzzControl fuzz任务控制信息
+	FuzzControl struct {
+		PoolSize   int           `json:"pool_size,omitempty"`   // 使用的协程池大小
+		Delay      time.Duration `json:"delay,omitempty"`       // 每次提交任务前的延迟
+		OutSetting OutputSetting `json:"out_setting,omitempty"` // 输出设置
+		IterCtrl   Iteration     `json:"iter_ctrl,omitempty"`   // 迭代控制
+	}
+
 	// Fuzz 测试任务结构，包含执行单个fuzz任务所需的所有信息
 	Fuzz struct {
 		// 预处理阶段的设置
-		Preprocess struct {
-			PlTemp        map[string]PayloadTemp `json:"pl_temp,omitempty"`
-			Preprocessors []Plugin               `json:"preprocessors,omitempty"` // 使用的自定义预处理器
-			ReqTemplate   Req                    `json:"request_tmpl,omitempty"`  // 含有fuzz关键字的请求模板
-		} `json:"preprocess,omitempty"`
+		Preprocess FuzzStagePreprocess `json:"preprocess,omitempty"`
 		// 请求阶段的设置
-		Request struct {
-			Proxies             []string `json:"proxies,omitempty"`               // 使用的代理
-			HttpFollowRedirects bool     `json:"http_follow_redirects,omitempty"` // 是否重定向
-			Retry               int      `json:"retry,omitempty"`                 // 错误重试次数
-			RetryCode           string   `json:"retry_code,omitempty"`            // 返回特定状态码时重试
-			RetryRegex          string   `json:"retry_regex,omitempty"`           // 返回匹配正则时重试
-			Timeout             int      `json:"timeout,omitempty"`               // 超时时间
-		} `json:"request,omitempty"`
+		Request FuzzStageRequest `json:"request,omitempty"`
 		// 响应阶段的设置
-		React struct {
-			Reactor          Plugin `json:"reactor,omitempty"`      // 响应处理插件
-			Filter           Match  `json:"filter,omitempty"`       // 过滤
-			Matcher          Match  `json:"matcher,omitempty"`      // 匹配
-			IgnoreError      bool   `json:"ignore_error,omitempty"` // 是否忽略发送过程中出现的错误
-			RecursionControl struct {
-				RecursionDepth    int     `json:"recursion_depth,omitempty"`     // 当前递归深度
-				MaxRecursionDepth int     `json:"max_recursion_depth,omitempty"` // 最大递归深度
-				Keyword           string  `json:"keyword,omitempty"`
-				StatCodes         []Range `json:"stat_codes,omitempty"`
-				Regex             string  `json:"regex,omitempty"`
-				Splitter          string  `json:"splitter,omitempty"`
-			} `json:"recursion_control,omitempty"`
-		} `json:"react,omitempty"`
+		React FuzzStageReact `json:"react,omitempty"`
 		// 任务控制设置
-		Control struct {
-			PoolSize   int           `json:"pool_size,omitempty"`   // 使用的协程池大小
-			Delay      time.Duration `json:"delay,omitempty"`       // 每次提交任务前的延迟
-			OutSetting OutputSetting `json:"out_setting,omitempty"` // 输出设置
-			IterCtrl   Iteration     `json:"iter_ctrl,omitempty"`   // 迭代控制
-		} `json:"control,omitempty"`
+		Control FuzzControl `json:"control,omitempty"`
 	}
 )
 
@@ -172,6 +194,8 @@ const (
 	ReactMerge
 
 	InfiniteLoop = -1
+
+	DefaultFuzzKeyword = "MILAOGIU"
 )
 
 /* -----------下面是给plugin类用的序列化/反序列化函数，由于plugin用了any切片，因此需要稍微特殊处理一下----------- */

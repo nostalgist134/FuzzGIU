@@ -7,17 +7,19 @@ import (
 	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 )
 
-// parseHttpRequest 尝试将raw request解析为http请求
-func parseHttpRequest(fileName string) (*fuzzTypes.Req, error) {
+// toHttpRequest 尝试将文件内容解析为http请求
+func toHttpRequest(fileName string) (*fuzzTypes.Req, error) {
 	raw, err := os.ReadFile(fileName)
 	if err != nil {
 		return nil, err
 	}
 	reader := bufio.NewReader(bytes.NewReader(raw))
+
 	// 读取请求行
 	startLine, err := reader.ReadBytes('\n')
 	if err != nil {
@@ -30,7 +32,7 @@ func parseHttpRequest(fileName string) (*fuzzTypes.Req, error) {
 	}
 	method := string(parts[0])
 	path := string(parts[1])
-	version := string(parts[2])
+	proto := string(parts[2])
 
 	// 读取 headers
 	var rawHeaders [][]byte
@@ -40,7 +42,7 @@ func parseHttpRequest(fileName string) (*fuzzTypes.Req, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error reading headers: %w", err)
 		}
-		if len(line) > 5 && string(line[:5]) == "Host:" {
+		if len(line) > 5 && bytes.Equal(line[:5], []byte("Host:")) {
 			host = strings.TrimSpace(string(line[6:]))
 		}
 		line = bytes.TrimRight(line, "\r\n")
@@ -49,12 +51,23 @@ func parseHttpRequest(fileName string) (*fuzzTypes.Req, error) {
 		}
 		rawHeaders = append(rawHeaders, line)
 	}
-	if len(path) < 7 || (path[:8] != "https://" || path[:7] != "http://") && host != "" { // 构造完整的URL
-		if path[0] != '/' {
-			path = "/" + path
+
+	// 构造完整的URL（如果可以）
+	if host != "" {
+		u, err := url.Parse(path)
+		if err != nil {
+			u = &url.URL{}
+			u.Path = path
+			u.Host = host
+		} else if u.Host == "" {
+			u.Host = host
 		}
-		path = "https://" + host + path
+		if u.Scheme == "" {
+			u.Scheme = "http"
+		}
+		path = u.String()
 	}
+
 	// 读取 body
 	bodyBuf := new(bytes.Buffer)
 	if _, err := io.Copy(bodyBuf, reader); err != nil {
@@ -68,7 +81,7 @@ func parseHttpRequest(fileName string) (*fuzzTypes.Req, error) {
 		Data: body,
 		HttpSpec: fuzzTypes.HTTPSpec{
 			Method: method,
-			Proto:  version,
+			Proto:  proto,
 		},
 	}
 
@@ -77,26 +90,16 @@ func parseHttpRequest(fileName string) (*fuzzTypes.Req, error) {
 		req.HttpSpec.Headers = append(req.HttpSpec.Headers, string(h))
 	}
 
-	// 判断是否需要强制 HTTPS (Host 字段判断)
-	for _, h := range rawHeaders {
-		if strings.HasPrefix(string(h), "Host:") {
-			host := strings.TrimSpace(strings.TrimPrefix(string(h), "Host:"))
-			if strings.HasPrefix(host, "localhost") || strings.HasPrefix(host, "127.0.0.1") {
-				req.HttpSpec.ForceHttps = true
-			}
-			break
-		}
-	}
-
 	// 如果不是合法的 Request 请求，返回 error
 	if req.HttpSpec.Method == "" || req.URL == "" {
-		return nil, fmt.Errorf("invalid Request request")
+		return nil, fmt.Errorf("invalid http request")
 	}
 
 	return req, nil
 }
 
-func jsonRequest(fileName string) (*fuzzTypes.Req, error) {
+// toJsonRequest 尝试将文件内容解析为json格式的Req结构体
+func toJsonRequest(fileName string) (*fuzzTypes.Req, error) {
 	raw, err := os.ReadFile(fileName)
 	if err != nil {
 		return nil, err

@@ -60,7 +60,7 @@ func fuzzReq2FHReq(fr *fuzzTypes.Req, fhr *fasthttp.Request) {
 		if fr.HttpSpec.RandomAgent {
 			fhr.Header.Set("User-Agent", agents[rand.Int()%len(agents)])
 		} else {
-			fhr.Header.Set("User-Agent", "milaogiu browser(114.54)")
+			fhr.Header.Set("User-Agent", defaultUa)
 		}
 	}
 	fhr.SetBody(fr.Data)
@@ -139,9 +139,10 @@ func fastHttpRequest(cli *fasthttp.Client, fhReq *fasthttp.Request, fhResp *fast
 	return nil, rdrChain.String()
 }
 
-func doRequestFastHttp(sendMeta *fuzzTypes.RequestCtx, timeout int, httpRedirect bool, retry int,
-	retryCode, retryRegex, proxy string) (*fuzzTypes.Resp, error) {
-	req := sendMeta.Request
+func doRequestFastHttp(reqCtx *fuzzTypes.RequestCtx) (*fuzzTypes.Resp, error) {
+	req, proxy, httpRedirect, timeout, retryCode, retry, retryRegex :=
+		reqCtx.Request, reqCtx.Proxy, reqCtx.HttpFollowRedirects,
+		reqCtx.Timeout, reqCtx.RetryCode, reqCtx.Retry, reqCtx.RetryRegex
 	resp := new(fuzzTypes.Resp)
 
 	fhReq := fasthttp.AcquireRequest()
@@ -164,6 +165,9 @@ func doRequestFastHttp(sendMeta *fuzzTypes.RequestCtx, timeout int, httpRedirect
 	timeStart := time.Now()
 	// 发送请求（带重试和重定向）
 	err, rdr := fastHttpRequest(cli, fhReq, fhResp, httpRedirect, timeout)
+	if err != nil {
+		fhResp.SetStatusCode(0)
+	}
 	rtyCodes := strings.Split(retryCode, ",")
 	if retry > 0 {
 		// 重试逻辑
@@ -172,27 +176,31 @@ func doRequestFastHttp(sendMeta *fuzzTypes.RequestCtx, timeout int, httpRedirect
 			for ; retry > 0; retry-- {
 				fhResp.Reset()
 				err, rdr = fastHttpRequest(cli, fhReq, fhResp, httpRedirect, timeout)
+				if err != nil {
+					fhResp.SetStatusCode(0)
+				}
 				if !(retryRegex != "" && common.RegexMatch(fhResp.Body(), retryRegex)) &&
 					!containRetryCode(fhResp.StatusCode(), rtyCodes) && err == nil {
 					break
 				}
+				time.Sleep(time.Duration(rand.Intn(100)+50) * time.Millisecond)
 			}
 		}
 	}
 
-	var body []byte
+	var body, rawResponse []byte
 
 	// 统计时间为第一次+重试的总时间
 	resp.ResponseTime = time.Since(timeStart)
-	resp.RawResponse, body = buildRawHTTPResponse1(fhResp)
+	rawResponse, body = buildRawHTTPResponse1(fhResp)
 
 	// 填充httpResponse对象（仅需填充status code，因为过滤与匹配只用到status code）
 	resp.HttpResponse = &http.Response{StatusCode: fhResp.StatusCode()}
 
 	resp.HttpRedirectChain = rdr
-	resp.Size = len(body)
-	resp.Words = countWords(body)
-	resp.Lines = countLines(body)
+	resp.RawResponse = body
+	resp.Statistic()
+	resp.RawResponse = rawResponse
 	if err != nil {
 		resp.ErrMsg = err.Error()
 	}

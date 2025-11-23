@@ -7,18 +7,6 @@ import (
 	"unsafe"
 )
 
-// todo:
-//	Req结构新增了一个Fields字段，为Field struct {
-//		Name  string `json:"name"`  // 字段名
-//		Value string `json:"value"` // 字段值
-//	}的切片，将Fields的解析与替换添加到模板的解析中（已完成，实际上render函
-//	数不用改，只要改req2str和最后将fields转为req结构的逻辑就行）
-//	修改render系列函数采用写入时分配Lazy结构，写入全部完成后才分配字符串，这
-//	是为了解决writeString后底层内存移动，旧字符串指向的底层内存与rb底层不符
-//	的问题（已完成）
-//	将replace系列函数转为ReplaceTmpl的receiver（已完成）
-//	这个文件太大了，既然现在已经单独独立一个包，就分多几个文件（已完成）
-
 type ReplaceTemplate struct {
 	fragments    []string
 	placeholders []int // placeholders 存储每个片段后关键字在关键字列表的下标列表，特殊情况：下标值为0，代表分隔符

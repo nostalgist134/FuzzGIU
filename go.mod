@@ -3,10 +3,11 @@ module github.com/nostalgist134/FuzzGIU
 go 1.25.0
 
 require (
+	github.com/gdamore/tcell/v2 v2.8.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/labstack/echo/v4 v4.13.4
-	github.com/nostalgist134/FuzzGIUPluginKit v0.1.0-2
-	github.com/nostalgist134/reusableBytes v0.0.9
+	github.com/nostalgist134/FuzzGIUPluginKit v0.1.0-3
+	github.com/nostalgist134/reusableBytes v0.1.1
 	github.com/rivo/tview v0.42.0
 	github.com/valyala/fasthttp v1.65.0
 	github.com/xyproto/randomstring v1.0.5
@@ -15,7 +16,6 @@ require (
 require (
 	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/gdamore/encoding v1.0.1 // indirect
-	github.com/gdamore/tcell/v2 v2.8.1 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect

@@ -26,8 +26,7 @@ func getJobId() int {
 	return int(curJobId.Add(1))
 }
 
-// trySubmit 尝试提交任务，若提交失败，则先从队列中取出所有结果并处理，再提交
-// rp.Submit方法接收的是指针，但是进任务管道时实际上是复制的，因此不需要担心
+// trySubmit 尝试提交任务，若提交失败，则先从队列中取出所有结果并处理
 func trySubmit(jobCtx *fuzzCtx.JobCtx, task *fuzzCtx.TaskCtx, whichExec int8) (stopJob bool,
 	newJobs []*fuzzTypes.Fuzz) {
 	routinePool := jobCtx.RP
@@ -67,6 +66,7 @@ func handleReaction(jobCtx *fuzzCtx.JobCtx, r *fuzzTypes.Reaction) (stopJob bool
 
 	if r.Flag&fuzzTypes.ReactStopJob != 0 {
 		jobCtx.OutputCtx.LogFmtMsg("Job#%d stopped by react", jobCtx.JobId)
+		jobCtx.RP.Clear()
 		stopJob = true
 	}
 
@@ -109,7 +109,6 @@ func drainRp(jobCtx *fuzzCtx.JobCtx) []*fuzzTypes.Fuzz {
 				stopJob, addReq, newJobsFromHandle = handleReaction(jobCtx, r)
 				newJobs = append(newJobs, newJobsFromHandle...)
 				if stopJob {
-					routinePool.Clear()
 					return newJobs
 				}
 				if addReq {
@@ -118,14 +117,13 @@ func drainRp(jobCtx *fuzzCtx.JobCtx) []*fuzzTypes.Fuzz {
 			}
 		}
 
-		// 循环2：在确保任务队列为空之后，再把结果队列的结果全部消耗完毕
+		// 循环2：把结果队列的结果全部消耗完毕
 		for r := routinePool.GetSingleResult(); r != nil; r = routinePool.GetSingleResult() {
 			stopJob, addReq, newJobsFromHandle = handleReaction(jobCtx, r)
 			if newJobsFromHandle != nil {
 				newJobs = append(newJobs, newJobsFromHandle...)
 			}
 			if stopJob {
-				routinePool.Clear()
 				return newJobs
 			}
 			if addReq {
@@ -133,7 +131,7 @@ func drainRp(jobCtx *fuzzCtx.JobCtx) []*fuzzTypes.Fuzz {
 			}
 		}
 
-		// 若上面两个循环都跑完了，也没有添加新请求，这种情况下任务队列和结果队列均为空，没可能再有新请求，因此视作结果消耗完毕
+		// 若上面两个循环都跑完了，也没有添加新请求，这种情况下任务队列和结果队列均为空，没可能再有新请求，结束循环
 		if canStop {
 			break
 		}
@@ -144,11 +142,11 @@ func drainRp(jobCtx *fuzzCtx.JobCtx) []*fuzzTypes.Fuzz {
 // getKeywordsPayloads 遍历map，获取一个关键字排列顺序以及对应顺序的payload列表长度与payload列表集
 // map的遍历是无序的，不过代码对keyword顺序无所谓，只要确定一次顺序后之后都按这个顺序来就行
 func getKeywordsPayloads(job *fuzzTypes.Fuzz) (keywords []string, lengths []int, payloadLists [][]string) {
-	n := len(job.Preprocess.PlTemp)
+	n := len(job.Preprocess.PlMeta)
 	keywords = make([]string, 0, n)
 	lengths = make([]int, 0, n)
 	payloadLists = make([][]string, 0, n)
-	for kw, pt := range job.Preprocess.PlTemp {
+	for kw, pt := range job.Preprocess.PlMeta {
 		keywords = append(keywords, kw)
 		lengths = append(lengths, len(pt.PlList))
 		payloadLists = append(payloadLists, pt.PlList)
@@ -172,7 +170,7 @@ func tryGetUrlScheme(req *fuzzTypes.Req, keywords []string) string {
 	return scheme
 }
 
-// doJobInter 执行一个fuzz任务，返回其衍生任务集（也就是衍生任务不会在这里面运行）
+// doJobInter 执行一个fuzz任务，返回其衍生任务集（衍生任务不会在个函数内提交运行）
 func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fuzzTypes.Fuzz, err error) {
 	timeStart := time.Now()
 
@@ -185,7 +183,7 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 		return
 	}
 
-	defer func() { // 此defer语句必须在输出上下文关闭前执行，因此放在上面这行的下面
+	defer func() {
 		timeLapsed = time.Since(timeStart)
 		err = errors.Join(err, outCtx.LogFmtMsg("job#%d completed, time spent: %v", jobCtx.JobId, timeLapsed))
 	}()
@@ -194,7 +192,7 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 
 	// fuzz关键字的处理
 	var (
-		iterateLen   int
+		iterLength   int
 		keywords     []string
 		payloadLists [][]string
 		lengths      []int
@@ -204,19 +202,20 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 	parsedTmpl := tmplReplace.ParseReqTmpl(&job.Preprocess.ReqTemplate, keywords) // 请求模板
 
 	iter := &(job.Control.IterCtrl)
+	// 确认迭代终点与使用的执行函数
 	if iter.End == 0 {
 		iterName := job.Control.IterCtrl.Iterator.Name
 		// sniper模式或者递归模式，仅允许单个fuzz关键字
 		if iterName == "sniper" || job.React.RecursionControl.MaxRecursionDepth > 0 {
 			if iter.Iterator.Name == "sniper" { // sniper模式的迭代长度=关键字的payload列表长度*关键字出现次数
-				iterateLen = parsedTmpl.KeywordCount(0) * lengths[0]
+				iterLength = parsedTmpl.KeywordCount(0) * lengths[0]
 			}
 			routinePool.RegisterExecutor(taskSingleKeyword, rp.ExecMajor)
 		} else { // 多关键字模式
-			iterateLen = iterLen(job.Control.IterCtrl.Iterator, lengths)
+			iterLength = iterLen(job.Control.IterCtrl.Iterator, lengths)
 			routinePool.RegisterExecutor(taskMultiKeyword, rp.ExecMajor)
 		}
-		iter.End = iterateLen
+		iter.End = iterLength
 	}
 
 	job = stagePreprocess.Preprocess(job, jobCtx.OutputCtx)
@@ -224,23 +223,20 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 	routinePool.RegisterExecutor(taskNoKeywords, rp.ExecMinor)
 	routinePool.Start()
 
-	outCtx.Counter.Set(counter.CntrTask, counter.FieldTotal, iterateLen)
+	outCtx.Counter.Set(counter.CntrTask, counter.FieldTotal, iterLength)
 	outCtx.Counter.Set(counter.CntrTask, counter.FieldCompleted, iter.Start)
 
 	var plProcs = make([][]fuzzTypes.Plugin, len(keywords)) // payload处理器插件
 	for i, keyword := range keywords {
-		plProcs[i] = job.Preprocess.PlTemp[keyword].Processors
+		plProcs[i] = job.Preprocess.PlMeta[keyword].Processors
 	}
 
 	jobStop := false
 
 	uScheme := tryGetUrlScheme(&job.Preprocess.ReqTemplate, keywords)
 
-	payloads := make([]string, len(keywords))
-
 	iterIndexes := make([]int, len(keywords)) // payload下标组合，每次迭代时改变
 
-	newJobs = make([]*fuzzTypes.Fuzz, 0)
 	var newJobsTmp []*fuzzTypes.Fuzz
 
 	var tc = fuzzCtx.TaskCtx{
@@ -251,7 +247,7 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 		PlProc:       plProcs,
 	}
 
-	// fuzz循环，若循环尾为-1则代表无限循环，什么时候结束取决于迭代器逻辑
+	// fuzz主循环，若循环尾为-1则代表无限循环，什么时候结束取决于迭代器逻辑
 	for i := iter.Start; i < iter.End || iter.End == fuzzTypes.InfiniteLoop; i++ {
 		// 只有进入fuzz循环了，才能停止任务（其实是我懒得设计那么多select了）
 		select {
@@ -260,11 +256,13 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 		default:
 		}
 
-		tcInLoop := fuzzCtx.GetTaskCtx()
-		*tcInLoop = tc
+		task := fuzzCtx.GetTaskCtx()
+		*task = tc
 
-		tcInLoop.IterInd = i
-		// 根据迭代器决定迭代下标，递归模式不走这个分支
+		payloads := resourcePool.StringSlices.Get(len(keywords))
+
+		task.IterInd = i
+		// 根据迭代器决定迭代下标，递归/sniper模式不走这个分支
 		if iter.Iterator.Name != "sniper" && job.React.RecursionControl.MaxRecursionDepth <= 0 {
 			iterIndex(lengths, i, iterIndexes, iter.Iterator)
 
@@ -278,22 +276,21 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 				}
 			}
 
-			// 若下标全为无效值，则认为递归结束
+			// 若下标全为无效值，则认为迭代结束
 			if !hasValid {
 				break
 			}
 
-			copied := resourcePool.StringSlices.Get(len(payloads))
-			copy(copied, payloads)
-			tcInLoop.Payloads = copied
+			task.Payloads = payloads
 		} else { // sniper模式或者递归模式
 			snipLen := len(payloadLists[0])
 			payload := payloadLists[0][i%snipLen]
-			tcInLoop.Payloads = []string{payload}
-			tcInLoop.SnipLen = snipLen
+			payloads[0] = payload
+			task.Payloads = payloads
+			task.SnipLen = snipLen
 		}
 
-		jobStop, newJobsTmp = trySubmit(jobCtx, tcInLoop, rp.ExecMajor)
+		jobStop, newJobsTmp = trySubmit(jobCtx, task, rp.ExecMajor)
 		newJobs = append(newJobs, newJobsTmp...)
 		if jobStop {
 			return
@@ -329,7 +326,7 @@ func NewJobCtx(job *fuzzTypes.Fuzz, parentId int, ctx context.Context,
 	}
 
 	if err = ValidateJob(job); err != nil { // 先校验当前job是否有效
-		return nil, fmt.Errorf("failed to validate job: %w", err)
+		return nil, fmt.Errorf("failed to validate job: %v", err)
 	}
 	jid := getJobId()
 
@@ -366,7 +363,7 @@ func NewJobCtx(job *fuzzTypes.Fuzz, parentId int, ctx context.Context,
 
 	// 预加载插件
 	if err = preLoadJobPlugin(job); err != nil {
-		err = errors.Join(err, outCtx.LogFmtMsg("Job#%d preload plugins failed: %v. skipped", jid, err))
+		err = errors.Join(err, outCtx.LogFmtMsg("Job#%d preload plugins failed: %v", jid, err))
 		err = errors.Join(err, outCtx.Close())
 		return
 	}

@@ -200,3 +200,17 @@ func (c *Ctx) Log(log *outputable.Log) error {
 	_, err = c.fLog.Write([]byte("\n"))
 	return err
 }
+
+func (c *Ctx) GetOutputFileName() string {
+	if c.f != nil {
+		return c.f.Name()
+	}
+	return ""
+}
+
+func (c *Ctx) GetLogFileName() string {
+	if c.fLog != nil {
+		return c.fLog.Name()
+	}
+	return ""
+}

@@ -32,6 +32,7 @@ type (
 	Output struct {
 		Verbosity    int    `json:"verbosity,omitempty"`
 		File         string `json:"file,omitempty"`
+		HttpUrl      string `json:"http_url,omitempty"`
 		Fmt          string `json:"fmt,omitempty"`
 		IgnoreError  bool   `json:"ignore_error,omitempty"`
 		NativeStdout bool   `json:"native_stdout,omitempty"`
@@ -50,7 +51,7 @@ type (
 		RecursionRegex    string `json:"recursion_regex,omitempty"`
 		RecursionSplitter string `json:"recursion_splitter,omitempty"`
 	}
-	ErrorHandling struct {
+	Retry struct {
 		Timeout       int    `json:"timeout,omitempty"`
 		Retry         int    `json:"retry,omitempty"`
 		RetryRegex    string `json:"retry_regex,omitempty"`
@@ -75,7 +76,7 @@ type (
 		Request          *Request
 		Output           *Output
 		General          *General
-		ErrorHandling    *ErrorHandling
+		Retry            *Retry
 		RecursionControl *RecursionControl
 		ApiConfig        *ApiConfig
 	}

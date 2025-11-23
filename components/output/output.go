@@ -15,6 +15,7 @@ import (
 	"github.com/nostalgist134/FuzzGIU/components/output/outputable"
 	so "github.com/nostalgist134/FuzzGIU/components/output/stdoutOutput"
 	"github.com/nostalgist134/FuzzGIU/components/output/tviewOutput"
+	"sync"
 	"time"
 )
 
@@ -35,7 +36,19 @@ type (
 	Ctx     outCtx.OutputCtx // outCtx.OutputCtx仅定义类成员，类方法在此文件中定义
 )
 
-var errDbOutputNotImplemented = errors.New("db output not implemented yet")
+var (
+	outObjPool                = sync.Pool{New: func() any { return new(OutObj) }}
+	errDbOutputNotImplemented = errors.New("db output not implemented yet")
+)
+
+func GetOutputObj() *OutObj {
+	return outObjPool.Get().(*OutObj)
+}
+
+func PutOutputObj(obj *OutObj) {
+	*obj = OutObj{}
+	outObjPool.Put(obj)
+}
 
 // NewOutputCtx 根据输出设置，生成一个输出上下文，从而在之后可以使用此上下文进行输出
 func NewOutputCtx(outSetting *fuzzTypes.OutputSetting, jobCtx interfaceJobCtx.IFaceJobCtx, jid int) (*Ctx, error) {
@@ -58,6 +71,7 @@ func NewOutputCtx(outSetting *fuzzTypes.OutputSetting, jobCtx interfaceJobCtx.IF
 	outputCtx.Counter = &Counter{
 		StartTime: time.Now(),
 	}
+	outputCtx.Counter.StartRecordTaskRate()
 
 	var err error
 
@@ -183,6 +197,8 @@ func (c *Ctx) Close() error {
 	if toWhere&outputFlag.OutToHttp != 0 {
 		err = errors.Join(err, c.HttpCtx.Close())
 	}
+
+	c.Counter.StopRecordTaskRate()
 
 	return err
 }

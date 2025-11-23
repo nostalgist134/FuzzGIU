@@ -18,7 +18,7 @@ type result struct {
 	err        error
 }
 
-// jobExecPool 丐版协程池，用于并发执行fuzz任务
+// jobExecPool 用于并发执行fuzz任务
 type jobExecPool struct {
 	mu          sync.Mutex
 	concurrency int
@@ -26,10 +26,9 @@ type jobExecPool struct {
 	results     chan result
 	runningJobs sync.Map
 	executor    jobExecutor
-	// 说实话还是不如用一个stop chan
-	quitCtx context.Context
-	cancel  context.CancelFunc
-	wg      sync.WaitGroup
+	quitCtx     context.Context
+	cancel      context.CancelFunc
+	wg          sync.WaitGroup
 }
 
 func nopExec(*fuzzCtx.JobCtx) (int, time.Duration, []*fuzzTypes.Fuzz, error) {
@@ -81,14 +80,12 @@ func (jp *jobExecPool) worker() {
 	for {
 		select {
 		case job := <-jp.jobQueue:
-			fmt.Println("[debug] worker got one job")
 			jp.runningJobs.Store(job.JobId, job)
 			jid, timeLapsed, newJobs, err := jp.executor(job)
 			jp.results <- result{jid, timeLapsed, newJobs, err}
 			jp.runningJobs.Delete(job.JobId)
 			jp.wg.Done()
 		case <-jp.quitCtx.Done():
-			fmt.Println("[debug] quit")
 			return
 		}
 	}

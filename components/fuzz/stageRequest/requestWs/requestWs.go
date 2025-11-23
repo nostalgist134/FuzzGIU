@@ -63,14 +63,14 @@ func DoRequestWs(req *fuzzTypes.Req, timeout int, retry int, retryRegex string) 
 			if !isTemporaryError(err) {
 				break
 			}
-			time.Sleep(time.Duration(rand.Intn(250)+50) * time.Millisecond)
+			time.Sleep(time.Duration(rand.Intn(100)+50) * time.Millisecond)
 			continue
 		}
 
 		// 4. 读取响应
 		_, message, err := conn.ReadMessage()
 		// 无论读取成功与否，都关闭连接（WebSocket为短连接使用，不复用）
-		conn.Close()
+		safeCloseConn(conn)
 
 		if err != nil {
 			resp.ErrMsg = fmt.Sprintf("failed to read response(%d try): %v", attempt+1, err)
@@ -122,4 +122,28 @@ func isTemporaryError(err error) bool {
 	}
 	// 其他错误默认不重试
 	return false
+}
+
+// safeCloseConn 安全关闭WebSocket连接（核心修复：发送规范关闭帧）
+// 遵循RFC 6455标准：先发送CloseMessage，再等待对方响应，最后关闭连接
+func safeCloseConn(conn *websocket.Conn) error {
+	if conn == nil {
+		return nil
+	}
+
+	// 1. 发送关闭帧（1000=正常关闭，描述信息可选）
+	closeMsg := websocket.FormatCloseMessage(websocket.CloseNormalClosure, "request completed")
+	if err := conn.WriteMessage(websocket.CloseMessage, closeMsg); err != nil {
+		// 发送关闭帧失败仍继续关闭连接，避免资源泄漏
+		return fmt.Errorf("send close frame failed: %w", err)
+	}
+
+	// 2. 读取对方的关闭响应（设置100ms短超时，避免阻塞）
+	conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+	if _, _, err := conn.ReadMessage(); err != nil {
+		// 忽略读取关闭响应的错误（对方可能已主动关闭连接）
+	}
+
+	// 3. 最终关闭底层连接
+	return conn.Close()
 }
