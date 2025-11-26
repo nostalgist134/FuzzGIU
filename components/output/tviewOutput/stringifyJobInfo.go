@@ -170,7 +170,7 @@ OUTPUT_SETTINGS>
 		stringifyMatch(&jobInfo.React.Filter),
 		jobInfo.Request.HttpFollowRedirects,
 		jobInfo.Request.Retry,
-		jobInfo.Request.RetryCode,
+		jobInfo.Request.RetryCodes,
 		jobInfo.Request.RetryRegex,
 		jobInfo.Request.Timeout,
 		jobInfo.React.RecursionControl.MaxRecursionDepth,

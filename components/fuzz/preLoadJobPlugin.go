@@ -58,7 +58,7 @@ func checkPlugin(pi *convention.PluginInfo, expectTypeInd int, p fuzzTypes.Plugi
 func preLoadJobPlugin(job *fuzzTypes.Fuzz) error {
 	var errTotal error
 
-	for _, plTmp := range job.Preprocess.PlTemp {
+	for _, plTmp := range job.Preprocess.PlMeta {
 		// 加载payload生成器插件
 		if plTmp.Generators.Type == "plugin" { // 仅当生成器类型为plugin时才加载插件
 			for _, gen := range plTmp.Generators.Gen {

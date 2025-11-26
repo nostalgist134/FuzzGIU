@@ -52,9 +52,6 @@ func strings2Req(req *fuzzTypes.Req, fields []string, headerNum int) {
 
 // loadLazyFields 将lazy结构体加载为字符串，同时将lazy切片放回池
 func loadLazyFields(fields []string, lazyFields []reusablebytes.Lazy) {
-	if len(fields) != len(lazyFields) {
-		return
-	}
 	for i := 0; i < len(lazyFields); i++ {
 		fields[i] = lazyFields[i].String()
 	}

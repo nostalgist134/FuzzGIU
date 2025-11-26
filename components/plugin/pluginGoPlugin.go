@@ -176,7 +176,7 @@ func DoRequest(p fuzzTypes.Plugin, r *fuzzTypes.RequestCtx) *fuzzTypes.Resp {
 		return resp
 	}
 
-	jsonBytes, err := callSharedLib(p, RelPathReqSender, marshaled)
+	jsonBytes, err := callSharedLib(p, RelPathRequester, marshaled)
 
 	err = json.Unmarshal(jsonBytes, resp)
 	if err != nil {

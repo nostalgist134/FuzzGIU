@@ -1,5 +1,7 @@
 //go:build windows
 
+// say hello to the world of reverse engineering
+
 package plugin
 
 import (
@@ -281,7 +283,9 @@ func PayloadProcessor(p fuzzTypes.Plugin, outCtx *output.Ctx) string {
 // PayloadGenerator 返回插件生成的payload切片
 func PayloadGenerator(p fuzzTypes.Plugin, outCtx *output.Ctx) []string {
 	rb, id := bp.Get()
-	rb.Resize(4096)
+	if rb.Cap() < 4096 {
+		rb.Resize(4096)
+	}
 	defer bp.Put(id)
 
 	if needed, err := callSharedLib(p, RelPathPlGen, rb); err != nil {
@@ -311,7 +315,9 @@ func Preprocess(p fuzzTypes.Plugin, fuzz1 *fuzzTypes.Fuzz, outCtx *output.Ctx) *
 	rb, id := bp.Get()
 	defer bp.Put(id)
 	// 对于返回值为结构体的插件，由于需要存储json结构体，需要分配较大的空间，从而尽量避免可能的双重调用
-	rb.Resize(4096)
+	if rb.Cap() < 4096 {
+		rb.Resize(4096)
+	}
 
 	var needed int
 	if needed, err = callSharedLib(p, RelPathPreprocessor, rb, marshaled); err != nil {
@@ -347,17 +353,19 @@ func DoRequest(p fuzzTypes.Plugin, reqCtx *fuzzTypes.RequestCtx) *fuzzTypes.Resp
 	}
 
 	rb, id := bp.Get()
-	rb.Resize(4096)
+	if rb.Cap() < 4096 {
+		rb.Resize(4096)
+	}
 	defer bp.Put(id)
 
 	var needed int
-	if needed, err = callSharedLib(p, RelPathReqSender, rb, reqJson); err != nil {
+	if needed, err = callSharedLib(p, RelPathRequester, rb, reqJson); err != nil {
 		return &fuzzTypes.Resp{ErrMsg: err.Error()}
 	} else if needed == -1 {
 		return &fuzzTypes.Resp{ErrMsg: errInteriorMarshal}
 	} else if needed > rb.Cap() {
 		rb.Resize(needed + needed>>1)
-		needed, err = callSharedLib(p, RelPathReqSender, rb, reqJson)
+		needed, err = callSharedLib(p, RelPathRequester, rb, reqJson)
 		if err != nil {
 			return &fuzzTypes.Resp{ErrMsg: err.Error()}
 		}
@@ -393,7 +401,9 @@ func React(p fuzzTypes.Plugin, req *fuzzTypes.Req, resp *fuzzTypes.Resp) *fuzzTy
 	}
 
 	rb, id := bp.Get()
-	rb.Resize(4096)
+	if rb.Cap() < 4096 {
+		rb.Resize(4096)
+	}
 	defer bp.Put(id)
 
 	var needed int
@@ -439,7 +449,9 @@ func IterIndex(p fuzzTypes.Plugin, lengths []int, out []int) {
 	rb, id2 := bp.Get()
 	defer bp.Put(id2)
 
-	rb.Resize(len(lengthsBytes))
+	if rb.Cap() < len(lengthsBytes) {
+		rb.Resize(len(lengthsBytes))
+	}
 
 	needed, err := callSharedLib(p, RelPathIterator, rb, lengthsBytes)
 

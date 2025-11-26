@@ -3,7 +3,6 @@ package fuzz
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/fuzz/fuzzCtx"
 	"github.com/nostalgist134/FuzzGIU/components/fuzz/stagePreprocess"
 	"github.com/nostalgist134/FuzzGIU/components/fuzz/stageReact"
@@ -99,7 +98,7 @@ func drainRp(jobCtx *fuzzCtx.JobCtx) []*fuzzTypes.Fuzz {
 	var addReq, stopJob bool
 	var newJobsFromHandle []*fuzzTypes.Fuzz
 
-	newJobs := make([]*fuzzTypes.Fuzz, 0)
+	var newJobs []*fuzzTypes.Fuzz
 
 	for {
 		canStop := true // canStop 标记了结果是否已经消耗完毕
@@ -188,6 +187,12 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 		err = errors.Join(err, outCtx.LogFmtMsg("job#%d completed, time spent: %v", jobCtx.JobId, timeLapsed))
 	}()
 
+	job = stagePreprocess.Preprocess(job, jobCtx.OutputCtx, true)
+	err = ValidateJob(job) // 在预处理完成后再判断一次任务是否合法
+	if err != nil {
+		return
+	}
+
 	genPayloads(jobCtx)
 
 	// fuzz关键字的处理
@@ -218,7 +223,11 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 		iter.End = iterLength
 	}
 
-	job = stagePreprocess.Preprocess(job, jobCtx.OutputCtx)
+	job = stagePreprocess.Preprocess(job, jobCtx.OutputCtx, false)
+	err = ValidateJob(job)
+	if err != nil {
+		return
+	}
 
 	routinePool.RegisterExecutor(taskNoKeywords, rp.ExecMinor)
 	routinePool.Start()
@@ -326,7 +335,7 @@ func NewJobCtx(job *fuzzTypes.Fuzz, parentId int, ctx context.Context,
 	}
 
 	if err = ValidateJob(job); err != nil { // 先校验当前job是否有效
-		return nil, fmt.Errorf("failed to validate job: %v", err)
+		return
 	}
 	jid := getJobId()
 
@@ -354,9 +363,8 @@ func NewJobCtx(job *fuzzTypes.Fuzz, parentId int, ctx context.Context,
 	var outCtx *output.Ctx
 	outCtx, err = output.NewOutputCtx(&job.Control.OutSetting, jobCtx, jid)
 	if err != nil {
-		if outCtx != nil {
-			err = errors.Join(err, outCtx.Close())
-		}
+		err = errors.Join(err, jobCtx.Close())
+		jobCtx = nil
 		return
 	}
 	jobCtx.OutputCtx = outCtx
@@ -364,7 +372,8 @@ func NewJobCtx(job *fuzzTypes.Fuzz, parentId int, ctx context.Context,
 	// 预加载插件
 	if err = preLoadJobPlugin(job); err != nil {
 		err = errors.Join(err, outCtx.LogFmtMsg("Job#%d preload plugins failed: %v", jid, err))
-		err = errors.Join(err, outCtx.Close())
+		err = errors.Join(err, jobCtx.Close())
+		jobCtx = nil
 		return
 	}
 

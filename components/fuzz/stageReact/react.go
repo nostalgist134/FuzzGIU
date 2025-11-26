@@ -5,18 +5,10 @@ import (
 	"github.com/nostalgist134/FuzzGIU/components/fuzz/fuzzCtx"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/nostalgist134/FuzzGIU/components/output"
+	"github.com/nostalgist134/FuzzGIU/components/output/counter"
 	"github.com/nostalgist134/FuzzGIU/components/plugin"
 	"github.com/nostalgist134/FuzzGIU/components/resourcePool"
 )
-
-func valInRanges(v int, ranges []fuzzTypes.Range) bool {
-	for _, r := range ranges {
-		if v <= r.Upper && v >= r.Lower {
-			return true
-		}
-	}
-	return false
-}
 
 // matchResponse 将响应与match成员进行匹配
 func matchResponse(resp *fuzzTypes.Resp, m *fuzzTypes.Match) bool {
@@ -28,23 +20,22 @@ func matchResponse(resp *fuzzTypes.Resp, m *fuzzTypes.Match) bool {
 	if m.Mode == "or" {
 		whenToRet = true
 	}
-	if len(m.Size) != 0 && valInRanges(resp.Size, m.Size) == whenToRet {
+	if len(m.Size) != 0 && m.Size.Contains(resp.Size) == whenToRet {
 		return whenToRet
 	}
-	if len(m.Words) != 0 && valInRanges(resp.Words, m.Words) == whenToRet {
+	if len(m.Words) != 0 && m.Words.Contains(resp.Words) == whenToRet {
 		return whenToRet
 	}
-	if len(m.Code) != 0 && resp.HttpResponse != nil && valInRanges(resp.HttpResponse.StatusCode, m.Code) == whenToRet {
+	if len(m.Code) != 0 && resp.HttpResponse != nil && m.Code.Contains(resp.HttpResponse.StatusCode) == whenToRet {
 		return whenToRet
 	}
-	if len(m.Lines) != 0 && valInRanges(resp.Lines, m.Lines) == whenToRet {
+	if len(m.Lines) != 0 && m.Lines.Contains(resp.Lines) == whenToRet {
 		return whenToRet
 	}
 	if len(m.Regex) != 0 && common.RegexMatch(resp.RawResponse, m.Regex) == whenToRet {
 		return whenToRet
 	}
-	if m.Time.Upper > m.Time.Lower && // time的上界与下界若相等或者下界更大，则视为无效（未设置时间条件）
-		(resp.ResponseTime < m.Time.Upper && resp.ResponseTime >= m.Time.Lower) == whenToRet {
+	if m.Time.Valid() && m.Time.Contains(resp.ResponseTime) == whenToRet {
 		return whenToRet
 	}
 	return !whenToRet
@@ -86,7 +77,7 @@ func React(jobCtx *fuzzCtx.JobCtx, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 	// 递归模式添加新任务
 	if fuzz1.React.RecursionControl.RecursionDepth < fuzz1.React.RecursionControl.MaxRecursionDepth &&
 		(resp.HttpResponse != nil &&
-			valInRanges(resp.HttpResponse.StatusCode, fuzz1.React.RecursionControl.StatCodes) ||
+			fuzz1.React.RecursionControl.StatCodes.Contains(resp.HttpResponse.StatusCode) ||
 			common.RegexMatch(resp.RawResponse, fuzz1.React.RecursionControl.Regex)) && recursionPos != nil {
 		outCtx.LogFmtMsg("job#%d payload %s recursive, add new job", jobCtx.JobId, payloadEachKeyword[0])
 
@@ -117,6 +108,10 @@ func React(jobCtx *fuzzCtx.JobCtx, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 		reaction.Flag |= fuzzTypes.ReactOutput
 	}
 
+	if resp.ErrMsg != "" {
+		jobCtx.OutputCtx.Counter.Add(counter.CntrErrors, counter.FieldCompleted, 1)
+	}
+
 	// reactor插件调用
 	if fuzz1.React.Reactor.Name != "" {
 		pluginReaction := plugin.React(fuzz1.React.Reactor, reqSend, resp)
@@ -128,11 +123,11 @@ func React(jobCtx *fuzzCtx.JobCtx, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 		}
 	}
 
-	o := output.GetOutputObj()
-	defer output.PutOutputObj(o)
-	o.Msg = reaction.Output.Msg
 	// 生成并输出消息
 	if reaction.Flag&fuzzTypes.ReactOutput != 0 {
+		o := output.GetOutputObj()
+		defer output.PutOutputObj(o)
+		o.Msg = reaction.Output.Msg
 		if !reaction.Output.Overwrite {
 			o.Keywords = keywordsUsed
 			o.Payloads = payloadEachKeyword

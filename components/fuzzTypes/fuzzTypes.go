@@ -22,6 +22,14 @@ type (
 		Lower int `json:"lower,omitempty"`
 	}
 
+	Ranges []Range
+
+	// TimeBound 表示一个范围中的时间，上开下闭，单位为毫秒
+	TimeBound struct {
+		Lower time.Duration `json:"lower,omitempty"`
+		Upper time.Duration `json:"upper,omitempty"`
+	}
+
 	// Field 描述一个请求字段
 	Field struct {
 		Name  string `json:"name" xml:"name"`   // 字段名
@@ -72,13 +80,6 @@ type (
 		Gen  []Plugin `json:"gen"`
 	}
 
-	// PayloadTemp 与单个关键字相关联的payload相关设置 deprecated
-	PayloadTemp struct {
-		Generators PlGen    `json:"generators,omitempty"`
-		Processors []Plugin `json:"processors,omitempty"`
-		PlList     []string `json:"pl_list,omitempty"`
-	}
-
 	// PayloadMeta 与单个关键字相关联的payload相关设置
 	PayloadMeta struct {
 		Generators PlGen    `json:"generators,omitempty"`
@@ -91,7 +92,7 @@ type (
 		Request             *Req   `json:"request,omitempty"`               // 发送的请求
 		Proxy               string `json:"proxy,omitempty"`                 // 使用的代理
 		Retry               int    `json:"retry,omitempty"`                 // 错误重试次数
-		RetryCode           string `json:"retry_code,omitempty"`            // 返回特定状态码时重试
+		RetryCodes          Ranges `json:"retry_codes,omitempty"`           // 返回特定状态码时重试
 		RetryRegex          string `json:"retry_regex,omitempty"`           // 返回匹配正则时重试
 		Timeout             int    `json:"timeout,omitempty"`               // 超时
 		HttpFollowRedirects bool   `json:"http_follow_redirects,omitempty"` // http重定向
@@ -115,23 +116,21 @@ type (
 	}
 
 	Match struct {
-		Code  []Range `json:"code,omitempty"`
-		Lines []Range `json:"lines,omitempty"`
-		Words []Range `json:"words,omitempty"`
-		Size  []Range `json:"size,omitempty"`
-		Regex string  `json:"regex,omitempty"`
-		Mode  string  `json:"mode,omitempty"`
-		Time  struct {
-			Lower time.Duration `json:"lower,omitempty"`
-			Upper time.Duration `json:"upper,omitempty"`
-		} `json:"time,omitempty"`
+		Code  Ranges    `json:"code,omitempty"`
+		Lines Ranges    `json:"lines,omitempty"`
+		Words Ranges    `json:"words,omitempty"`
+		Size  Ranges    `json:"size,omitempty"`
+		Regex string    `json:"regex,omitempty"`
+		Mode  string    `json:"mode,omitempty"`
+		Time  TimeBound `json:"time,omitempty"`
 	}
 
 	// FuzzStagePreprocess fuzz任务预处理阶段的相关信息
 	FuzzStagePreprocess struct {
-		PlMeta        map[string]*PayloadMeta `json:"pl_meta,omitempty"`       // 任务使用的fuzz关键字与对应的payload信息
-		Preprocessors []Plugin                `json:"preprocessors,omitempty"` // 使用的自定义预处理器
-		ReqTemplate   Req                     `json:"request_tmpl,omitempty"`  // 含有fuzz关键字的请求模板
+		PlMeta          map[string]*PayloadMeta `json:"pl_meta,omitempty"`           // 任务使用的fuzz关键字与对应的payload信息
+		Preprocessors   []Plugin                `json:"preprocessors,omitempty"`     // 自定义预处理器（生成payload后使用）
+		PreprocPriorGen []Plugin                `json:"preproc_prior_gen,omitempty"` // 自定义预处理器（生成payload前）
+		ReqTemplate     Req                     `json:"req_tmpl,omitempty"`          // 含有fuzz关键字的请求模板
 	}
 
 	// FuzzStageRequest fuzz任务请求阶段使用的信息
@@ -139,19 +138,19 @@ type (
 		Proxies             []string `json:"proxies,omitempty"`               // 使用的代理
 		HttpFollowRedirects bool     `json:"http_follow_redirects,omitempty"` // 是否重定向
 		Retry               int      `json:"retry,omitempty"`                 // 错误重试次数
-		RetryCode           string   `json:"retry_code,omitempty"`            // 返回特定状态码时重试
+		RetryCodes          Ranges   `json:"retry_codes,omitempty"`           // 返回特定状态码时重试
 		RetryRegex          string   `json:"retry_regex,omitempty"`           // 返回匹配正则时重试
 		Timeout             int      `json:"timeout,omitempty"`               // 超时时间
 	}
 
 	// ReactRecursionControl fuzz任务响应阶段的递归控制信息
 	ReactRecursionControl struct {
-		RecursionDepth    int     `json:"recursion_depth,omitempty"`     // 当前递归深度
-		MaxRecursionDepth int     `json:"max_recursion_depth,omitempty"` // 最大递归深度
-		Keyword           string  `json:"keyword,omitempty"`             // 递归模板关键字
-		StatCodes         []Range `json:"stat_codes,omitempty"`          // 匹配的状态码
-		Regex             string  `json:"regex,omitempty"`               // 匹配正则
-		Splitter          string  `json:"splitter,omitempty"`            // 分隔payload与递归关键字的分隔符
+		RecursionDepth    int    `json:"recursion_depth,omitempty"`     // 当前递归深度
+		MaxRecursionDepth int    `json:"max_recursion_depth,omitempty"` // 最大递归深度
+		Keyword           string `json:"keyword,omitempty"`             // 递归模板关键字
+		StatCodes         Ranges `json:"stat_codes,omitempty"`          // 匹配的状态码
+		Regex             string `json:"regex,omitempty"`               // 匹配正则
+		Splitter          string `json:"splitter,omitempty"`            // 分隔payload与递归关键字的分隔符
 	}
 
 	// FuzzStageReact fuzz任务响应阶段相关信息

@@ -29,7 +29,7 @@ func getSection(name string) string {
 		return "RECURSION"
 	case strings.HasPrefix(name, "retry"):
 		return "RETRY"
-	case name == "preproc" || name == "react":
+	case strings.HasPrefix(name, "preproc") || name == "react":
 		return "PLUGIN"
 	case name == "http-api" || name == "api-tls" || name == "api-addr" || name == "tls-cert-file" ||
 		name == "tls-cert-key":
@@ -129,7 +129,7 @@ func usage() {
 			"\\\n\t-pl-proc AES(\"1234567890abcdef\")::PASS  "+
 			"# will search ./plugins/payloadProcessors/AES.(so/dll/dylib)",
 		"-w user.txt::USER -w pass.txt::PASS"+
-			" \\\n\t-u ssh://USER:PASS@test.com:22  # ./plugins/requestSenders/ssh.(so/dll/dylib)",
+			" \\\n\t-u ssh://USER:PASS@test.com:22  # ./plugins/requesters/ssh.(so/dll/dylib)",
 		"-u http://test.com/FUZZ -w dict.txt::FUZZ "+
 			"\\\n\t-preproc job_dispatch  # ./plugins/preprocessors/job_dispatch.(so/dll/dylib)",
 		"-u http://test.com/FUZZ -w dict.txt::FUZZ "+

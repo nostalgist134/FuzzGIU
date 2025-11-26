@@ -10,7 +10,7 @@ const (
 	RelPathPlGen        = "payloadGenerators/"
 	RelPathPlProc       = "payloadProcessors/"
 	RelPathPreprocessor = "preprocessors/"
-	RelPathReqSender    = "requestSenders/"
+	RelPathRequester    = "requesters/"
 	RelPathReactor      = "reactors/"
 	RelPathIterator     = "iterators/"
 

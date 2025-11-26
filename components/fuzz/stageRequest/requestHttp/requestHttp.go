@@ -48,7 +48,7 @@ func initHttpCli(proxy string, timeout int, redirect bool, redirectChain *string
 			if len(*redirectChain) == 0 && len(via) > 0 {
 				*redirectChain = via[0].URL.String() // 初始请求URL（via[0]是第一个请求）
 			}
-			*redirectChain += "->" + req.URL.String()
+			*redirectChain += " -> " + req.URL.String()
 			return nil
 		}
 	} else {
@@ -126,8 +126,8 @@ func DoRequestHttp(reqCtx *fuzzTypes.RequestCtx) (*fuzzTypes.Resp, error) {
 
 	resp := new(fuzzTypes.Resp)
 
-	proxy, timeout, httpRedirect, retryCode, retry, retryRegex :=
-		reqCtx.Proxy, reqCtx.Timeout, reqCtx.HttpFollowRedirects, reqCtx.RetryCode, reqCtx.Retry, reqCtx.RetryRegex
+	proxy, timeout, httpRedirect, retryCodes, retry, retryRegex :=
+		reqCtx.Proxy, reqCtx.Timeout, reqCtx.HttpFollowRedirects, reqCtx.RetryCodes, reqCtx.Retry, reqCtx.RetryRegex
 
 	httpReq, err := fuzzReq2HttpReq(request)
 	if err != nil {
@@ -144,7 +144,6 @@ func DoRequestHttp(reqCtx *fuzzTypes.RequestCtx) (*fuzzTypes.Resp, error) {
 	defer cliPool.Put(cli) // 确保客户端放回池中
 
 	timeStart := time.Now()
-	retryCodes := strings.Split(retryCode, ",")
 	reqData := request.Data // 保存原始请求数据
 
 	var httpResponse *http.Response
@@ -186,8 +185,7 @@ func DoRequestHttp(reqCtx *fuzzTypes.RequestCtx) (*fuzzTypes.Resp, error) {
 		resp.HttpRedirectChain = redirectChain
 
 		// 检查是否需要重试
-		needRetry := containRetryCode(httpResponse.StatusCode, retryCodes) ||
-			common.RegexMatch(rawResp, retryRegex)
+		needRetry := retryCodes.Contains(httpResponse.StatusCode) || common.RegexMatch(rawResp, retryRegex)
 
 		if !needRetry || attempt >= retry {
 			break

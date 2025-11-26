@@ -37,7 +37,7 @@ func DoRequest(rCtx *fuzzTypes.RequestCtx, scheme string) *fuzzTypes.Resp {
 
 	switch uScheme {
 	case "http", "https", "": // 若没有scheme，默认使用http
-		resp, sendErr := requestHttp.DoRequestHttp(rCtx)
+		resp, sendErr := requestHttp.DoRequestHttpNew(rCtx)
 		if sendErr != nil && resp != nil && resp.ErrMsg == "" {
 			resp.ErrMsg = sendErr.Error()
 		}

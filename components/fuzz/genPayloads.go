@@ -11,7 +11,7 @@ func genPayloads(jobCtx *fuzzCtx.JobCtx) {
 	// 生成payload
 	for keyword, pMeta := range job.Preprocess.PlMeta {
 		plList := job.Preprocess.PlMeta[keyword].PlList
-		if len(plList) == 0 { // 若列表已经有数据（比如通过插件手动添加的任务，可手动添加plList），则用原来的数据
+		if len(plList) == 0 { // 仅当列表为空时生成，若已有数据则跳过
 			pMeta.PlList = stagePreprocess.PayloadGenerator(job.Preprocess.PlMeta[keyword].Generators, outCtx)
 		}
 	}

@@ -51,3 +51,8 @@ func TestReqMarshal(t *testing.T) {
 	b, _ := xml.MarshalIndent(r, "", "  ")
 	fmt.Println(string(b))
 }
+
+func TestRange_Contains(t *testing.T) {
+	r := Range{404, 404}
+	fmt.Println(r.Contains(404))
+}

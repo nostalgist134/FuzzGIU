@@ -25,7 +25,7 @@ func initOnce() {
 	screen.pages.AddPage(screen.pageNames[0], screen.listJobs, true, true)
 	screen.pages.SetInputCapture(func(key *tcell.EventKey) *tcell.EventKey {
 		switch key.Key() {
-		case tcell.KeyCtrlQ: // 按下ctrl+q就退出
+		case tcell.KeyCtrlC: // 按下ctrl+q就退出
 			screen.tviewApp.Stop()
 			return nil
 		case tcell.KeyCtrlR: // 按下ctrl+r就切换回目录页
@@ -44,11 +44,16 @@ func initOnce() {
 			log.Fatal(err)
 		}
 	}()
+	go func() {
+		for {
+			screen.tviewApp.Draw()
+		}
+	}()
 }
 
 // NewTviewOutputCtx 创建一个新的tview子窗口
 func NewTviewOutputCtx(outSetting *fuzzTypes.OutputSetting, jobCtx interfaceJobCtx.IFaceJobCtx, id int) (*Ctx, error) {
-	if outSetting.ToWhere|outputFlag.OutToStdout != 0 {
+	if outSetting.ToWhere&outputFlag.OutToStdout != 0 {
 		return nil, outputErrors.ErrTviewConflict
 	}
 
@@ -59,7 +64,7 @@ func NewTviewOutputCtx(outSetting *fuzzTypes.OutputSetting, jobCtx interfaceJobC
 
 	textViews, flx := newTextViewAndFlex(jobCtx.GetJobInfo())
 
-	ctx := &Ctx{
+	tviewCtx := &Ctx{
 		app:          screen.tviewApp,
 		textViews:    textViews,
 		flx:          flx,
@@ -68,60 +73,60 @@ func NewTviewOutputCtx(outSetting *fuzzTypes.OutputSetting, jobCtx interfaceJobC
 		startCounter: make(chan struct{}),
 		endCounter:   make(chan struct{}),
 	}
-	ctx.occupied.Add(1)
+	tviewCtx.occupied.Add(1)
 
 	flx.SetInputCapture(func(key *tcell.EventKey) *tcell.EventKey {
 		switch key.Name() {
 		case "Ctrl+Up", "Ctrl+K", "Ctrl+W": // 切换到上一个窗口
-			if ctx.focus > 0 {
-				ctx.focus--
-				ctx.app.SetFocus(ctx.textViews[ctx.focus])
-				return nil
+			if tviewCtx.focus > 0 {
+				tviewCtx.focus--
+				tviewCtx.app.SetFocus(tviewCtx.textViews[tviewCtx.focus])
 			}
+			return nil
 		case "Ctrl+Down", "Ctrl+J", "Ctrl+S": // 切换到下一个窗口
-			if ctx.focus < len(ctx.textViews)-1 {
-				ctx.focus++
-				ctx.app.SetFocus(ctx.textViews[ctx.focus])
-				return nil
+			if tviewCtx.focus < len(tviewCtx.textViews)-1 {
+				tviewCtx.focus++
+				tviewCtx.app.SetFocus(tviewCtx.textViews[tviewCtx.focus])
 			}
+			return nil
 		case "p":
-			ctx.jobCtx.Pause()
+			tviewCtx.jobCtx.Pause()
 			return nil
 		case "r":
-			ctx.jobCtx.Resume()
+			tviewCtx.jobCtx.Resume()
 			return nil
 		case "q":
-			ctx.occupied.Done() // 实现在任务全部完成后不自动退出，而是等待用户按下q退出
-			ctx.jobCtx.Stop()
+			tviewCtx.occupied.Done() // 实现在任务全部完成后不自动退出，而是等待用户按下q退出
+			tviewCtx.jobCtx.Stop()
 			return nil
 		}
 		return key
 	})
 
-	ctx.textViews[IndOutput].SetInputCapture(func(key *tcell.EventKey) *tcell.EventKey {
+	tviewCtx.textViews[IndOutput].SetInputCapture(func(key *tcell.EventKey) *tcell.EventKey {
 		switch key.Key() {
 		case tcell.KeyCtrlL:
-			ctx.lockOnOutput.Store(true)
-			ctx.textViews[IndOutput].SetTitle(titles[IndOutputLocked])
+			tviewCtx.lockOnOutput.Store(true)
+			tviewCtx.textViews[IndOutput].SetTitle(titles[IndOutputLocked])
 			return nil
 		case tcell.KeyCtrlU:
-			ctx.lockOnOutput.Store(false)
-			ctx.textViews[IndOutput].SetTitle(titles[IndOutput])
+			tviewCtx.lockOnOutput.Store(false)
+			tviewCtx.textViews[IndOutput].SetTitle(titles[IndOutput])
 			return nil
 		default:
 			return key
 		}
 	})
 
-	ctx.textViews[IndLogs].SetInputCapture(func(key *tcell.EventKey) *tcell.EventKey {
+	tviewCtx.textViews[IndLogs].SetInputCapture(func(key *tcell.EventKey) *tcell.EventKey {
 		switch key.Key() {
 		case tcell.KeyCtrlL:
-			ctx.lockOnLog.Store(true)
-			ctx.textViews[IndLogs].SetTitle(titles[IndLogsLocked])
+			tviewCtx.lockOnLog.Store(true)
+			tviewCtx.textViews[IndLogs].SetTitle(titles[IndLogsLocked])
 			return nil
 		case tcell.KeyCtrlU:
-			ctx.lockOnLog.Store(false)
-			ctx.textViews[IndLogs].SetTitle(titles[IndLogs])
+			tviewCtx.lockOnLog.Store(false)
+			tviewCtx.textViews[IndLogs].SetTitle(titles[IndLogs])
 			return nil
 		default:
 			return key
@@ -129,32 +134,32 @@ func NewTviewOutputCtx(outSetting *fuzzTypes.OutputSetting, jobCtx interfaceJobC
 	})
 
 	flx.SetFocusFunc(func() { // 与下面的函数配合，当flx被聚焦时，将聚焦传递到上次选中的textView上
-		ctx.app.SetFocus(ctx.textViews[ctx.focus])
+		tviewCtx.app.SetFocus(tviewCtx.textViews[tviewCtx.focus])
 	})
 
-	ctx.app.QueueUpdate(func() { // tview作者真是神人，有的组件方法就加锁，有的就不加，我还得自己进去看再处理
+	tviewCtx.app.QueueUpdate(func() { // tview作者真是神人，有的组件方法就加锁，有的就不加，我还得自己进去看再处理
 		pageName := fmt.Sprintf("job#%d", id)
 		screen.pages.AddPage(pageName, flx, false, true) // 添加一个名为job#id的页
 		screen.listJobs.AddItem(pageName, "", 0, func() {
 			// 选中对应list时，切换到这个页，并聚焦到flx上
 			screen.pages.SwitchToPage(pageName)
-			ctx.app.SetFocus(ctx.flx)
+			tviewCtx.app.SetFocus(tviewCtx.flx)
 		})
 	})
 
 	go func() {
-		<-ctx.startCounter
+		<-tviewCtx.startCounter
 		for {
 			select {
-			case <-ctx.endCounter:
+			case <-tviewCtx.endCounter:
 				return
 			default:
-				ctx.textViews[IndCounter].SetText(ctx.counter.ToFmt())
+				tviewCtx.textViews[IndCounter].SetText(tviewCtx.counter.ToFmt())
 				time.Sleep(225 * time.Millisecond)
 			}
 		}
 	}()
-	return ctx, nil
+	return tviewCtx, nil
 }
 
 func (c *Ctx) Output(o *outputable.OutObj) error {

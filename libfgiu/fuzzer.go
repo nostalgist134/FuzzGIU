@@ -7,6 +7,7 @@ import (
 	"github.com/nostalgist134/FuzzGIU/components/fuzz"
 	"github.com/nostalgist134/FuzzGIU/components/fuzz/fuzzCtx"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
+	"github.com/nostalgist134/FuzzGIU/components/output/outputFlag"
 	"log"
 	"sync"
 	"time"
@@ -19,10 +20,10 @@ const (
 )
 
 var (
-	errJobQuFull     = errors.New("job queue is full")
-	errJobPoolNil    = errors.New("job pool is nil")
-	errFuzzerStopped = errors.New("fuzzer is already stopped")
-	errNotStarted    = errors.New("fuzzer is not started yet")
+	errJobQuFull            = errors.New("job queue is full")
+	errJobPoolNil           = errors.New("job pool is nil")
+	errFuzzerStopped        = errors.New("fuzzer is already stopped")
+	errHttpApiDisallowTview = errors.New("tview output is not allowed in http api mode")
 )
 
 type pendingJob struct {
@@ -33,15 +34,17 @@ type pendingJob struct {
 // Fuzzer 用来执行模糊测试任务，允许多个任务并发执行，内部维护一个任务协程池
 // 注意：此结构是一次性的，也就是说调用Stop之后就不能再调用Start启动，否则可
 // 能导致未定义行为，必须使用NewFuzzer重新获取
+// Fuzzer对象只能通过NewFuzzer函数获取，不能直接声明后就使用
 // 这个结构体可以在其它的go代码中使用，只要遵循上面的原则就行
 type Fuzzer struct {
 	stat        int8
-	statMux     sync.Mutex
+	muStat      sync.Mutex
+	idle        bool
+	condIdle    *sync.Cond
 	jp          *jobExecPool
 	cancel      context.CancelFunc
 	ctx         context.Context
 	pendingJobs []pendingJob
-	muPending   sync.Mutex
 	s           *httpService
 }
 
@@ -61,11 +64,15 @@ func (f *Fuzzer) daemon() {
 		default:
 			var (
 				i            = 0
+				idle         = true
 				jobCtx       *fuzzCtx.JobCtx
 				err          error
 				lastConsumed bool
 			)
-			f.muPending.Lock()
+
+			if len(f.pendingJobs) > 0 { // 如果有任务缓冲队列非空，判断为非空闲
+				idle = false
+			}
 			// 循环1：消耗pendingJobs队列
 			for ; i < len(f.pendingJobs); i++ {
 				p := f.pendingJobs[i]
@@ -95,6 +102,9 @@ func (f *Fuzzer) daemon() {
 				if !ok {
 					break
 				}
+				if len(res.newJobs) > 0 { // 如果有衍生任务，判断为非空闲
+					idle = false
+				}
 				lastConsumed = false
 				// 尝试提交newJobs切片中任务，直到jp队列满或者提交全部完成
 				for i = 0; i < len(res.newJobs); i++ {
@@ -117,13 +127,22 @@ func (f *Fuzzer) daemon() {
 					}
 				}
 			}
-			f.muPending.Unlock()
-			time.Sleep(25 * time.Millisecond) // 短暂休眠，避免空转
+			if len(f.jp.jobQueue) > 0 || len(f.jp.results) > 0 { // 若任务池结果队列或任务队列非空，判断为非空闲
+				idle = false
+			}
+			f.condIdle.L.Lock()
+			if f.idle = idle; idle { // 若为空闲状态
+				f.condIdle.L.Unlock()
+				f.condIdle.Broadcast()
+			} else {
+				f.condIdle.L.Unlock()
+			}
+			time.Sleep(20 * time.Millisecond) // 短暂休眠，避免空转
 		}
 	}
 }
 
-// NewFuzzer 获取一个Fuzzer对象，如果需要，可以将libfgiu包作为库使用，大部分的细节已经包装好了
+// NewFuzzer 获取一个Fuzzer对象
 // concurrency 指定任务并发池的大小
 // apiConf 指定是否启动api模式及启动的配置，只要指定了这个参数就会启动api，如果要自定义配置，则指定具体配置
 func NewFuzzer(concurrency int, apiConf ...WebApiConfig) (*Fuzzer, error) {
@@ -139,11 +158,13 @@ func NewFuzzer(concurrency int, apiConf ...WebApiConfig) (*Fuzzer, error) {
 		jp:     jp,
 		ctx:    quitCtx,
 		cancel: cancel,
+		idle:   true,
 	}
+	f.condIdle = sync.NewCond(new(sync.Mutex))
 
 	f.jp.registerExecutor(fuzz.DoJobByCtx) // 使用DoJobByCtx作为执行函数
 	if len(apiConf) > 0 {
-		err = f.startHttpApi(apiConf[0])
+		err = f.StartHttpApi(apiConf[0])
 		if err != nil {
 			return f, err
 		}
@@ -168,34 +189,36 @@ func (f *Fuzzer) Do(job *fuzzTypes.Fuzz) (jid int, timeLapsed time.Duration, new
 // Submit 用于非阻塞执行一个fuzz任务（提交到任务池中）
 // 返回提交任务的id和错误
 func (f *Fuzzer) Submit(job *fuzzTypes.Fuzz) (int, error) {
-	f.statMux.Lock()
-	switch f.stat {
-	case FuzzerStatInit:
-		return -1, errNotStarted
-	case FuzzerStatUsed:
+	f.muStat.Lock()
+	defer f.muStat.Unlock()
+	if f.stat == FuzzerStatUsed {
 		return -1, errFuzzerStopped
-	default:
 	}
-	f.statMux.Unlock()
 
 	if f.jp == nil {
 		return -1, errJobPoolNil
+	}
+	if job != nil && job.Control.OutSetting.ToWhere|outputFlag.OutToTview != 0 && f.s != nil {
+		return -1, errHttpApiDisallowTview
 	}
 	jc, err := fuzz.NewJobCtx(job, 0, f.ctx, f.cancel) // 使用submit提交的job其parentId都为0，代表最上层
 	if err != nil {
 		return -1, err
 	}
 
+	f.condIdle.L.Lock()
+	defer f.condIdle.L.Unlock()
 	if !f.jp.submit(jc) {
-		return -1, errJobQuFull
+		return -1, errors.Join(jc.Close(), errJobQuFull)
 	}
+	f.idle = false
 	return jc.JobId, nil
 }
 
 // Start 启动Fuzzer的任务池，在此之后可使用Submit方法向其中提交任务
 func (f *Fuzzer) Start() *Fuzzer {
-	f.statMux.Lock()
-	defer f.statMux.Unlock()
+	f.muStat.Lock()
+	defer f.muStat.Unlock()
 	switch f.stat {
 	case FuzzerStatRunning, FuzzerStatUsed:
 		return f
@@ -210,52 +233,48 @@ func (f *Fuzzer) Start() *Fuzzer {
 	return f
 }
 
-// Wait 等待fuzzer对象直到其不再执行任何任务
+// Wait 等待fuzzer对象直到其处于空闲状态（即没有任务执行，也没有待执行的任务）
 func (f *Fuzzer) Wait() {
-	for {
-		if f.s != nil {
-			f.s.wait()
-		}
-		f.jp.wait()
-		if len(f.jp.jobQueue) == 0 && len(f.jp.results) == 0 {
-			f.muPending.Lock()
-			// 等待结束条件：
-			// 1.jobExecPool的任务队列为空
-			// 2.jobExecPool的结果队列为空
-			// 3.pendingJobs队列长度为0
-			if len(f.pendingJobs) == 0 {
-				f.muPending.Unlock()
-				return
-			}
-			f.muPending.Unlock()
-			time.Sleep(50 * time.Millisecond)
-			continue
-		}
+	if f.s != nil {
+		f.s.wait()
 	}
+
+	f.jp.wait()
+	f.condIdle.L.Lock()
+	for !f.idle {
+		f.condIdle.Wait()
+	}
+	f.condIdle.L.Unlock()
 }
 
-// Stop 停止fuzzer的运行，并停止所有任务的运行
-func (f *Fuzzer) Stop() error {
-	f.statMux.Lock()
-	defer f.statMux.Unlock()
-	if f.stat == FuzzerStatUsed {
-		return errFuzzerStopped
-	}
-	f.stat = FuzzerStatUsed
+// StopHttpApi 仅关闭http api
+func (f *Fuzzer) StopHttpApi() error {
 	var err error
 	if f.s != nil && f.s.e != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
 		defer cancel()
 		err = f.s.e.Shutdown(ctx)
 	}
+	return err
+}
+
+// Stop 停止fuzzer的运行，并停止所有任务的运行
+func (f *Fuzzer) Stop() error {
+	f.muStat.Lock()
+	defer f.muStat.Unlock()
+	if f.stat == FuzzerStatUsed {
+		return errFuzzerStopped
+	}
+	f.stat = FuzzerStatUsed
+	err := f.StopHttpApi()
 	f.cancel()
 	return err
 }
 
 // Status 获取fuzzer当前的状态
 func (f *Fuzzer) Status() int8 {
-	f.statMux.Lock()
-	defer f.statMux.Unlock()
+	f.muStat.Lock()
+	defer f.muStat.Unlock()
 	return f.stat
 }
 
@@ -291,7 +310,6 @@ func (f *Fuzzer) StopJob(jid int) error {
 	if !ok {
 		return fmt.Errorf("job#%d not exist", jid)
 	}
-	jc.Stop()
 	return jc.Close()
 }
 

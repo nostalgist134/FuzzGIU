@@ -22,7 +22,7 @@ func vimKey(k *tcell.EventKey) *tcell.EventKey {
 
 func newTextViewAndFlex(jobInfo *fuzzTypes.Fuzz) (textViews []*tview.TextView, flx *tview.Flex) {
 	textViews = make([]*tview.TextView, 4)
-	flx = tview.NewFlex()
+	flx = tview.NewFlex().SetDirection(tview.FlexRow).SetFullScreen(true)
 	for i, _ := range textViews {
 		textViews[i] = tview.NewTextView()
 		textViews[i].SetFocusFunc(func() { // 为textView设置选中时边框变为蓝色

@@ -35,7 +35,7 @@ func taskMultiKeyword(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 	*rc = fuzzTypes.RequestCtx{
 		Retry:               job.Request.Retry,
 		HttpFollowRedirects: job.Request.HttpFollowRedirects,
-		RetryCode:           job.Request.RetryCode,
+		RetryCodes:          job.Request.RetryCodes,
 		RetryRegex:          job.Request.RetryRegex,
 		Timeout:             job.Request.Timeout,
 	}
@@ -86,7 +86,7 @@ func taskSingleKeyword(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 	*rc = fuzzTypes.RequestCtx{
 		Retry:               job.Request.Retry,
 		HttpFollowRedirects: job.Request.HttpFollowRedirects,
-		RetryCode:           job.Request.RetryCode,
+		RetryCodes:          job.Request.RetryCodes,
 		RetryRegex:          job.Request.RetryRegex,
 		Timeout:             job.Request.Timeout,
 	}
@@ -140,7 +140,7 @@ func taskNoKeywords(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 	*rc = fuzzTypes.RequestCtx{
 		Retry:               job.Request.Retry,
 		HttpFollowRedirects: job.Request.HttpFollowRedirects,
-		RetryCode:           job.Request.RetryCode,
+		RetryCodes:          job.Request.RetryCodes,
 		RetryRegex:          job.Request.RetryRegex,
 		Timeout:             job.Request.Timeout,
 		Request:             r.NewReq,
@@ -151,16 +151,8 @@ func taskNoKeywords(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 		rc.Proxy = job.Request.Proxies[rand.Int()%len(job.Request.Proxies)]
 	}
 
-	tmp := resourcePool.StringSlices.Get(1)
-	defer resourcePool.StringSlices.Put(tmp)
-
-	// 在通过handleReaction添加的请求中没有payload或者关键字，因此使用这两个参数作为输出
-	// 追溯消息的载体（React的payload与keyword参数仅供输出使用）
-	addedVia := fmt.Sprintf("add via react by %s:%s", k, p)
-	tmp[0] = addedVia
-
 	resp := stageRequest.DoRequest(rc, "")
 	reaction := stageReact.React(c.JobCtx, rc.Request, resp, []string{""},
-		tmp, nil)
+		[]string{fmt.Sprintf("add via react by %s:%s", k, p)}, nil)
 	return reaction
 }

@@ -31,7 +31,7 @@ type RoutinePool struct {
 	quit      chan struct{}
 	status    int8
 	statMu    sync.Mutex
-	cond      *sync.Cond
+	statCond  *sync.Cond
 	executors [2]func(*fuzzCtx.TaskCtx) *fuzzTypes.Reaction
 }
 
@@ -46,7 +46,7 @@ func newRoutinePool(concurrency int) *RoutinePool {
 		concurrency: concurrency,
 		executors:   [2]func(*fuzzCtx.TaskCtx) *fuzzTypes.Reaction{nopExecutor, nopExecutor},
 	}
-	routinePool.cond = sync.NewCond(&routinePool.statMu)
+	routinePool.statCond = sync.NewCond(&routinePool.statMu)
 	return routinePool
 }
 
@@ -100,7 +100,7 @@ func (p *RoutinePool) worker() {
 			return
 		case StatPause:
 			// 处于暂停状态，等待唤醒
-			p.cond.Wait()
+			p.statCond.Wait()
 			p.statMu.Unlock()
 		case StatRunning:
 			// 处于运行状态，释放锁并尝试获取任务
@@ -181,12 +181,12 @@ func (p *RoutinePool) Stop() {
 	p.Clear()
 
 	p.statMu.Lock()
-	defer p.statMu.Unlock()
+	p.status = StatStop
+	p.statMu.Unlock()
+	p.statCond.Broadcast()
 	close(p.quit)
 	close(p.tasks)
 	close(p.results)
-	p.status = StatStop
-	p.cond.Broadcast()
 }
 
 // Pause 暂停调度
@@ -195,27 +195,28 @@ func (p *RoutinePool) Pause() {
 	defer p.statMu.Unlock()
 	if p.status == StatRunning {
 		p.status = StatPause
-		p.cond.Broadcast()
+		p.statCond.Broadcast()
 	}
 }
 
 // Resume 恢复调度
 func (p *RoutinePool) Resume() {
 	p.statMu.Lock()
-	defer p.statMu.Unlock()
+	p.statMu.Unlock()
 	if p.status == StatPause {
 		p.status = StatRunning
-		p.cond.Broadcast()
+		p.statCond.Broadcast()
 	}
 }
 
 func (p *RoutinePool) Resize(size int) {
-	if p.Status() == StatStop {
-		return
-	}
 	p.resizeMu.Lock()
 	defer p.resizeMu.Unlock()
 	if size == p.concurrency || size < 0 {
+		return
+	}
+	if p.Status() == StatStop {
+		p.concurrency = size
 		return
 	}
 	if size > p.concurrency {
@@ -255,7 +256,7 @@ func (p *RoutinePool) WaitResume() {
 		if p.status == StatStop {
 			return // 已停止，直接返回
 		}
-		p.cond.Wait()
+		p.statCond.Wait()
 	}
 }
 

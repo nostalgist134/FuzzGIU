@@ -58,8 +58,9 @@ type (
 		RetryOnStatus string `json:"retry_on_status,omitempty"`
 	}
 	Plugin struct {
-		Preprocessors sliceStr `json:"pre_processor,omitempty"`
-		Reactor       string   `json:"reactor,omitempty"`
+		Preprocessors   sliceStr `json:"preprocessor,omitempty"`
+		PreprocPriorGen sliceStr `json:"preproc_prior_gen,omitempty"`
+		Reactor         string   `json:"reactor,omitempty"`
 	}
 	ApiConfig struct {
 		HttpApi     bool   `json:"http_api,omitempty"`

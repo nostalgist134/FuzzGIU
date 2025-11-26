@@ -1,6 +1,7 @@
 package libfgiu
 
 import (
+	"errors"
 	"fmt"
 	"github.com/labstack/echo/v4"
 	"github.com/nostalgist134/FuzzGIU/components/common"
@@ -47,7 +48,7 @@ func errorMsg(err error) map[string]string {
 	return map[string]string{"error": err.Error()}
 }
 
-func (f *Fuzzer) startHttpApi(apiConf WebApiConfig) error {
+func (f *Fuzzer) StartHttpApi(apiConf WebApiConfig) error {
 	addr, startTLS, certFileName, certKeyName := getApiConfig(apiConf)
 
 	stopChan := make(chan struct{})
@@ -87,6 +88,37 @@ func (f *Fuzzer) startHttpApi(apiConf WebApiConfig) error {
 		return c.JSON(200, cloned)
 	}
 
+	controlJob := func(c echo.Context) error {
+		var oper map[string]string
+		jid, err := strconv.ParseInt(c.Param("id"), 10, 64)
+		if err != nil {
+			return c.JSON(400, errorMsg(fmt.Errorf("failed to parse job id: %v", err)))
+		}
+		jobCtx, exist := f.GetJob(int(jid))
+		if !exist {
+			return c.JSON(404, errorMsg(fmt.Errorf("job#%d not found", jid)))
+		}
+		defer jobCtx.Release()
+		err = c.Bind(oper)
+		if err != nil {
+			return c.JSON(400, errorMsg(fmt.Errorf("invalid operation: %v", err)))
+		}
+		action, ok := oper["action"]
+		if !ok {
+			return c.JSON(400, errorMsg(errors.New("no action specified")))
+		}
+		switch action {
+		case "pause":
+			jobCtx.Pause()
+			return c.NoContent(204)
+		case "resume":
+			jobCtx.Resume()
+			return c.NoContent(204)
+		default:
+			return c.JSON(400, errorMsg(fmt.Errorf("unknown action '%s'", action)))
+		}
+	}
+
 	delJobById := func(c echo.Context) error {
 		jid, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
@@ -109,7 +141,7 @@ func (f *Fuzzer) startHttpApi(apiConf WebApiConfig) error {
 		if err != nil {
 			return c.JSON(500, errorMsg(fmt.Errorf("failed to submit job: %v", err)))
 		}
-		return c.JSON(200, map[string]int{"jid": jid})
+		return c.JSON(200, map[string]int{"id": jid})
 	}
 
 	getJids := func(c echo.Context) error {
@@ -117,7 +149,10 @@ func (f *Fuzzer) startHttpApi(apiConf WebApiConfig) error {
 	}
 
 	stopFuzzer := func(c echo.Context) error {
-		stopChan <- struct{}{}
+		select {
+		case stopChan <- struct{}{}:
+		default:
+		}
 		return c.JSON(200, map[string]string{"status": "stopped"})
 	}
 
@@ -125,6 +160,7 @@ func (f *Fuzzer) startHttpApi(apiConf WebApiConfig) error {
 	g := e.Group("/", auth)
 	g.GET("job/:id", getJobById)
 	g.DELETE("job/:id", delJobById)
+	g.POST("job/:id", controlJob)
 	g.POST("job", submitJob)
 	g.GET("jobIds", getJids)
 	g.GET("stop", stopFuzzer)

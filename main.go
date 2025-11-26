@@ -17,7 +17,7 @@ func initEnv() {
 		plugin.BaseDir + plugin.RelPathPlGen,
 		plugin.BaseDir + plugin.RelPathPlProc,
 		plugin.BaseDir + plugin.RelPathPreprocessor,
-		plugin.BaseDir + plugin.RelPathReqSender,
+		plugin.BaseDir + plugin.RelPathRequester,
 		plugin.BaseDir + plugin.RelPathReactor,
 		plugin.BaseDir + plugin.RelPathIterator,
 	}
@@ -84,11 +84,11 @@ func main() {
 		if err != nil {
 			log.Fatalf("failed to create fuzzer: %v\n", err)
 		}
-		fuzzer.Start()
 		_, err = fuzzer.Submit(j)
 		if err != nil {
 			log.Fatalf("failed to execute fuzz: %v\n", err)
 		}
+		fuzzer.Start()
 		fuzzer.Wait()
 	}
 }

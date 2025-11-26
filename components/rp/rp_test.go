@@ -103,9 +103,9 @@ func TestRp(t *testing.T) {
 }
 
 func TestRpResize(t *testing.T) {
-	p, _ := NewRp(25)
+	p, _ := NewRp(15)
 	p.Start()
-	p.Resize(15)
+	p.Resize(5)
 	time.Sleep(3 * time.Second)
 	p.Stop()
 }

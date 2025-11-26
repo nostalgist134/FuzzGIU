@@ -9,8 +9,8 @@ import (
 
 func TestFuzzer(t *testing.T) {
 	testF := new(fuzzTypes.Fuzz)
-	testF.Preprocess.PlTemp = make(map[string]fuzzTypes.PayloadTemp)
-	testF.Preprocess.PlTemp["FUZZ"] = fuzzTypes.PayloadTemp{
+	testF.Preprocess.PlMeta = make(map[string]*fuzzTypes.PayloadMeta)
+	testF.Preprocess.PlMeta["FUZZ"] = &fuzzTypes.PayloadMeta{
 		Generators: fuzzTypes.PlGen{
 			Type: "wordlist",
 			Gen:  []fuzzTypes.Plugin{{"C:\\Users\\patrick\\Desktop\\test.txt", nil}},

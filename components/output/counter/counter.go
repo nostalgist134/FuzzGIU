@@ -15,7 +15,7 @@ type Progress struct {
 type Counter struct {
 	StartTime    time.Time `json:"start_time,omitempty" xml:"start_time,omitempty"`
 	TaskRate     int64     `json:"task_rate,omitempty" xml:"task_rate,omitempty"`
-	JobProgress  Progress  `json:"job_progress,omitempty" xml:"job_progress,omitempty"` // deprecated
+	Errors       Progress  `json:"errors,omitempty" xml:"errors,omitempty"`
 	TaskProgress Progress  `json:"task_progress,omitempty" xml:"task_progress,omitempty"`
 	ticker       *time.Ticker
 	mu           sync.Mutex
@@ -72,8 +72,8 @@ func (c *Counter) Get(whichCounter int8, whichField int8) int {
 	var pProgress *Progress
 
 	switch whichCounter {
-	case CntrJob:
-		pProgress = &c.JobProgress
+	case CntrErrors:
+		pProgress = &c.Errors
 	case CntrTask:
 		pProgress = &c.TaskProgress
 	default:
@@ -94,8 +94,8 @@ func (c *Counter) Get(whichCounter int8, whichField int8) int {
 func (c *Counter) Complete(whichCounter int8) {
 	var pProgress *Progress
 	switch whichCounter {
-	case CntrJob:
-		pProgress = &c.JobProgress
+	case CntrErrors:
+		pProgress = &c.Errors
 	case CntrTask:
 		pProgress = &c.TaskProgress
 	default:
@@ -109,8 +109,8 @@ func (c *Counter) Set(whichCounter int8, whichField int8, val int) {
 	var pProgress *Progress
 
 	switch whichCounter {
-	case CntrJob:
-		pProgress = &c.JobProgress
+	case CntrErrors:
+		pProgress = &c.Errors
 	case CntrTask:
 		pProgress = &c.TaskProgress
 	default:
@@ -129,8 +129,8 @@ func (c *Counter) Add(whichCounter int8, whichField int8, delta int) {
 	var pProgress *Progress
 
 	switch whichCounter {
-	case CntrJob:
-		pProgress = &c.JobProgress
+	case CntrErrors:
+		pProgress = &c.Errors
 	case CntrTask:
 		pProgress = &c.TaskProgress
 	default:
@@ -169,6 +169,10 @@ func (c *Counter) Snapshot() Counter {
 			Completed: int64(c.Get(CntrTask, FieldCompleted)),
 			Total:     int64(c.Get(CntrTask, FieldTotal)),
 		},
+		Errors: Progress{
+			Completed: int64(c.Get(CntrErrors, FieldCompleted)),
+			Total:     int64(c.Get(CntrErrors, FieldTotal)),
+		},
 	}
 }
 
@@ -199,6 +203,6 @@ func formatDuration(d time.Duration) string {
 
 func (c *Counter) ToFmt() string {
 	s := c.Snapshot()
-	return fmt.Sprintf("task:[%d / %d]   rate:[%d t/s]   duration:[%s]", s.TaskProgress.Completed,
-		s.TaskProgress.Total, s.TaskRate, formatDuration(time.Since(s.StartTime)))
+	return fmt.Sprintf("tasks:[%d / %d]   errors:[%d]   rate:[%d t/s]   duration:[%s]", s.TaskProgress.Completed,
+		s.TaskProgress.Total, s.Errors.Completed, s.TaskRate, formatDuration(time.Since(s.StartTime)))
 }

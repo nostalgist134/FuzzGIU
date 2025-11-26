@@ -49,7 +49,7 @@ func fuzzReq2FHReq(fr *fuzzTypes.Req, fhr *fasthttp.Request) {
 			headerName = h[:indCol]
 			headerVal = strings.TrimSpace(h[indCol+1:])
 		}
-		if strings.ToLower(headerName) == "host" {
+		if strings.EqualFold(headerName, "host") {
 			fhr.UseHostHeader = true
 			fhr.Header.SetHost(headerVal)
 		} else {
@@ -58,7 +58,7 @@ func fuzzReq2FHReq(fr *fuzzTypes.Req, fhr *fasthttp.Request) {
 	}
 	if ua := fhr.Header.Peek("User-Agent"); len(ua) == 0 {
 		if fr.HttpSpec.RandomAgent {
-			fhr.Header.Set("User-Agent", agents[rand.Int()%len(agents)])
+			fhr.Header.Set("User-Agent", getRandAgent())
 		} else {
 			fhr.Header.Set("User-Agent", defaultUa)
 		}
@@ -140,9 +140,9 @@ func fastHttpRequest(cli *fasthttp.Client, fhReq *fasthttp.Request, fhResp *fast
 }
 
 func doRequestFastHttp(reqCtx *fuzzTypes.RequestCtx) (*fuzzTypes.Resp, error) {
-	req, proxy, httpRedirect, timeout, retryCode, retry, retryRegex :=
+	req, proxy, httpRedirect, timeout, retryCodes, retry, retryRegex :=
 		reqCtx.Request, reqCtx.Proxy, reqCtx.HttpFollowRedirects,
-		reqCtx.Timeout, reqCtx.RetryCode, reqCtx.Retry, reqCtx.RetryRegex
+		reqCtx.Timeout, reqCtx.RetryCodes, reqCtx.Retry, reqCtx.RetryRegex
 	resp := new(fuzzTypes.Resp)
 
 	fhReq := fasthttp.AcquireRequest()
@@ -168,11 +168,10 @@ func doRequestFastHttp(reqCtx *fuzzTypes.RequestCtx) (*fuzzTypes.Resp, error) {
 	if err != nil {
 		fhResp.SetStatusCode(0)
 	}
-	rtyCodes := strings.Split(retryCode, ",")
 	if retry > 0 {
 		// 重试逻辑
 		if (retryRegex != "" && common.RegexMatch(fhResp.Body(), retryRegex)) ||
-			containRetryCode(fhResp.StatusCode(), rtyCodes) || err != nil {
+			retryCodes.Contains(fhResp.StatusCode()) || err != nil {
 			for ; retry > 0; retry-- {
 				fhResp.Reset()
 				err, rdr = fastHttpRequest(cli, fhReq, fhResp, httpRedirect, timeout)
@@ -180,7 +179,7 @@ func doRequestFastHttp(reqCtx *fuzzTypes.RequestCtx) (*fuzzTypes.Resp, error) {
 					fhResp.SetStatusCode(0)
 				}
 				if !(retryRegex != "" && common.RegexMatch(fhResp.Body(), retryRegex)) &&
-					!containRetryCode(fhResp.StatusCode(), rtyCodes) && err == nil {
+					!retryCodes.Contains(fhResp.StatusCode()) && err == nil {
 					break
 				}
 				time.Sleep(time.Duration(rand.Intn(100)+50) * time.Millisecond)
@@ -203,6 +202,7 @@ func doRequestFastHttp(reqCtx *fuzzTypes.RequestCtx) (*fuzzTypes.Resp, error) {
 	resp.RawResponse = rawResponse
 	if err != nil {
 		resp.ErrMsg = err.Error()
+		resp.HttpResponse.StatusCode = 0
 	}
 	return resp, err
 }

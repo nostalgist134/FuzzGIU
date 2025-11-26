@@ -18,11 +18,11 @@ func TestAll(t *testing.T) {
 	cntr := &counter.Counter{
 		StartTime:    time.Time{},
 		TaskRate:     0,
-		JobProgress:  counter.Progress{},
+		Errors:       counter.Progress{},
 		TaskProgress: counter.Progress{},
 	}
 	cntr.Set(counter.CntrTask, counter.FieldTotal, 999)
-	cntr.Set(counter.CntrJob, counter.FieldTotal, 999)
+	cntr.Set(counter.CntrErrors, counter.FieldTotal, 999)
 	c, err := NewStdoutCtx(oSetting, 3)
 	if c == nil {
 		t.Fatal("c is nil")

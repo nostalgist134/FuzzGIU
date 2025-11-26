@@ -52,7 +52,7 @@ func ValidateJob(job *fuzzTypes.Fuzz) error {
 	i := 0
 	for kw, pl := range job.Preprocess.PlMeta {
 		if pl == nil {
-			errTot = errors.Join(errTot, fmt.Errorf("keyword '%s' meta data is nil", kw))
+			errTot = errors.Join(errTot, fmt.Errorf("keyword '%s' payload meta data is nil", kw))
 			continue
 		}
 		keywords[i] = kw

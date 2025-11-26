@@ -33,6 +33,17 @@ func PutTaskCtx(toPut *TaskCtx) {
 	if toPut == nil {
 		return
 	}
-	*toPut = TaskCtx{}
+	toPut.Keywords = toPut.Keywords[:0]
+	toPut.Payloads = toPut.Payloads[:0]
+	toPut.PlProc = toPut.PlProc[:0]
+
+	toPut.RepTmpl = nil
+	toPut.JobCtx = nil
+	toPut.ViaReaction = nil
+
+	toPut.IterInd = 0
+	toPut.SnipLen = 0
+	toPut.USchemeCache = ""
+
 	tcPool.Put(toPut)
 }

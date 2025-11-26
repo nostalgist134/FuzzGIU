@@ -1,6 +1,9 @@
 package fuzzTypes
 
-import "bytes"
+import (
+	"bytes"
+	"time"
+)
 
 func cloneSlice[T any](src []T) []T {
 	if src == nil {
@@ -36,12 +39,13 @@ func (m Match) LiteralClone() Match {
 	return m1
 }
 
-// Clone 将当前的Fuzz结构克隆一份，但是不克隆payload列表
+// Clone 将当前的Fuzz结构克隆一份（但是不克隆payload列表）
 func (f *Fuzz) Clone() *Fuzz {
 	newFuzz := new(Fuzz)
 
 	// 拷贝 Preprocess
-	newFuzz.Preprocess.Preprocessors = cloneSlice(f.Preprocess.Preprocessors)
+	newFuzz.Preprocess.Preprocessors = clonePlugins(f.Preprocess.Preprocessors)
+	newFuzz.Preprocess.PreprocPriorGen = clonePlugins(f.Preprocess.PreprocPriorGen)
 	newFuzz.Preprocess.PlMeta = make(map[string]*PayloadMeta)
 	for k, v := range f.Preprocess.PlMeta {
 		newFuzz.Preprocess.PlMeta[k] = &PayloadMeta{
@@ -136,4 +140,28 @@ func (resp *Resp) Statistic() {
 	resp.Lines = countLines(resp.RawResponse)
 	resp.Words = countWords(resp.RawResponse)
 	resp.Size = len(resp.RawResponse)
+}
+
+// Contains 判断一个值是否在当前Range内
+func (r Range) Contains(v int) bool {
+	return r.Upper >= v && v >= r.Lower
+}
+
+func (ranges Ranges) Contains(v int) bool {
+	for _, r1 := range ranges {
+		if r1.Contains(v) {
+			return true
+		}
+	}
+	return false
+}
+
+// Contains 判断一个时间是否在范围内
+func (timeBound TimeBound) Contains(t time.Duration) bool {
+	return timeBound.Upper > t && t >= timeBound.Lower
+}
+
+// Valid 判断时间范围是否有效
+func (timeBound TimeBound) Valid() bool {
+	return timeBound.Upper > timeBound.Lower
 }

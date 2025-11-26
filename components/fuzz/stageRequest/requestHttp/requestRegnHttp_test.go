@@ -6,11 +6,13 @@ import (
 	"testing"
 )
 
-func TestDoRequestFastHttp(t *testing.T) {
+func TestDoRequestHttpNew(t *testing.T) {
 	req := &fuzzTypes.Req{
 		URL: "https://www.baibaoxiang.vip/files",
 		HttpSpec: fuzzTypes.HTTPSpec{
 			RandomAgent: true,
+			Proto:       "HTTP/2",
+			Method:      "GET",
 		},
 		Fields: nil,
 		Data:   nil,
@@ -24,8 +26,8 @@ func TestDoRequestFastHttp(t *testing.T) {
 		Timeout:             10,
 		HttpFollowRedirects: true,
 	}
-	resp, err := doRequestFastHttp(rc)
-	fmt.Println(err)
+	resp, err := DoRequestHttpNew(rc)
 	fmt.Println(string(resp.RawResponse))
 	fmt.Println(resp.HttpRedirectChain)
+	fmt.Println(err)
 }

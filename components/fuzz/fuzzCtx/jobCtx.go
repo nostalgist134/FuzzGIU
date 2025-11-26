@@ -17,12 +17,14 @@ type JobCtx struct {
 	GlobCtx   context.Context
 	Cancel    context.CancelFunc
 	occupied  sync.WaitGroup
+	closeOnce sync.Once
 }
 
-// Close 关闭任务上下文
+// Close 关闭任务上下文，释放其资源
 func (jc *JobCtx) Close() error {
 	jc.occupied.Wait()
 	jc.RP.ReleaseSelf()
+	jc.Stop()
 	return jc.OutputCtx.Close()
 }
 

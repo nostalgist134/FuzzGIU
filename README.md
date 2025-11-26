@@ -2,26 +2,26 @@
 
 # 项目介绍
 
-FuzzGIU 是一款基于 Go 语言开发的web fuzzer，灵感来源于`ffuf`、`burp intruder`与`yakit web fuzzer`。适用于Web信息收集、漏洞扫描、API 测试等场景。
+FuzzGIU 是一款基于golang开发的web fuzzer，灵感来源于`ffuf`、`burp intruder`与`yakit web fuzzer`。适用于Web目录扫描、web fuzz、漏洞扫描等场景。
 
 ## 安装
 
-安装fuzzGIU可以选择从源码编译
+安装FuzzGIU可以选择从源码编译（建议go版本在1.25以上）
 
-``````shell
+```shell
 git clone github.com/nostalgist134/FuzzGIU.git
 cd FuzzGIU
 go get
 go build
-``````
+```
 
-或者到release中下载编译好的可执行文件
+或者到release页面中下载编译的可执行文件
 
 # 注意事项
 
 本项目中所涉及的技术、思路和工具仅供以学习交流使用，任何人不得将其用于非法用途以及盈利等目的，否则后果自行承担。
 
-由于`net/http`库本身的缺陷，**若指定了`-http2`选项，则内存占用会飙升至少10倍，并且请求速度最高不会超过100r/s**。
+命名`FuzzGIU`而不是`FuzzGUI`是刻意为之，不是拼写错误。
 
 # 使用方法
 
@@ -32,6 +32,7 @@ go build
   ```powershell
   # 指定关键字
   .\FuzzGIU.exe -u http://test.com/FUZZ -w directory_list.txt::FUZZ
+  
   # 使用默认关键字 "MILAOGIU"
   .\FuzzGIU.exe -u http://test.com/MILAOGIU -w directory_list.txt
   ```
@@ -41,6 +42,7 @@ go build
   ```powershell
   # -d选项fuzz请求体
   .\FuzzGIU.exe -u http://test.com/login -d username=admin&password=FUZZ -w passwords.txt::FUZZ
+  
   # -X选项fuzz/指定http请求方法
   .\FuzzGIU.exe -u http://test.com/ -X METHOD -w methods.txt::METHOD
   ```
@@ -56,7 +58,7 @@ go build
 
   ```powershell
   # 对每个 payload 先添加 '.bak' 后缀，再进行 Base64 编码。
-  .\FuzzGIU.exe -u http://test.com/download -w filenames.txt::FUZZ -d file=FUZZ -pl-processor suffix('.bak'),base64::FUZZ
+  .\FuzzGIU.exe -u http://test.com/download -w filenames.txt::FUZZ -d file=FUZZ -pl-proc suffix('.bak'),base64::FUZZ
   ```
 
 - **使用内置 Payload 生成器:**
@@ -72,11 +74,11 @@ go build
   # clusterbomb 模式 (默认): 遍历所有组合
   .\FuzzGIU.exe -u http://FUZZHOST/FUZZPATH -w subdomains.txt::FUZZHOST -w paths.txt::FUZZPATH
   
-  # pitchfork/pitchfork-Cycle模式: 列表循环对齐
-  .\FuzzGIU.exe -u http://FUZZUSER:FUZZPASS@test.com -w usernames.txt::FUZZUSER -w passwords.txt::FUZZPASS -mode pitchfork/pitchfork-cycle
+  # pitchfork/pitchfork-cycle模式: 列表循环对齐
+  .\FuzzGIU.exe -u http://FUZZUSER:FUZZPASS@test.com -w usernames.txt::FUZZUSER -w passwords.txt::FUZZPASS -iter pitchfork/pitchfork-cycle
   
   # sniper 模式: 接收单个关键字，根据其出现在请求中的位置依次替换为payload，其它位置替换为空
-  .\fuzzGIU.exe -u http://test.com/FUZZ -d user=FUZZ -H Header: FUZZ -w dic.txt::FUZZ -mode sniper
+  .\FuzzGIU.exe -u http://test.com/FUZZ -d user=FUZZ -H Header: FUZZ -w dic.txt::FUZZ -iter sniper
   ```
 
 ## 帮助信息与环境初始化
@@ -87,37 +89,37 @@ go build
 
 ### `-u`
 
-`-u`用于指定要fuzz的url，工具通过url的scheme字段决定使用什么方式发送请求。工具自带的scheme有2种：`http/https`与`ws/wss`。第一种自不用多言，第二种是websocket协议，但是这个功能纯粹是我当时为了水过毕设加的，**没有经过测试，小心使用**。
+`-u`用于指定请求url，工具通过url的scheme字段决定使用什么方式发送请求。自带的scheme有2种：`http/https`与`ws/wss`。第一种自不用多言，第二种是websocket协议，但是这个功能纯粹是我当时为了水过毕设加的，**没有经过测试，小心使用**。
 
-若工具检测到了这2种之外的scheme，会自动在插件目录中寻找RequestSender类型的插件，并使用插件来发送请求，具体信息可在下文[使用插件](#使用插件)部分查看。
+若工具检测到了这2种之外的scheme，会自动在插件目录中寻找Requester类型的插件，并使用插件来发送请求，具体信息可在下文[使用插件](#使用插件)部分查看。
 
 若url中不包含scheme字段，则采用http协议。
 
-`-u`参数指定的url中可包含fuzz关键字，在fuzz过程中会自动被替换。
+`-u`参数任意部分包含的fuzz关键字都会自动被替换。
 
 ### `-w`
 
-`-w`指定fuzz关键字所对应的字典，用法为`-w dict.txt::FUZZ_KEYWORD`，字典列表通过`::`符号与fuzz关键字相关联。可在命令行参数中指定多个`-w`参数，或在`-w`参数中指定多个字典文件，字典间需要通过逗号隔开，比如`-w dict1.txt,dict2.txt::FUZZ_KEYWORD`。也可省略关键字部分，字典会关联到默认关键字`MILAOGIU`上。
+`-w`指定fuzz关键字所对应的字典，用法为`-w dict.txt::FUZZ_KEYWORD`，字典列表通过`::`符号与fuzz关键字相关联。`-w`参数允许在命令行中多次出现，或在单参数中指定多个字典文件，字典间需要通过逗号隔开，比如`-w dict1.txt,dict2.txt::FUZZ_KEYWORD`。若省略关键字部分，字典会关联到默认关键字`MILAOGIU`上。
 
 ### `-d`
 
 `-d`参数用来指定请求体部分，但是这么说其实不太准确，因为请求体是属于http协议中的概念，而FuzzGIU为了对协议进行扩展，使用一个`Req`结构来表示请求：
 
-``````go
-HTTPSpec struct {
+```go
+type HTTPSpec struct {
     Method      string   `json:"method,omitempty" xml:"method,omitempty"`
     Headers     []string `json:"headers,omitempty" xml:"header>headers,omitempty"`
     Proto       string   `json:"proto,omitempty" xml:"proto,omitempty"`
     ForceHttps  bool     `json:"force_https,omitempty" xml:"force_https,omitempty"`
     RandomAgent bool     `json:"http_random_agent,omitempty"`
 }
-Req struct {
+type Req struct {
     URL      string   `json:"url,omitempty" xml:"url,omitempty"`
     HttpSpec HTTPSpec `json:"http_spec,omitempty" xml:"http_spec,omitempty"`
     Fields   []Field  `json:"fields,omitempty" xml:"fields,omitempty"`
     Data     []byte   `json:"data,omitempty" xml:"data,omitempty"`
 }
-``````
+```
 
 `-d`参数指定的是**Req结构中的**`Data`**成员**，当然在**http协议fuzz中，这个成员就是拿来当成请求体用的**。
 
@@ -127,19 +129,19 @@ Req struct {
 
 `-r`参数用来从文件中读取Req结构并使用，其行为随文件的内容变化，具体如下：
 
-1. 文件内容为http请求包，会自动识别并根据内容生成对应的Req请求结构。
-2. 文件内容为json格式的Req请求对象，会将文件内容反序列化生成Req结构。
-3. 文件内容不是以上两者，会将文件的内容全部填充到Req结构的`Data`成员中。
+1. 文件内容为http请求包，会自动识别并根据内容生成对应的Req请求结构，当Proto字段恰好为`HTTP/2`时请求会采用http/2协议。
+2. 文件内容为json格式的请求对象，会将文件内容反序列化生成Req结构。
+3. 文件内容不是以上两者，会将文件的内容全部填充到Req结构的`Data`成员中，类似于`-d`的作用。
 
-**注意**：其它命令行参数也可指定Req结构中的成员值，且指定优先级比本参数更高，会覆盖此命令指定的值。
+**注意**：其它命令行参数指定的优先级比本参数更高，会覆盖此命令指定的值。
 
 ### `-delay`
 
-`-delay`参数指定工具每次提交请求任务之后的等待时间，用于控制请求速度，参数类型为字符串类型，输入之后通过`time.ParseDuration`解析。
+`-delay`参数指定工具每次提交请求任务之后的等待时间，用于控制请求速度，参数类型为字符串类型，格式为数字+单位（举例：`1.5ms`、`200us`、`3.75s`等）。
 
 ### `-t`
 
-指定工具使用的协程池大小（并发数），默认值为64，可按需进行调整。
+指定并发数，默认值为64，可按需进行调整。
 
 ### `-timeout`
 
@@ -149,7 +151,7 @@ Req struct {
 
 用来指定过滤条件与匹配条件相关的选项，这些选项会影响工具是否输出fuzz结果。目前对过滤和匹配条件支持以下几种
 
-``````shell
+```shell
 # 过滤/匹配条件
 -f(m)c   # 针对http返回状态码
 -f(m)l   # 针对返回包的行数
@@ -157,7 +159,7 @@ Req struct {
 -f(m)s   # 针对返回包的大小
 -f(m)t   # 针对返回包的响应时间
 -f(m)w   # 针对返回包的词数
-``````
+```
 
 所有以**数字**作为单位的条件都**使用形如**`a-b,c,d-e,f,...`**的数字-横杠表达式**指定其**闭区间**范围，时间条件除外。时间条件使用单个时间（虽然没什么意义，因为基本不会遇到正好和单个时间匹配的包）或者**以逗号隔开的时间范围**来表示，时间条件的区间是**下闭上开的毫秒区间（`-ft a,b`->`a<=t<b`）**。
 
@@ -172,11 +174,11 @@ Req struct {
 
 这一系列的参数用来指定工具是否会、在什么情况下会重试请求以及最多重试几次
 
-``````shell
+```shell
 -retry        # 最大重试次数
 -retry-code   # 遇到特定http状态码时重试
 -retry-regex  # 遇到响应包匹配正则时重试
-``````
+```
 
 当工具达到最大重试次数或者重试条件不满足时，工具会停止重试。
 
@@ -198,28 +200,31 @@ Req struct {
 
 除`-x`、`-F`和`-ra`外的其它参数会依次被填充到Req结构的HTTPSpec子结构中
 
-``````go
+```go
 HTTPSpec struct {
     Method     string	// -X
     Headers    []string // -H（允许多次指定）
     Version    string   // -http2
     ForceHttps bool     // -s
 }
-``````
+```
 
 且这些参数（除`-s`外）都可以包含fuzz关键字，fuzz过程中会自动识别并替换。
 
 `-x`、`-F`参数会被存储到一个请求发送相关的元数据当中，工具发送请求时，无论是什么协议，总会向对应的请求发送模块传递这个元信息，但若使用的协议是插件，则怎么处理代理取决于协议本身的逻辑。
 
-需要注意http/2协议仅支持http代理，不支持socks系列；http/1.1无此限制。
+`ra`启用随机`User-Agent`头。
 
-`ra`头通过设置一个全局变量来启用随机ua头。
+**注意**：
+
++ 由于`net/http`库本身的缺陷，若指定了`-http2`选项，内存占用会飙升至少10倍，并且请求速度最高不会超过100r/s。
++ http/2协议仅支持http代理，不支持socks系列；http/1.1无此限制。
 
 ### 输出设置
 
 和输出设置相关的参数如下
 
-``````shell
+```shell
 -fmt  # 输出格式（目前支持native、json与xml这3种格式）
 -ie   		# 忽略请求过程中出现的错误（ignore-error），不输出现错误的结果
 -ns   		# 直接输出结果到stdout（工具默认使用termui界面作为屏幕输出），固定以json格式输出
@@ -227,23 +232,32 @@ HTTPSpec struct {
 -out-file   # 输出文件名
 -out-url	# 指定将输出post到http url
 -v    		# 输出详细程度（只对输出格式为native起效，其它两种无论如何都输出全部信息），范围1~3
-``````
+```
 
-### payload生成与处理
+### payload生成与迭代
 
-``````shell
--pl-gen # payload 生成器
+```shell
+-pl-gen  # payload 生成器
 -pl-proc # payload 处理器
--w    # fuzz 字典
-``````
+-w       # fuzz 字典
+-iter    # 指定使用的迭代器
+```
 
 和payload相关的设置总共有这3个，`-w`参数的详细用法上面已经介绍过了，这里不赘述。
 
-前3种模式均用于处理出现多个不同关键字的场景，`clusterbomb`模式会枚举不同关键字对应的payload列表的所有组合（基本上和burp suite里面的同名模式是一样的）；`pitchfork`模式对每个关键字payload列表使用相同的下标，遍历到最短的payload列表结束；`pitchfork-cycle`模式则是`pitchfork`模式的改进版本，其迭代过程中每个关键字的列表下标仍然同步更新，但是较短的列表结束后，下标会从0再开始，循环往复，直到最长的列表结束。
+`-iter`参数用于指定使用的迭代器，内置的迭代器有4种：`clusterbomb`、`pitchfork`、`pitchfork-cycle`与`sniper`，它们的作用如下：
 
-`sniper`模式用于且仅能用于单个关键字在请求中出现多次的情况：工具会根据关键字出现的位置依次将特定位置的关键字替换为payload列表中的payload，并将其它位置的关键字替换为空。
++ `clusterbomb`模式：枚举不同关键字对应的payload列表的所有组合。
 
-`-pl-gen`参数用来指定fuzz关键字的payload生成器，注意：`-pl-gen`**与**`-w`**选项是互斥的，暂不支持同时使用payload生成器和字典来对某个关键字生成payload**。`-pl-gen`参数与`-w`参数类似，使用`::`符号关联payload生成器列表和关键字。各个payload生成器间通过逗号隔开，单个payload生成器 [伪函数调用表达式](#插件调用) 来指定。
++ `pitchfork`模式：对每个关键字payload列表使用相同的下标，遍历到最短的payload列表结束。
+
++ `pitchfork-cycle`模式：`pitchfork`模式的改进版本，每个关键字的列表下标仍同步更新，但是较短的列表结束后，下标会从0再循环，直到最长的列表结束。
+
++ `sniper`模式：**仅用于**单个关键字在请求中出现多次的情况。工具根据关键字出现的位置依次将特定位置的关键字替换为payload列表中的所有payload，并将其它位置的关键字替换为空。
+
+除内置外，迭代器也可基于插件实现。
+
+`-pl-gen`参数用来指定fuzz关键字的payload生成器，注意：`-pl-gen`**与**`-w`**选项是互斥的，暂不支持同时使用payload生成器和字典来对某个关键字生成payload**。`-pl-gen`参数与`-w`参数类似，使用`::`符号关联payload生成器列表和关键字。payload生成器的命令行参数值遵循 [伪函数调用表达式](#插件调用) 语法。
 
 目前工具内置3种payload生成器：
 
@@ -252,7 +266,7 @@ HTTPSpec struct {
 - `permuteex(s, m, n)`: 生成字符串`s`的长度从`m`到`n`的全排列，若`n`未设置或小于0，则设置为最大长度。
 - `nil(length)`: 生成一个长度为`length`，全为空字符串的列表。
 
-`-pl-proc`参数用于指定fuzz关键字的对应payload使用的处理器，同样使用 [伪函数调用表达式](#插件调用) 进行调用，使用`::`符号与关键字进行关联。对单个fuzz关键字也可指定多个处理器，会按照顺序依次调用，每个处理器处理后的payload会作为下一个处理器的输入。
+`-pl-proc`参数用于指定fuzz关键字的对应payload使用的处理器，同样遵循 [伪函数调用表达式](#插件调用) 语法，使用`::`符号与关键字进行关联。
 内置的6种payload处理器如下：
 
 - `base64`: Base64 编码 payload。
@@ -262,27 +276,42 @@ HTTPSpec struct {
 - `suffix(s)`: 给 payload 添加后缀 `s`。e.g., `suffix(".php")`。
 - `repeat(n)`: 将 payload 重复 `n` 次。e.g., `repeat(3)` 将 "a" 变为 "aaa"。
 
-### http api 设置
+**注意**：
 
-``````shell
++ 指定fuzz关键字时**不允许任何关键字是另一个关键字的子串**（比如指定了`FUZZ`，然后再指定`FUZZ1`），这种情况会导致模板解析失败，因此会拒绝执行
++ 若关键字没有绑定的payload生成器或字典，尝试对其绑定payload处理器会导致错误
+
+### http api配置
+
+```shell
 -api-addr     http api server listen address (default: 0.0.0.0:14514)
 -api-tls      run http api server on https (default: false)
 -http-api     enable http api mode (default: false)
 -tls-cert-file        tls cert file to be used
 -tls-cert-key tls cert key file to be used
-``````
+```
 
 工具允许以http服务的形式运行，在这种模式下，工具通过监听http请求来获取所要执行的任务。
 
 若要启动http服务模式，可在命令行中指定`http-api`标志，使用`api-addr`选项指定http服务监听的地址。
 
-`api-tls`标志用于启用https模式。`tls-cert-file`与`tls-cert-key`用于指定http模式使用的tls证书与tls密钥，若选项留空，工具分别使用`./fuzzgiu.cert`与`./fuzzgiu.key`作为默认值。
+`api-tls`标志用于启用https模式。`tls-cert-file`与`tls-cert-key`用于指定http模式使用的tls证书与tls密钥，若选项留空，采用`./fuzzgiu.cert`与`./fuzzgiu.key`作为默认值。
+
+### 插件参数
+
+```shell
+  -preproc      preprocessor plugins to be used
+  -preproc-prior-gen    preprocessor plugins to be usedbefore generating payloads
+  -react        reactor plugin to be used
+```
+
+指定预处理器与反应器插件，具体用法可查看下文 [插件类型](#插件类型与作用简介) 的对应部分。
 
 ## 进阶用法
 
 ### 递归任务
 
-递归模式是 FuzzGIU 用于深度探测目标的高级功能，适用于需要逐层挖掘资源的场景（如目录枚举、多级路径探测等）。通过`-R`启用后，工具会根据响应结果动态生成新的 fuzz 任务，实现自动化的深度探测。
+递归模式是FuzzGIU用于深度探测目标的高级功能，适用于需要逐层挖掘资源的场景（如目录枚举、多级路径探测等）。通过`-R`启用后，工具会根据响应结果动态生成新的 fuzz 任务，实现自动化的深度探测。
 
 #### 核心参数详解
 
@@ -318,27 +347,28 @@ FuzzGIU 通过插件系统扩展功能，支持自定义预处理、payload 生�
 
 ```powershell
 PS H:\tools\fuzz\FuzzGIU> .\FuzzGIU.exe
-Checking/initializing environment...
-Checking directory ./plugins/......Created.
-Checking directory ./plugins/payloadGenerators/......Created.
-Checking directory ./plugins/payloadProcessors/......Created.
-Checking directory ./plugins/preprocessors/......Created.
-Checking directory ./plugins/requestSenders/......Created.
-Checking directory ./plugins/reactors/......Created.
-Done.
-For help, use -h flag
+checking/initializing environment...
+Checking directory ./plugins/...Created.
+Checking directory ./plugins/payloadGenerators/...Created.
+Checking directory ./plugins/payloadProcessors/...Created.
+Checking directory ./plugins/preprocessors/...Created.
+Checking directory ./plugins/requesters/...Created.
+Checking directory ./plugins/reactors/...Created.
+Checking directory ./plugins/iterators/...Created.
+done.
+for help, use -h flag
 ```
 
 #### 插件调用
 
-fuzzGIU的插件调用遵循以下的被称为伪函数调用表达式的规则：
+FuzzGIU插件的命令行参数语法遵循以下的被称为**伪函数调用表达式**的规则：
 
 1. 伪函数表达式的格式为：`fn_0([arg0, arg1, arg2, ...]),fn_1([arg0, arg1, ...]),...`。函数名`fn_n`即为使用的插件的名字，不同的函数间通过`,`隔开。若某个函数的参数列表为空，则括号也可省略
 2. 表达式中的参数仅支持4种类型：`int`、`float64`、`bool`、`string`
 3. 字符串参数使用单引号或者双引号括起来，两种都是可接受的，但是必须配对
 4. `bool`型参数使用全小写的`true`和`false`
 5. `int`型参数支持两种进制，10进制和16进制，默认按照10进制数算，但是如果无法解析为10进制（含有字母），则尝试解析为16进制数；也可显式指定16进制数，在数字前面加上`0x`前缀即可
-6. 上下文参数：部分插件具有上下文参数，这些参数可能是fuzz过程中使用的**结构体**或**数据**，调用表达式中无需指定，工具会根据任务上下文自动传递，不同插件的上下文参数参考[插件类型与作用简介](#插件类型与作用简介) 章节。模糊测试中使用的结构体的声明与作用可参考wiki中的[相关章节](https://github.com/nostalgist134/FuzzGIU/wiki/FuzzGIU部分实现细节#模糊测试相关结构体)。
+6. 上下文参数：部分插件具有上下文参数，这些参数可能是fuzz过程中使用的**结构体**或**数据**，调用表达式中不指定，工具会根据任务上下文自动传递，不同插件的上下文参数参考[插件类型与作用简介](#插件类型与作用简介) 章节。模糊测试中使用的结构体的声明与作用可参考wiki中的[相关章节](https://github.com/nostalgist134/FuzzGIU/wiki/FuzzGIU部分实现细节#模糊测试相关结构体)。
 7. 自定义参数：除上下文参数之外，插件开发者可以在插件中指定任意不违反操作系统限制的数量的自定义参数
 
 无论是内置的组件还是自定义的插件都根据以上规则调用。函数名即为插件名，`./plugins/[插件类型]`为工具寻找插件动态链接库的目录。
@@ -349,23 +379,25 @@ fuzzGIU的插件调用遵循以下的被称为伪函数调用表达式的规则�
 
    + **作用**：在fuzz任务启动前对fuzz任务本身进行处理
 
-   + **上下文参数**：`*fuzzTypes.Fuzz`->当前使用的fuzz任务结构体
+   + **上下文参数**：`*fuzzTypes.Fuzz`->当前使用的fuzz任务
    + **返回值**：`*fuzzTypes.Fuzz`->处理后的fuzz任务
 
-   + **复合行为**：若指定了多个预处理插件，在插件链上每一个插件的返回任务都会作为默认参数传递给下一个插件。
+   + **链式调用**：若指定了多个预处理插件，在插件链上每一个插件的返回任务都会作为默认参数传递给下一个插件。
 
-   示例：使用`job_dispatch`预处理插件将单个大型任务分布到多个主机上执行
+   示例：使用`job_dispatch`预处理插件将单个大型任务分布到多个主机上执行，并指定一个统一的结果收集服务器
 
    ```powershell
-   .\FuzzGIU.exe -u http://test.com/FUZZ -w big_dict.txt::FUZZ -preproc job_dispatch("http://192.168.0.1:11451,http://192.168.0.2:11451","fyge4sYS+1I4TB54,zKx40QLm1t1gVMQf")
+   .\FuzzGIU.exe -u http://test.com/FUZZ -w big_dict.txt::FUZZ -preproc job_dispatch("http://192.168.0.1:11451,http://192.168.0.2:11451","fyge4sYS+1I4TB54,zKx40QLm1t1gVMQf","http://192.168.0.3/results")
    ```
+   
+   **注意事项**：预处理插件在任务执行前有两个调用点，一个位于payload生成前，一个位于payload生成后，命令行参数中分别使用`-preproc-prior-gen`与`-preproc`指定。由于任务执行前会把payload列表也全部写入任务结构体中，因此`-preproc`指定的预处理器也能感知到payload列表，`-preproc-prior-gen`则不行。
 
 2. **PayloadGenerator（payload 生成器插件）**
 
    + **作用**：替代字典（`-w`）动态生成 payload，适用于规则化、定制化的测试场景（如 SQL 注入、XSS 测试用例）。
    + **上下文参数**：无
    + **返回值**：`[]string`->生成的payload
-   + **复合行为**：可对单个关键字指定多个payload生成器，每个生成器生成的payload都会添加到总列表中
+   + **链式调用**：对单个关键字指定多个payload生成器时，每个生成器生成的payload都会添加到总列表中
 
    示例：`sqli`插件生成 SQL 注入测试 payload：
 
@@ -379,22 +411,22 @@ fuzzGIU的插件调用遵循以下的被称为伪函数调用表达式的规则�
    + **作用**：对生成的 payload 进行二次处理（如加密、编码），满足目标系统的格式要求。
    + **上下文参数**：`string`->要处理的payload，从关键字对应的payload列表中取出
    + **返回值**：`string`->处理后的payload
-   + **复合行为**：若指定了多个payload处理器，则插件链上每个插件返回的处理后的payload都会作为默认参数传递给下一插件
+   + **链式调用**：若指定了多个payload处理器，则插件链上每个插件返回的处理后的payload都会作为默认参数传递给下一插件
 
    示例：`AES`插件对密码 payload 进行 AES 加密：
 
    ```powershell
-   # 对密码字典中的payload先用AES加密（密钥为1234567890abcdef），再用base64编码
-   .\FuzzGIU.exe -u http://test.com/login -d "user=admin&pass=PASS" -w pass.txt::PASS -pl-processor AES("1234567890abcdef"),base64::PASS
+   # 对密码字典中的payload先用AES加密，再base64编码
+   .\FuzzGIU.exe -u http://test.com/login -d "user=admin&pass=PASS" -w pass.txt::PASS -pl-proc AES("1234567890abcdef"),base64::PASS
    ```
 
-4. **RequestSender（请求发送插件）**
+4. **Requester（请求发送插件）**
 
    + **作用**：扩展工具支持的协议
    + **上下文参数**：`*fuzzTypes.RequestCtx`->一个包含了请求本身和请求相关设置的上下文结构
    + **返回值**：`*fuzzTypes.Resp`->发送请求后接收到的响应结构
-   + **复合行为**：本插件不支持复合调用
-   + **其它注意事项**：这类插件通过`-u`指定的url的scheme字段隐式调用，当`-u`指定的scheme不在工具预置支持的协议范围内，工具就会根据其scheme在`./plugins/requestSenders`目录中寻找对应名字的动态链接库。由于调用过程中不涉及伪函数表达式，因此此类插件无法接收自定义参数。
+   + **链式调用**：不支持
+   + **其它注意事项**：这类插件通过`-u`指定的url的scheme字段隐式调用，当`-u`指定的scheme不在工具预置支持的协议范围内，工具就会根据其scheme在`./plugins/requesters`目录中寻找对应名字的动态链接库。由于调用过程中不涉及伪函数表达式，因此此类插件无法接收自定义参数。
 
    示例：`ssh`插件用于 SSH 弱口令测试：
 
@@ -405,10 +437,10 @@ fuzzGIU的插件调用遵循以下的被称为伪函数调用表达式的规则�
 
 5. **Reactor（响应处理器插件）**
 
-   + **作用**：对请求和响应进行综合性的自定义分析（如指纹识别、漏洞特征匹配），输出特定消息，或者根据结果来调控整个任务执行流（停止当前任务、生成新的请求/任务）。
+   + **作用**：对请求和响应进行自定义分析（如指纹识别、漏洞特征匹配）并输出消息，或者根据结果来调控整个任务执行流（停止当前任务、生成新的请求/任务）。
    + **上下文参数**：`*fuzzTypes.Req`->请求结构体、`*fuzzTypes.Resp`->响应结构体
    + **返回值**：`*fuzzTypes.Reaction`->结构化的响应结果
-   + **复合行为**：本插件不支持复合调用
+   + **链式调用**：不支持
 
    示例：使用`fingerprint`插件识别目标服务器的指纹：
 
@@ -420,7 +452,7 @@ fuzzGIU的插件调用遵循以下的被称为伪函数调用表达式的规则�
 6. **Iterator（迭代器插件）**
 
    + **作用**：根据任务使用的关键字数量与每个关键字对应的payload列表决定迭代长度，或根据当前迭代下标选择要使用的关键字组合。
-   + **复合行为**：本插件不支持复合调用
+   + **链式调用**：本插件不支持链式调用
 
    迭代器由两个函数——`IterLen`与`IterIndex`共同组成。下面分别介绍每个函数的参数与返回值
 
@@ -438,19 +470,19 @@ fuzzGIU的插件调用遵循以下的被称为伪函数调用表达式的规则�
 
 #### 插件开发与扩展
 
-若内置组件无法满足需求，可基于 [FuzzGIUPluginKit](https://github.com/nostalgist134/FuzzGIUPluginKit) 与go编译器（windows上还需要gcc编译器）开发自定义插件，遵循工具定义的接口规范，实现特定逻辑后编译为动态链接库即可使用。
+若内置组件无法满足需求，可基于 [FuzzGIUPluginKit](https://github.com/nostalgist134/FuzzGIUPluginKit) 与go编译器（windows还需要gcc编译器）开发自定义插件，遵循工具定义的规范，实现特定逻辑后编译为动态链接库即可使用。
 
-### http api 用法
+### http api端点
 
 如上文所述，工具允许传入`-http-api`参数让自身以http服务模式运行。
 
 api使用`Access-Token`头进行鉴权，`Access-Token`是长度为16的随机字符串，在工具以api模式启动时自动输出
 
-``````powershell
+```powershell
 .\FuzzGIU.exe -http-api
 listening at 0.0.0.0:14514
 access token: mYOC23ROFTJVEAw+
-``````
+```
 
 访问所有的api端点都需要在请求头部带上`Access-Token: 工具输出的token`，否则访问失败，返回401状态码。
 
@@ -458,18 +490,27 @@ access token: mYOC23ROFTJVEAw+
 
 #### job/:id
 
-用法：根据任务id获取/停止某个正在运行的任务，允许`GET`/`DELETE`方法，分别用于获取/停止任务。
+用法：根据任务id获取/停止某个正在运行的任务，允许`GET`/`DELETE`/`POST`方法，分别用于获取/停止任务。
 
 根据方法不同，返回值如下：
 
 + `GET`：若任务id存在，则返回200状态码与json表示的任务信息，否则返回404状态码与错误信息。
 + `DELETE`：若任务id存在，则停止任务并返回204状态码，否则返回404状态码与错误信息。
 
+##### `POST`方法
+
+这个方法用于暂停/恢复任务的执行，调用时传入一个json格式的`map[string]string`，其`action`键值代表要执行的操作，可以为`pause`或者`resume`，若暂停/恢复执行成功，返回204状态码，否则返回错误信息。
+
 #### job
 
 用法：用于提交json格式表示的`fuzzTypes.Fuzz`任务结构体，仅允许`POST`方法。
 
 返回值：若任务提交成功，则返回200状态码与任务id，否则返回错误信息。
+
+**注意**：
+
++ 提交的任务中如果使用插件，则需确保序列化为json时引用`fuzzTypes`包，因为`fuzzTypes.Plugin`类型采用了自定义的json序列化/反序列化函数，如果自行声明可能导致json反序列化失败。
++ http api模式下，不允许提交的任务使用`tview`窗口输出。
 
 #### jobIds
 
@@ -480,6 +521,76 @@ access token: mYOC23ROFTJVEAw+
 #### stop
 
 用法：以`GET`方法调用，停止Fuzzer的运行。
+
+### libfgiu库
+
+`libfgiu`（`github.com/nostalgist134/FuzzGIU/libfgiu`）库将`FuzzGIU`的核心功能封装成了对象与方法，允许在go代码中结合`fuzzTypes`等库调用`FuzzGIU`的功能进行模糊测试，并能够对测试任务进行一定程度上的控制与观测。
+
+#### Fuzzer对象
+
+`Fuzzer`对象用于执行与管理模糊测试任务，必须经由`libfgiu.NewFuzzer`方法分配后使用，典型的使用代码如下，更详细的使用方法可查看wiki
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
+	"github.com/nostalgist134/FuzzGIU/libfgiu"
+	"log"
+	"net/http"
+	"time"
+)
+
+func main() {
+	fuzzer, err := libfgiu.NewFuzzer(20, libfgiu.WebApiConfig{
+		ServAddr:     "127.0.0.1:8080",
+		TLS:          true,
+		CertFileName: "certfile.cert",
+		CertKeyName:  "certkey.key",
+	}) // 获取一个fuzzer对象，并发数为20，并开启http api模式（若无需http api，省略第二个参数）
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	fuzzer.Start() // 启动fuzzer对象（启动fuzzer对象内部维护的并发任务池）
+	fmt.Println("http api token:", fuzzer.GetApiToken())
+
+	job := &fuzzTypes.Fuzz{ /*具体的任务配置*/ }
+	jid, err := fuzzer.Submit(job) // 提交任务，并获取任务id
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	jobCtx, ok := fuzzer.GetJob(jid) // 根据任务id获取任务上下文并标记占用
+	if ok {
+		fmt.Printf("job#%d running\n", jid)
+		jobInfo := jobCtx.GetJobInfo() // 即上面提交的任务（*fuzzTypes.Fuzz）
+		fmt.Println("\tURL:", jobInfo.Preprocess.ReqTemplate.URL)
+
+		jobCtx.Pause()   // 暂停任务执行
+		jobCtx.Resume()  // 继续任务的执行
+		jobCtx.Release() // jobCtx内部维护一个引用计数，GetJob会增加此引用计数，手动释放避免任务在执行完成后仍旧无法退出
+	}
+
+	go func() {
+		time.Sleep(100 * time.Second)
+		// 向api端点发送请求，停止运行
+		req, _ := http.NewRequest("GET", "https://127.0.0.1:8080/stop", nil)
+		req.Header.Set("Access-Token", fuzzer.GetApiToken())
+		(&http.Client{}).Do(req)
+	}()
+
+	fuzzer.Wait() // 等待，若http api模式启动，则需要访问/stop端点来关闭，否则Wait保持阻塞
+	// 未开启http api，Wait会在所有任务及其衍生任务完成后放行，需手动调用fuzzer.Stop()停止
+	// fuzzer.Stop()
+	if err != nil {
+		log.Fatalln(err)
+	}
+	// 在通过/stop或者fuzzer.Stop停止fuzzer后，fuzzer对象不能再使用，必须调用NewFuzzer重新分配
+}
+
+```
 
 # 特别感谢
 
@@ -494,3 +605,4 @@ access token: mYOC23ROFTJVEAw+
 ## 个人
 
 特别感谢[@xch-space](https://github.com/xch-space)对项目命名提供的灵感。
+

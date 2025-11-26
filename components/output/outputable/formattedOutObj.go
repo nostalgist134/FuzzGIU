@@ -217,12 +217,14 @@ func req2FmtNative(req *fuzzTypes.Req, color bool, verbosity int) string {
 		dataToWrite := []byte(strNil)
 		if len(req.Data) != 0 {
 			dataToWrite = req.Data
+			sb.WriteByte('`')
 		}
-		sb.WriteByte('`')
 		sb.WriteString(colors[2])
 		sb.Write(dataToWrite)
 		sb.WriteString(colorSp)
-		sb.WriteByte('`')
+		if len(req.Data) != 0 {
+			sb.WriteByte('`')
+		}
 	}
 	sb.WriteByte('\n')
 	return sb.String()

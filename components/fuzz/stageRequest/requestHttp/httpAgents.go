@@ -1,5 +1,7 @@
 package requestHttp
 
+import "math/rand"
+
 var agents = []string{
 	"Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36 OPR/26.0.1656.60",
 	"Opera/8.0 (Windows NT 5.1; U; en)",
@@ -63,4 +65,8 @@ var agents = []string{
 	"NOKIA5700/ UCWEB7.0.2.37/28/999",
 	"Openwave/ UCWEB7.0.2.37/28/999",
 	"Openwave/ UCWEB7.0.2.37/28/999",
+}
+
+func getRandAgent() string {
+	return agents[rand.Int()%len(agents)]
 }

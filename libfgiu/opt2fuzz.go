@@ -14,19 +14,7 @@ import (
 	"time"
 )
 
-const (
-	defaultKeyword = "MILAOGIU"
-	keywordSep     = "::"
-)
-
-func keywordOverlap(keyword string, keywords []string) (string, bool) {
-	for _, k := range keywords {
-		if strings.Contains(k, keyword) || strings.Contains(keyword, k) {
-			return k, true
-		}
-	}
-	return "", false
-}
+const keywordSep = "::"
 
 func hasPathTraverse(plugins []fuzzTypes.Plugin) bool {
 	for _, p := range plugins {
@@ -46,96 +34,90 @@ func quitIfPathTraverse(p []fuzzTypes.Plugin) {
 	}
 }
 
-func appendPayloadTmp(tempMap map[string]*fuzzTypes.PayloadMeta, pluginStrings []string, appendType int,
-	genType string) {
-	/*
-		-w C:/aaa.txt,Q:/az/www.txt::FUZZ1 -> "FUZZ1":{"C:/aaa.txt,Q:/az/www.txt|wordlist", processor, pllist}
-		-pl-gen giu1(1,2,3),zzwa(1,"6666412",3)::FUZZ2 -> "FUZZ2":{"giu1(1,2,3),zzwa(1,\"6666412\",3)|plugin", processor, pllist}
-		-pl-processor proc1(1,"hello"),proc2("1234214")::FUZZ2 -> "FUZZ2":{giu1(1,2,3),zzwa(1,"6666412",3)|plugin, "proc1(1,\"hello\"),proc2(\"1234214\")", pllist}
-	*/
-	keywords := make([]string, 0)
-	for _, tmp := range pluginStrings {
-		// 在命令行参数中，要使用的文件/插件与fuzz关键字使用"::"关联，
-		// 比如 -w C:\aaa.txt::FUZZ1, -pl-proc base64,suffix("123")::FUZZ2
-		indSep := strings.LastIndex(tmp, keywordSep)
-		keyword := ""
-		if indSep+len(keywordSep) >= len(tmp) || indSep == -1 { // 未指定keyword，使用默认keyword
-			indSep = len(tmp)
-			keyword = defaultKeyword
-		} else {
-			keyword = tmp[indSep+len(keywordSep):]
-		}
-		pluginExpr := tmp[:indSep]
-		p, _ := plugin.ParsePluginsStr(pluginExpr)
-		quitIfPathTraverse(p)
-		var oldPlGen = fuzzTypes.PlGen{}
-		var oldProc []fuzzTypes.Plugin
-		_, keyExist := tempMap[keyword]
-		if !keyExist {
-			k, isOverlap := keywordOverlap(keyword, keywords)
-			if isOverlap {
-				log.Fatalf("one keyword you added is one another's substring (%s and %s),\n"+
-					"which will lead to template parse error in the future, exitting now\n", k, keyword)
-			}
-			keywords = append(keywords, keyword)
-		}
-		// 添加新的payload生成器
-		if appendType == appendGen {
-			// 判断键是否已经存在
-			if keyExist {
-				oldPlGen = tempMap[keyword].Generators
-				// 如果原先的生成器类型与现有的不符则不修改，直接退出
-				if tempMap[keyword].Generators.Type != genType {
-					return
-				}
-				oldProc = tempMap[keyword].Processors
-			}
-			// 添加新项
-			tempMap[keyword] = fuzzTypes.PayloadTemp{
-				Generators: fuzzTypes.PlGen{
-					Type: genType,
-					Gen:  append(oldPlGen.Gen, p...),
-				},
-				Processors: oldProc,
-			}
-		} else {
-			if keyExist {
-				oldPlGen = tempMap[keyword].Generators
-				oldProc = tempMap[keyword].Processors
-				tempMap[keyword] = fuzzTypes.PayloadTemp{
-					Generators: oldPlGen,
-					Processors: append(oldProc, p...),
-				}
-			} else {
-				return
-			}
-		}
+// cutGenProcArg 将命令行参数解析为生成器/处理器字符串与fuzz关键字
+func cutGenProcArg(arg string) (plGenProc string, keyword string) {
+	var found bool
+	plGenProc, keyword, found = strings.Cut(arg, keywordSep)
+	if !found {
+		keyword = fuzzTypes.DefaultFuzzKeyword
 	}
-}
-
-func parseWordlistArg(wordlistArg string) (wordlists []string, keyword string) {
-	keyword = fuzzTypes.DefaultFuzzKeyword
-	wlists, kw, found := strings.Cut(wordlistArg, keywordSep)
-	if found {
-		keyword = kw
-	}
-	wordlists = strings.Split(wlists, ",")
 	return
 }
 
-func mergeWordlist(f *fuzzTypes.Fuzz, wordlistArgs []string) error {
+func assignToPluginSlice(assignType string, slice *[]fuzzTypes.Plugin, assign string) error {
+	switch assignType {
+	case "wordlist":
+		if len(*slice) == 0 {
+			*slice = make([]fuzzTypes.Plugin, 1)
+		}
+		if len((*slice)[0].Name) != 0 {
+			(*slice)[0].Name += ","
+		}
+		(*slice)[0].Name += strings.TrimSuffix(assign, ",")
+	case "plugin":
+		p, err := plugin.ParsePluginsStr(assign)
+		if err != nil {
+			return fmt.Errorf("failed to assign gen by plugin expression parsing error: %v", err)
+		}
+		*slice = append(*slice, p...)
+	default:
+		return fmt.Errorf("unknown gen type '%s'", assignType)
+	}
+	return nil
+}
+
+func appendPlGen(f *fuzzTypes.Fuzz, args []string, appendGenType string) error {
 	if f.Preprocess.PlMeta == nil {
 		f.Preprocess.PlMeta = make(map[string]*fuzzTypes.PayloadMeta)
 	}
-	for _, wordlist := range wordlistArgs {
 
+	var err error
+
+	for _, arg := range args {
+		gen, keyword := cutGenProcArg(arg) // 分离关键字部分与表达式部分
+		m, ok := f.Preprocess.PlMeta[keyword]
+
+		if ok { // 关键字已经存在
+			if m.Generators.Type != appendGenType { // 一个关键字只能选择从payload生成器插件或者字典中加载payload
+				return fmt.Errorf("try to append generator of type '%s' to keyword '%s' whose "+
+					"generator type is '%s'", appendGenType, keyword, m.Generators.Type)
+			}
+			err = assignToPluginSlice(appendGenType, &m.Generators.Gen, gen)
+			if err != nil {
+				return err
+			}
+		} else { // 关键字不存在
+			m = &fuzzTypes.PayloadMeta{
+				Generators: fuzzTypes.PlGen{
+					Type: appendGenType,
+				},
+			}
+			f.Preprocess.PlMeta[keyword] = m
+			err = assignToPluginSlice(appendGenType, &m.Generators.Gen, gen)
+		}
 	}
+	return nil
+}
+
+func appendPlProc(f *fuzzTypes.Fuzz, args []string) error {
+	for _, arg := range args {
+		proc, keyword := cutGenProcArg(arg)
+		m, ok := f.Preprocess.PlMeta[keyword]
+		if !ok {
+			return fmt.Errorf("try to assign payload processor to a inexistent keyword '%s'", keyword)
+		}
+		err := assignToPluginSlice("plugin", &m.Processors, proc)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // str2Ranges 将string类型转化为range切片
-func str2Ranges(s string) []fuzzTypes.Range {
+func str2Ranges(s string) fuzzTypes.Ranges {
 	if s == "" {
-		return nil
+		return fuzzTypes.Ranges{}
 	}
 	var errRange = fuzzTypes.Range{Upper: -1, Lower: 0}
 	ranges := make([]fuzzTypes.Range, 0)
@@ -168,10 +150,7 @@ func str2Ranges(s string) []fuzzTypes.Range {
 	return ranges
 }
 
-func str2TimeBounds(s string) struct {
-	Lower time.Duration `json:"lower,omitempty"`
-	Upper time.Duration `json:"upper,omitempty"`
-} {
+func str2TimeBounds(s string) fuzzTypes.TimeBound {
 	timeBounds := strings.Split(s, "-")
 	var upper, lower int
 	if len(timeBounds) > 1 {
@@ -181,10 +160,7 @@ func str2TimeBounds(s string) struct {
 		lower = 0
 		upper, _ = strconv.Atoi(timeBounds[0])
 	}
-	return struct {
-		Lower time.Duration `json:"lower,omitempty"`
-		Upper time.Duration `json:"upper,omitempty"`
-	}{
+	return fuzzTypes.TimeBound{
 		Upper: time.Duration(upper) * time.Millisecond,
 		Lower: time.Duration(lower) * time.Millisecond,
 	}
@@ -316,14 +292,13 @@ func Opt2fuzz(o *opt.Opt) (fuzz1 *fuzzTypes.Fuzz, err error) {
 
 	/*--- o.Retry ---*/
 	fuzz1.Request.Retry = o.Retry.Retry
-	fuzz1.Request.RetryCode = o.Retry.RetryOnStatus
+	fuzz1.Request.RetryCodes = str2Ranges(o.Retry.RetryOnStatus)
 	fuzz1.Request.RetryRegex = o.Retry.RetryRegex
 
 	/*--- opts.PayloadSetting ---*/
-	fuzz1.Preprocess.PlTemp = make(map[string]fuzzTypes.PayloadTemp)
-	appendPayloadTmp(fuzz1.Preprocess.PlTemp, o.Payload.Generators, 0, "plugin")
-	appendPayloadTmp(fuzz1.Preprocess.PlTemp, o.Payload.Wordlists, 0, "wordlist")
-	appendPayloadTmp(fuzz1.Preprocess.PlTemp, o.Payload.Processors, 1, "")
+	err = errors.Join(err, appendPlGen(fuzz1, o.Payload.Generators, "plugin"))
+	err = errors.Join(appendPlGen(fuzz1, o.Payload.Wordlists, "wordlist"))
+	err = errors.Join(appendPlProc(fuzz1, o.Payload.Processors))
 
 	/*--- o.General ---*/
 	fuzz1.Request.Timeout = o.General.Timeout
@@ -336,9 +311,6 @@ func Opt2fuzz(o *opt.Opt) (fuzz1 *fuzzTypes.Fuzz, err error) {
 		if len(iterator) > 1 {
 			log.Fatal("only single iterator is permitted")
 		}
-		if o.General.Iter == "sniper" && len(fuzz1.Preprocess.PlTemp) > 1 {
-			log.Fatal("sniper mode only supports single fuzz keyword")
-		}
 		fuzz1.Control.IterCtrl.Iterator = iterator[0]
 	} else {
 		fuzz1.Control.IterCtrl.Iterator = fuzzTypes.Plugin{Name: "clusterbomb"}
@@ -349,10 +321,20 @@ func Opt2fuzz(o *opt.Opt) (fuzz1 *fuzzTypes.Fuzz, err error) {
 	for i, preprocessors := range o.Plugin.Preprocessors {
 		sb.WriteString(preprocessors)
 		if i != len(o.Plugin.Preprocessors)-1 {
-			sb.WriteString(",")
+			sb.WriteByte(',')
 		}
 	}
 	fuzz1.Preprocess.Preprocessors, _ = plugin.ParsePluginsStr(sb.String())
+	quitIfPathTraverse(fuzz1.Preprocess.Preprocessors)
+
+	sb.Reset()
+	for i, preprocPrior := range o.Plugin.PreprocPriorGen {
+		sb.WriteString(preprocPrior)
+		if i != len(o.Plugin.Preprocessors)-1 {
+			sb.WriteByte(',')
+		}
+	}
+	fuzz1.Preprocess.PreprocPriorGen, _ = plugin.ParsePluginsStr(sb.String())
 	quitIfPathTraverse(fuzz1.Preprocess.Preprocessors)
 
 	if o.Plugin.Reactor != "" {
@@ -368,14 +350,11 @@ func Opt2fuzz(o *opt.Opt) (fuzz1 *fuzzTypes.Fuzz, err error) {
 
 	/*--- o.RecursionControl ---*/
 	if o.RecursionControl.Recursion {
-		if len(fuzz1.Preprocess.PlTemp) > 1 {
-			log.Fatal("recursion mode only supports single fuzz keyword")
-		}
 		fuzz1.React.RecursionControl.MaxRecursionDepth = o.RecursionControl.RecursionDepth
 		fuzz1.React.RecursionControl.StatCodes = str2Ranges(o.RecursionControl.RecursionStatus)
 		fuzz1.React.RecursionControl.Regex = o.RecursionControl.RecursionRegex
 		fuzz1.React.RecursionControl.Splitter = o.RecursionControl.RecursionSplitter
-		for k, _ := range fuzz1.Preprocess.PlTemp {
+		for k := range fuzz1.Preprocess.PlMeta {
 			// 递归关键字设置为从关键字列表中取的第一个键（递归模式只支持一个关键字，所以怎么取都无所谓了）
 			fuzz1.React.RecursionControl.Keyword = k
 			break

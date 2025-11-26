@@ -99,10 +99,12 @@ func ParseOptCmdline() *Opt {
 	flag.StringVar(&errHandling.RetryRegex, "retry-regex", "", "retry when regex matched")
 
 	// 插件
-	flag.Var(&pluginSettings.Preprocessors, "preproc", "preprocessor plugin to be used")
+	flag.Var(&pluginSettings.Preprocessors, "preproc", "preprocessor plugins to be used")
+	flag.Var(&pluginSettings.PreprocPriorGen, "preproc-prior-gen", "preprocessor plugins to be used"+
+		"before generating payloads")
 	flag.StringVar(&pluginSettings.Reactor, "react", "", "reactor plugin to be used")
 
-	// http api v0.2.0版本新增
+	// http api设置
 	flag.BoolVar(&apiConfig.HttpApi, "http-api", false, "enable http api mode")
 	flag.BoolVar(&apiConfig.ApiTLS, "api-tls", false, "run http api server on https")
 	flag.StringVar(&apiConfig.ApiAddr, "api-addr", "0.0.0.0:14514", "http api server listen address")

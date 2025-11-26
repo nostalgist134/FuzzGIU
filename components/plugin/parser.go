@@ -18,7 +18,7 @@ func parseArgStr(argStr string) any {
 	}
 	switch {
 	case argStr[0] == '\'' || argStr[0] == '"':
-		return argStr[1 : strings.IndexRune(argStr[1:], rune(argStr[0]))+1]
+		return strings.TrimSuffix(argStr[1:], string(argStr[0]))
 	case strings.Index(argStr, "0x") == 0:
 		argRet, err := strconv.ParseInt(argStr[2:], 16, 64)
 		if err != nil {
@@ -127,7 +127,7 @@ func ParsePluginsStr(pluginsStr string) ([]fuzzTypes.Plugin, error) {
 				tmpStrArgBuilder.Reset()
 				j = 1
 			}
-		case ' ': // 忽略插件表达式中的括号
+		case ' ': // 忽略插件表达式中的空格
 			switch j {
 			case 2:
 				tmpStrArgBuilder.WriteByte(pluginsStr[i])
