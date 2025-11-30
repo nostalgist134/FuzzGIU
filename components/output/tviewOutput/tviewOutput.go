@@ -20,13 +20,19 @@ func initOnce() {
 		pages:     tview.NewPages(),
 		pageNames: []string{"list-jobs"},
 		listJobs:  tview.NewList(),
+		listFlx:   tview.NewFlex(),
 	}
+	screen.listJobs.SetInputCapture(vimKey)
+	screen.listJobs.SetBorder(true)
+	screen.listJobs.SetTitle("RUNNING_JOBS").SetTitleAlign(tview.AlignLeft)
+	screen.listFlx.SetFullScreen(true)
+	screen.listFlx.AddItem(screen.listJobs, 0, 1, true)
 	// 目录页
-	screen.pages.AddPage(screen.pageNames[0], screen.listJobs, true, true)
+	screen.pages.AddPage(screen.pageNames[0], screen.listFlx, true, true)
 	screen.pages.SetInputCapture(func(key *tcell.EventKey) *tcell.EventKey {
 		switch key.Key() {
-		case tcell.KeyCtrlC: // 按下ctrl+q就退出
-			screen.tviewApp.Stop()
+		case tcell.KeyCtrlC: // 按下ctrl+c就退出
+			QuitTview()
 			return nil
 		case tcell.KeyCtrlR: // 按下ctrl+r就切换回目录页
 			screen.pages.SwitchToPage(screen.pageNames[0])
@@ -47,6 +53,7 @@ func initOnce() {
 	go func() {
 		for {
 			screen.tviewApp.Draw()
+			time.Sleep(15 * time.Millisecond)
 		}
 	}()
 }
@@ -68,10 +75,12 @@ func NewTviewOutputCtx(outSetting *fuzzTypes.OutputSetting, jobCtx interfaceJobC
 		app:          screen.tviewApp,
 		textViews:    textViews,
 		flx:          flx,
-		outputFormat: outSetting.OutputFormat,
+		outputFormat: "native",
 		verbosity:    outSetting.Verbosity,
 		startCounter: make(chan struct{}),
 		endCounter:   make(chan struct{}),
+		jobCtx:       jobCtx,
+		id:           id,
 	}
 	tviewCtx.occupied.Add(1)
 
@@ -89,15 +98,20 @@ func NewTviewOutputCtx(outSetting *fuzzTypes.OutputSetting, jobCtx interfaceJobC
 				tviewCtx.app.SetFocus(tviewCtx.textViews[tviewCtx.focus])
 			}
 			return nil
-		case "p":
+		case "Rune[p]":
+			tviewCtx.textViews[IndCounter].SetTitle(titles[IndCounterPaused])
 			tviewCtx.jobCtx.Pause()
 			return nil
-		case "r":
+		case "Rune[r]":
+			tviewCtx.textViews[IndCounter].SetTitle(titles[IndCounter])
 			tviewCtx.jobCtx.Resume()
 			return nil
-		case "q":
-			tviewCtx.occupied.Done() // 实现在任务全部完成后不自动退出，而是等待用户按下q退出
+		case "Rune[q]":
+			tviewCtx.quitOnce.Do(func() {
+				tviewCtx.occupied.Done() // 实现在任务全部完成后不自动退出，而是等待用户按下q退出
+			})
 			tviewCtx.jobCtx.Stop()
+			tviewCtx.jobCtx.Resume()
 			return nil
 		}
 		return key
@@ -108,12 +122,17 @@ func NewTviewOutputCtx(outSetting *fuzzTypes.OutputSetting, jobCtx interfaceJobC
 		case tcell.KeyCtrlL:
 			tviewCtx.lockOnOutput.Store(true)
 			tviewCtx.textViews[IndOutput].SetTitle(titles[IndOutputLocked])
+			tviewCtx.textViews[IndOutput].ScrollToEnd()
 			return nil
 		case tcell.KeyCtrlU:
 			tviewCtx.lockOnOutput.Store(false)
 			tviewCtx.textViews[IndOutput].SetTitle(titles[IndOutput])
 			return nil
 		default:
+			if key.Name() == "Rune[c]" {
+				tviewCtx.textViews[IndOutput].SetText("")
+				return nil
+			}
 			return key
 		}
 	})
@@ -123,12 +142,17 @@ func NewTviewOutputCtx(outSetting *fuzzTypes.OutputSetting, jobCtx interfaceJobC
 		case tcell.KeyCtrlL:
 			tviewCtx.lockOnLog.Store(true)
 			tviewCtx.textViews[IndLogs].SetTitle(titles[IndLogsLocked])
+			tviewCtx.textViews[IndLogs].ScrollToEnd()
 			return nil
 		case tcell.KeyCtrlU:
 			tviewCtx.lockOnLog.Store(false)
 			tviewCtx.textViews[IndLogs].SetTitle(titles[IndLogs])
 			return nil
 		default:
+			if key.Name() == "Rune[c]" {
+				tviewCtx.textViews[IndLogs].SetText("")
+				return nil
+			}
 			return key
 		}
 	})
@@ -194,6 +218,28 @@ func (c *Ctx) Close() error {
 	if c.closed {
 		return outputErrors.ErrCtxClosed
 	}
+	c.flx.SetInputCapture(func(key *tcell.EventKey) *tcell.EventKey {
+		switch key.Name() {
+		case "Ctrl+Up", "Ctrl+K", "Ctrl+W": // 切换到上一个窗口
+			if c.focus > 0 {
+				c.focus--
+				c.app.SetFocus(c.textViews[c.focus])
+			}
+			return nil
+		case "Ctrl+Down", "Ctrl+J", "Ctrl+S": // 切换到下一个窗口
+			if c.focus < len(c.textViews)-1 {
+				c.focus++
+				c.app.SetFocus(c.textViews[c.focus])
+			}
+			return nil
+		case "Rune[q]":
+			c.quitOnce.Do(func() {
+				c.occupied.Done() // 实现在任务全部完成后不自动退出，而是等待用户按下q退出
+			})
+			return nil
+		}
+		return key
+	})
 	screen.tviewApp.QueueUpdate(func() { // 在菜单页面将对应的项标记为完成
 		itemInd := getListItemByName(screen.listJobs, fmt.Sprintf("job#%d", c.id))
 		if itemInd == -1 {
@@ -214,8 +260,9 @@ func (c *Ctx) Close() error {
 		if itemInd == -1 {
 			return
 		}
-		screen.listJobs.RemoveItem(itemInd)       // 将当前项从list中移除
+		screen.pages.SwitchToPage("list-jobs")
 		screen.tviewApp.SetFocus(screen.listJobs) // 回到菜单页面
+		screen.listJobs.RemoveItem(itemInd)       // 将当前项从list中移除
 	})
 	c.endCounter <- struct{}{}
 	if c.counter == nil {
@@ -234,4 +281,12 @@ func (c *Ctx) RegisterCounter(counter *counter.Counter) error {
 	c.counter = counter
 	c.startCounter <- struct{}{}
 	return nil
+}
+
+func QuitTview() {
+	appStopOnce.Do(func() {
+		if screen != nil && screen.tviewApp != nil {
+			screen.tviewApp.Stop()
+		}
+	})
 }

@@ -14,6 +14,7 @@ type (
 	Request struct {
 		URL            string   `json:"url,omitempty"`
 		Data           string   `json:"data,omitempty"`
+		DataFile       string   `json:"data_file,omitempty"`
 		ReqFile        string   `json:"req_file,omitempty"`
 		Headers        sliceStr `json:"header,omitempty"`
 		Method         string   `json:"method,omitempty"`

@@ -49,6 +49,7 @@ func (c *Ctx) Close() error {
 	}
 	c.cli.CloseIdleConnections()
 	c.closed = true
+	c.cli = nil
 	return nil
 }
 

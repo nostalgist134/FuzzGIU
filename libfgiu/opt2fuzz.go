@@ -7,7 +7,6 @@ import (
 	"github.com/nostalgist134/FuzzGIU/components/opt"
 	"github.com/nostalgist134/FuzzGIU/components/output/outputFlag"
 	"github.com/nostalgist134/FuzzGIU/components/plugin"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -215,9 +214,9 @@ func Opt2fuzz(o *opt.Opt) (fuzz1 *fuzzTypes.Fuzz, err error) {
 
 	if o.Request.ReqFile != "" {
 		if os.IsNotExist(err) {
-			err = fmt.Errorf("request file %s not found\n", o.Request.ReqFile)
+			err = fmt.Errorf("request file %s not found", o.Request.ReqFile)
 		} else if err != nil {
-			err = fmt.Errorf("failed to parse request file %s: %v\n", o.Request.ReqFile, err)
+			err = fmt.Errorf("failed to parse request file %s: %v", o.Request.ReqFile, err)
 		}
 	}
 
@@ -228,6 +227,15 @@ func Opt2fuzz(o *opt.Opt) (fuzz1 *fuzzTypes.Fuzz, err error) {
 
 	if o.Request.Data != "" {
 		fuzz1.Preprocess.ReqTemplate.Data = []byte(o.Request.Data)
+	}
+
+	if o.Request.DataFile != "" {
+		df, err2 := os.ReadFile(o.Request.DataFile)
+		if err2 == nil {
+			fuzz1.Preprocess.ReqTemplate.Data = df
+		} else {
+			err = errors.Join(err, err2)
+		}
 	}
 
 	fuzz1.Preprocess.ReqTemplate.HttpSpec.ForceHttps = o.Request.HTTPS
@@ -309,7 +317,7 @@ func Opt2fuzz(o *opt.Opt) (fuzz1 *fuzzTypes.Fuzz, err error) {
 	if o.General.Iter != "" {
 		iterator, _ := plugin.ParsePluginsStr(o.General.Iter)
 		if len(iterator) > 1 {
-			log.Fatal("only single iterator is permitted")
+			err = errors.Join(err, errors.New("only single iterator is permitted"))
 		}
 		fuzz1.Control.IterCtrl.Iterator = iterator[0]
 	} else {
@@ -342,7 +350,7 @@ func Opt2fuzz(o *opt.Opt) (fuzz1 *fuzzTypes.Fuzz, err error) {
 		if len(reactPlugin) == 0 {
 			fuzz1.React.Reactor = fuzzTypes.Plugin{}
 		} else if len(reactPlugin) > 1 {
-			log.Fatal("only single reactor plugin is permitted")
+			err = errors.Join(err, errors.New("only single reactor plugin is permitted"))
 		}
 		fuzz1.React.Reactor = reactPlugin[0]
 		quitIfPathTraverse([]fuzzTypes.Plugin{fuzz1.React.Reactor})

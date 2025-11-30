@@ -50,3 +50,10 @@ func bytes2Ints(ptrBytes uintptr, out []int) {
 		i++
 	}
 }
+
+func getSelectorNum(relPath string) int {
+	if relPath == RelPathIterator {
+		return 1
+	}
+	return 0
+}

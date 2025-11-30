@@ -198,6 +198,10 @@ func (c *Ctx) Close() error {
 		err = errors.Join(err, c.HttpCtx.Close())
 	}
 
+	if toWhere&outputFlag.OutToTview != 0 {
+		err = errors.Join(err, c.TviewOutputCtx.Close())
+	}
+
 	c.Counter.StopRecordTaskRate()
 
 	return err

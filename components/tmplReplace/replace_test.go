@@ -44,10 +44,6 @@ var milaogiu2 = &fuzzTypes.Req{
 
 var milaogiu3 = &fuzzTypes.Req{URL: "https://www.baidu.com/FUZZ", HttpSpec: fuzzTypes.HTTPSpec{Method: "GET"}}
 
-func TestCountFields(t *testing.T) {
-
-}
-
 func TestReq2Str(t *testing.T) {
 	least := &fuzzTypes.Req{
 		URL:      "http://milaogiu.com",
@@ -86,6 +82,7 @@ func TestParseReqTmpl(t *testing.T) {
 	fmt.Println(r3)
 	fmt.Println(tr)
 	fmt.Println(len(r3.HttpSpec.Proto))
+	fmt.Println(string(r3.Data))
 	/*for i := 0; i < tmpl3.KeywordCount(0); i++ {
 		r2, _ := tmpl3.Replace([]string{"AAA"}, i)
 		fmt.Println(r2)

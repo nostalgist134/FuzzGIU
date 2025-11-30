@@ -36,6 +36,12 @@ func trySubmit(jobCtx *fuzzCtx.JobCtx, task *fuzzCtx.TaskCtx, whichExec int8) (s
 		// 若处于暂停状态，则不消耗结果
 		routinePool.WaitResume()
 
+		select {
+		case <-jobCtx.GlobCtx.Done():
+			return
+		default:
+		}
+
 		// 将结果队列全部消耗
 		for r := routinePool.GetSingleResult(); r != nil; r = routinePool.GetSingleResult() {
 			stopJob, _, newJobsFromHandle = handleReaction(jobCtx, r)
@@ -83,6 +89,10 @@ func handleReaction(jobCtx *fuzzCtx.JobCtx, r *fuzzTypes.Reaction) (stopJob bool
 		stopJob, newJobsFromTrySub = trySubmit(jobCtx, newTask, rp.ExecMinor)
 		if newJobsFromTrySub != nil {
 			newJobs = append(newJobs, newJobsFromTrySub...)
+		}
+
+		if stopJob {
+			fuzzCtx.PutTaskCtx(newTask)
 		}
 
 		// task总数加1
@@ -232,7 +242,7 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 	routinePool.RegisterExecutor(taskNoKeywords, rp.ExecMinor)
 	routinePool.Start()
 
-	outCtx.Counter.Set(counter.CntrTask, counter.FieldTotal, iterLength)
+	outCtx.Counter.Set(counter.CntrTask, counter.FieldTotal, iter.End)
 	outCtx.Counter.Set(counter.CntrTask, counter.FieldCompleted, iter.Start)
 
 	var plProcs = make([][]fuzzTypes.Plugin, len(keywords)) // payload处理器插件
@@ -277,7 +287,7 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 
 			hasValid := false
 			for j, _ := range keywords { // 根据下标选择每个关键字对应的payload
-				if iterIndexes[j] < 0 || iterIndexes[j] >= len(payloadLists[j]) {
+				if iterIndexes[j] < 0 || iterIndexes[j] >= lengths[j] {
 					payloads[j] = ""
 				} else {
 					payloads[j] = payloadLists[j][iterIndexes[j]]
@@ -317,8 +327,7 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 		}
 	}
 
-	newJobsTmp = drainRp(jobCtx)
-	newJobs = append(newJobs, newJobsTmp...)
+	newJobs = append(newJobs, drainRp(jobCtx)...)
 	return
 }
 
@@ -376,6 +385,8 @@ func NewJobCtx(job *fuzzTypes.Fuzz, parentId int, ctx context.Context,
 		jobCtx = nil
 		return
 	}
+
+	job.Id = jid
 
 	return
 }

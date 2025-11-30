@@ -4,8 +4,9 @@ import (
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/nostalgist134/FuzzGIU/components/resourcePool"
 	"github.com/nostalgist134/reusableBytes"
-	"unsafe"
 )
+
+// render.go看完了来看点轻松的
 
 type ReplaceTemplate struct {
 	fragments    []string
@@ -21,12 +22,8 @@ const (
 	minimumFields = 4
 )
 
-func toBytes(s string) []byte {
-	return unsafe.Slice(unsafe.StringData(s), len(s))
-}
-
-// strings2Req 将切片转化为req结构
-func strings2Req(req *fuzzTypes.Req, fields []string, headerNum int) {
+// buildReq 将切片转化为req结构
+func buildReq(req *fuzzTypes.Req, fields []string, dataField []byte, headerNum int) {
 	req.HttpSpec.Method = fields[0]
 	req.URL = fields[1]
 	req.HttpSpec.Proto = fields[2]
@@ -47,15 +44,17 @@ func strings2Req(req *fuzzTypes.Req, fields []string, headerNum int) {
 			j++
 		}
 	}
-	req.Data = toBytes(fields[len(fields)-1]) // req.Data恒为fields的最后一个项
+	req.Data = dataField
 }
 
-// loadLazyFields 将lazy结构体加载为字符串，同时将lazy切片放回池
-func loadLazyFields(fields []string, lazyFields []reusablebytes.Lazy) {
-	for i := 0; i < len(lazyFields); i++ {
+// loadLazyFields 将lazy结构体加载为字符串与字节，同时将lazy切片回池
+func loadLazyFields(fields []string, lazyFields []reusablebytes.Lazy) []byte {
+	for i := 0; i < len(lazyFields)-1; i++ {
 		fields[i] = lazyFields[i].String()
 	}
+	ret := lazyFields[len(lazyFields)-1].Bytes()
 	lazyPool.Put(lazyFields)
+	return ret
 }
 
 // Replace 将模板中的关键字替换为payload列表
@@ -68,8 +67,8 @@ func (t *ReplaceTemplate) Replace(payloads []string, sniperPos int) (req *fuzzTy
 	}
 	req = resourcePool.GetReq()
 	stringFields := resourcePool.StringSlices.Get(len(lazyFields))
-	loadLazyFields(stringFields, lazyFields)
-	strings2Req(req, stringFields, t.headerNum)
+	dataField := loadLazyFields(stringFields, lazyFields)
+	buildReq(req, stringFields, dataField, t.headerNum)
 	return
 }
 
@@ -85,8 +84,8 @@ func (t *ReplaceTemplate) ReplaceTrack(payload string, sniperPos int) (req *fuzz
 	}
 	req = resourcePool.GetReq()
 	stringFields := resourcePool.StringSlices.Get(len(lazyFields))
-	loadLazyFields(stringFields, lazyFields)
-	strings2Req(req, stringFields, t.headerNum)
+	dataField := loadLazyFields(stringFields, lazyFields)
+	buildReq(req, stringFields, dataField, t.headerNum)
 	return
 }
 

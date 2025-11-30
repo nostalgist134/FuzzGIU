@@ -56,6 +56,7 @@ func ParseOptCmdline() *Opt {
 	// 请求设置
 	flag.StringVar(&request.URL, "u", "", "url to fuzz")
 	flag.StringVar(&request.Data, "d", "", "request data")
+	flag.StringVar(&request.DataFile, "df", "", "request data from file")
 	flag.StringVar(&request.ReqFile, "r", "", "read request(json or http, if parsable) or "+
 		"data(unparsable) from file")
 	flag.StringVar(&request.Method, "X", "GET", "http method")

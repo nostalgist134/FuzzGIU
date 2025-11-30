@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-var fhCliPool = sync.Pool{New: func() any {
+var fastHttpClients = sync.Pool{New: func() any {
 	return &fasthttp.Client{
 		ReadTimeout:                   0,
 		WriteTimeout:                  0,
@@ -66,8 +66,8 @@ func fuzzReq2FHReq(fr *fuzzTypes.Req, fhr *fasthttp.Request) {
 	fhr.SetBody(fr.Data)
 }
 
-func getFHCli(pxy string) *fasthttp.Client {
-	cli := (fhCliPool.Get()).(*fasthttp.Client)
+func getFastHttpCli(pxy string) *fasthttp.Client {
+	cli := (fastHttpClients.Get()).(*fasthttp.Client)
 	if pxy != "" {
 		cli.Dial = fasthttpproxy.FasthttpHTTPDialer(pxy)
 	}
@@ -152,14 +152,10 @@ func doRequestFastHttp(reqCtx *fuzzTypes.RequestCtx) (*fuzzTypes.Resp, error) {
 
 	fuzzReq2FHReq(req, fhReq)
 
-	cli := getFHCli(proxy)
+	cli := getFastHttpCli(proxy)
 	defer func() {
-		// 重置为默认拨号器
-		cli.Dial = (&fasthttp.TCPDialer{
-			Concurrency:      1,
-			DNSCacheDuration: time.Hour,
-		}).Dial
-		fhCliPool.Put(cli)
+		cli.Dial = nil
+		fastHttpClients.Put(cli)
 	}()
 
 	timeStart := time.Now()

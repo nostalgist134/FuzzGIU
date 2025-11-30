@@ -1,8 +1,6 @@
-虽然不知道会不会有人看，但是我还是写一个readme吧
-
 # 项目介绍
 
-FuzzGIU 是一款基于golang开发的web fuzzer，灵感来源于`ffuf`、`burp intruder`与`yakit web fuzzer`。适用于Web目录扫描、web fuzz、漏洞扫描等场景。
+FuzzGIU是个基于golang开发的简单的小玩具，用来做web fuzz。
 
 ## 安装
 
@@ -21,7 +19,7 @@ go build
 
 本项目中所涉及的技术、思路和工具仅供以学习交流使用，任何人不得将其用于非法用途以及盈利等目的，否则后果自行承担。
 
-命名`FuzzGIU`而不是`FuzzGUI`是刻意为之，不是拼写错误。
+命名`FuzzGIU`是刻意为之，不是拼写错误。
 
 # 使用方法
 
@@ -30,10 +28,10 @@ go build
 - **URL 路径 Fuzz（目录扫描）:**
 
   ```powershell
-  # 指定关键字
+  # 指定占位符
   .\FuzzGIU.exe -u http://test.com/FUZZ -w directory_list.txt::FUZZ
   
-  # 使用默认关键字 "MILAOGIU"
+  # 使用默认占位符 "MILAOGIU"
   .\FuzzGIU.exe -u http://test.com/MILAOGIU -w directory_list.txt
   ```
 
@@ -64,11 +62,11 @@ go build
 - **使用内置 Payload 生成器:**
 
   ```powershell
-  # 生成数字 1 到 99 作为 FUZZ 关键字使用的payload列表
+  # 生成数字1~99作为FUZZ占位符使用的payload列表
   .\FuzzGIU.exe -u http://test.com/user?id=FUZZ -pl-gen int(1,100)::FUZZ
   ```
 
-- **指定关键字处理模式:**
+- **指定迭代模式:**
 
   ```powershell
   # clusterbomb 模式 (默认): 遍历所有组合
@@ -77,8 +75,8 @@ go build
   # pitchfork/pitchfork-cycle模式: 列表循环对齐
   .\FuzzGIU.exe -u http://FUZZUSER:FUZZPASS@test.com -w usernames.txt::FUZZUSER -w passwords.txt::FUZZPASS -iter pitchfork/pitchfork-cycle
   
-  # sniper 模式: 接收单个关键字，根据其出现在请求中的位置依次替换为payload，其它位置替换为空
-  .\FuzzGIU.exe -u http://test.com/FUZZ -d user=FUZZ -H Header: FUZZ -w dic.txt::FUZZ -iter sniper
+  # sniper 模式: 单个占位符在请求中出现多次，根据其出现的位置依次替换为payload，其它位置替换为空
+  .\FuzzGIU.exe -u http://test.com/FUZZ -d user=FUZZ -H "Header: FUZZ" -w dic.txt::FUZZ -iter sniper
   ```
 
 ## 帮助信息与环境初始化
@@ -95,15 +93,15 @@ go build
 
 若url中不包含scheme字段，则采用http协议。
 
-`-u`参数任意部分包含的fuzz关键字都会自动被替换。
+url任意部分的fuzz占位符都会被替换。
 
 ### `-w`
 
-`-w`指定fuzz关键字所对应的字典，用法为`-w dict.txt::FUZZ_KEYWORD`，字典列表通过`::`符号与fuzz关键字相关联。`-w`参数允许在命令行中多次出现，或在单参数中指定多个字典文件，字典间需要通过逗号隔开，比如`-w dict1.txt,dict2.txt::FUZZ_KEYWORD`。若省略关键字部分，字典会关联到默认关键字`MILAOGIU`上。
+`-w`指定fuzz占位符所对应的字典，用法为`-w dict.txt::FUZZ_KEYWORD`，字典列表通过`::`符号与fuzz占位符相关联。`-w`参数允许在命令行中多次出现，或在单参数中指定多个字典文件，字典间需要通过逗号隔开，比如`-w dict1.txt,dict2.txt::FUZZ_KEYWORD`。若省略占位符部分，字典会关联到默认占位符`MILAOGIU`上。
 
-### `-d`
+### `-d`与`-df`
 
-`-d`参数用来指定请求体部分，但是这么说其实不太准确，因为请求体是属于http协议中的概念，而FuzzGIU为了对协议进行扩展，使用一个`Req`结构来表示请求：
+`-d`/`-df`参数用来指定请求体部分，但是这么说其实不太准确，因为请求体是属于http协议中的概念，而FuzzGIU为了对协议进行扩展，使用一个`Req`结构来表示请求：
 
 ```go
 type HTTPSpec struct {
@@ -123,7 +121,9 @@ type Req struct {
 
 `-d`参数指定的是**Req结构中的**`Data`**成员**，当然在**http协议fuzz中，这个成员就是拿来当成请求体用的**。
 
-**注意**：如果在http fuzz中使用此选项，可能需要手动设置`Content-Type`头或使用`-r`选项。
+`-df`：从文件中读取`Data`。
+
+**注意**：工具不会自动根据请求体设置`Content-Type`头。
 
 ### `-r`
 
@@ -201,23 +201,24 @@ type Req struct {
 除`-x`、`-F`和`-ra`外的其它参数会依次被填充到Req结构的HTTPSpec子结构中
 
 ```go
-HTTPSpec struct {
-    Method     string	// -X
-    Headers    []string // -H（允许多次指定）
-    Version    string   // -http2
-    ForceHttps bool     // -s
+type HTTPSpec struct {
+    Method      string   `json:"method,omitempty" xml:"method,omitempty"`
+    Headers     []string `json:"headers,omitempty" xml:"header>headers,omitempty"`
+    Proto       string   `json:"proto,omitempty" xml:"proto,omitempty"`
+    ForceHttps  bool     `json:"force_https,omitempty" xml:"force_https,omitempty"`
+    RandomAgent bool     `json:"http_random_agent,omitempty"`
 }
 ```
 
-且这些参数（除`-s`外）都可以包含fuzz关键字，fuzz过程中会自动识别并替换。
+且这些参数（除`-s`外）都可以包含fuzz占位符，fuzz过程中会自动识别并替换。
 
-`-x`、`-F`参数会被存储到一个请求发送相关的元数据当中，工具发送请求时，无论是什么协议，总会向对应的请求发送模块传递这个元信息，但若使用的协议是插件，则怎么处理代理取决于协议本身的逻辑。
+`-x`、`-F`参数会被存储到一个请求发送相关的元数据当中，工具内置的协议能够正常处理这些参数，但若使用插件协议，则取决于插件内部实现。
 
-`ra`启用随机`User-Agent`头。
+`-ra`启用随机`User-Agent`头，对应的是`RandomAgent`成员。在http fuzz中，如果未指定ua头，也未指定`-ra`选项，使用的默认ua头为`milaogiu browser (21.1)`。
 
 **注意**：
 
-+ 由于`net/http`库本身的缺陷，若指定了`-http2`选项，内存占用会飙升至少10倍，并且请求速度最高不会超过100r/s。
++ 由于`net/http`库本身的缺陷，若指定了`-http2`选项，内存占用会飙升至少10倍，并且请求会变得极不稳定，虽然工具提供了此选项，但是不建议使用。
 + http/2协议仅支持http代理，不支持socks系列；http/1.1无此限制。
 
 ### 输出设置
@@ -234,6 +235,8 @@ HTTPSpec struct {
 -v    		# 输出详细程度（只对输出格式为native起效，其它两种无论如何都输出全部信息），范围1~3
 ```
 
+**注意**：tview输出窗口忽略`-fmt`参数，总是采用`native`格式输出。
+
 ### payload生成与迭代
 
 ```shell
@@ -247,17 +250,17 @@ HTTPSpec struct {
 
 `-iter`参数用于指定使用的迭代器，内置的迭代器有4种：`clusterbomb`、`pitchfork`、`pitchfork-cycle`与`sniper`，它们的作用如下：
 
-+ `clusterbomb`模式：枚举不同关键字对应的payload列表的所有组合。
++ `clusterbomb`模式：枚举不同占位符对应的payload列表的所有组合。
 
-+ `pitchfork`模式：对每个关键字payload列表使用相同的下标，遍历到最短的payload列表结束。
++ `pitchfork`模式：对每个占位符payload列表使用相同的下标，遍历到最短的payload列表结束。
 
-+ `pitchfork-cycle`模式：`pitchfork`模式的改进版本，每个关键字的列表下标仍同步更新，但是较短的列表结束后，下标会从0再循环，直到最长的列表结束。
++ `pitchfork-cycle`模式：`pitchfork`模式的改进版本，每个占位符的列表下标仍同步更新，但是较短的列表结束后，下标会从0再循环，直到最长的列表结束。
 
-+ `sniper`模式：**仅用于**单个关键字在请求中出现多次的情况。工具根据关键字出现的位置依次将特定位置的关键字替换为payload列表中的所有payload，并将其它位置的关键字替换为空。
++ `sniper`模式：**仅用于**单个占位符在请求中出现多次的情况。工具根据占位符出现的位置依次将特定位置的占位符替换为payload列表中的所有payload，并将其它位置的占位符替换为空。
 
 除内置外，迭代器也可基于插件实现。
 
-`-pl-gen`参数用来指定fuzz关键字的payload生成器，注意：`-pl-gen`**与**`-w`**选项是互斥的，暂不支持同时使用payload生成器和字典来对某个关键字生成payload**。`-pl-gen`参数与`-w`参数类似，使用`::`符号关联payload生成器列表和关键字。payload生成器的命令行参数值遵循 [伪函数调用表达式](#插件调用) 语法。
+`-pl-gen`参数用来指定fuzz占位符的payload生成器，注意：`-pl-gen`**与**`-w`**选项是互斥的，暂不支持同时使用payload生成器和字典来对某个占位符生成payload**。`-pl-gen`参数与`-w`参数类似，使用`::`符号关联payload生成器列表和占位符。payload生成器的命令行参数值遵循 [伪函数调用表达式](#插件调用) 语法。
 
 目前工具内置3种payload生成器：
 
@@ -266,7 +269,7 @@ HTTPSpec struct {
 - `permuteex(s, m, n)`: 生成字符串`s`的长度从`m`到`n`的全排列，若`n`未设置或小于0，则设置为最大长度。
 - `nil(length)`: 生成一个长度为`length`，全为空字符串的列表。
 
-`-pl-proc`参数用于指定fuzz关键字的对应payload使用的处理器，同样遵循 [伪函数调用表达式](#插件调用) 语法，使用`::`符号与关键字进行关联。
+`-pl-proc`参数用于指定fuzz占位符的对应payload使用的处理器，同样遵循 [伪函数调用表达式](#插件调用) 语法，使用`::`符号与占位符进行关联。
 内置的6种payload处理器如下：
 
 - `base64`: Base64 编码 payload。
@@ -278,8 +281,8 @@ HTTPSpec struct {
 
 **注意**：
 
-+ 指定fuzz关键字时**不允许任何关键字是另一个关键字的子串**（比如指定了`FUZZ`，然后再指定`FUZZ1`），这种情况会导致模板解析失败，因此会拒绝执行
-+ 若关键字没有绑定的payload生成器或字典，尝试对其绑定payload处理器会导致错误
++ 指定fuzz占位符时**不允许任何占位符是另一个占位符的子串**（比如指定了`FUZZ`，然后再指定`FUZZ1`），这种情况会导致模板解析失败，因此会拒绝执行
++ 若占位符没有绑定的payload生成器或字典，尝试对其绑定payload处理器会导致错误
 
 ### http api配置
 
@@ -315,7 +318,7 @@ HTTPSpec struct {
 
 #### 核心参数详解
 
-- `-R`：启用递归模式（仅支持单个 fuzz 关键字，避免多关键字导致的逻辑冲突）。
+- `-R`：启用递归模式（仅支持单个 fuzz 占位符，避免多占位符导致的逻辑冲突）。
 - `-rec-code`：触发递归的 HTTP 状态码（默认 200），即当响应状态码匹配时，对结果进行二次 fuzz。
 - `-rec-depth`：递归深度（默认 2），控制最大探测层级，防止无限递归消耗资源。
 - `-rec-regex`：通过正则匹配响应内容触发递归。
@@ -390,14 +393,14 @@ FuzzGIU插件的命令行参数语法遵循以下的被称为**伪函数调用�
    .\FuzzGIU.exe -u http://test.com/FUZZ -w big_dict.txt::FUZZ -preproc job_dispatch("http://192.168.0.1:11451,http://192.168.0.2:11451","fyge4sYS+1I4TB54,zKx40QLm1t1gVMQf","http://192.168.0.3/results")
    ```
    
-   **注意事项**：预处理插件在任务执行前有两个调用点，一个位于payload生成前，一个位于payload生成后，命令行参数中分别使用`-preproc-prior-gen`与`-preproc`指定。由于任务执行前会把payload列表也全部写入任务结构体中，因此`-preproc`指定的预处理器也能感知到payload列表，`-preproc-prior-gen`则不行。
+   **注意事项**：预处理插件前有两个调用点位，一个位于payload生成前，一个位于payload生成后，命令行参数中分别使用`-preproc-prior-gen`与`-preproc`指定。由于任务执行前会把payload列表以及总迭代长度也写入任务结构体中，因此`-preproc`也能感知到payload列表与迭代长度，`-preproc-prior-gen`则不行。
 
 2. **PayloadGenerator（payload 生成器插件）**
 
    + **作用**：替代字典（`-w`）动态生成 payload，适用于规则化、定制化的测试场景（如 SQL 注入、XSS 测试用例）。
    + **上下文参数**：无
    + **返回值**：`[]string`->生成的payload
-   + **链式调用**：对单个关键字指定多个payload生成器时，每个生成器生成的payload都会添加到总列表中
+   + **链式调用**：对单个占位符指定多个payload生成器时，每个生成器生成的payload都会添加到总列表中
 
    示例：`sqli`插件生成 SQL 注入测试 payload：
 
@@ -409,7 +412,7 @@ FuzzGIU插件的命令行参数语法遵循以下的被称为**伪函数调用�
 3. **PayloadProcessor（payload 处理器插件）**
 
    + **作用**：对生成的 payload 进行二次处理（如加密、编码），满足目标系统的格式要求。
-   + **上下文参数**：`string`->要处理的payload，从关键字对应的payload列表中取出
+   + **上下文参数**：`string`->要处理的payload，从占位符对应的payload列表中取出
    + **返回值**：`string`->处理后的payload
    + **链式调用**：若指定了多个payload处理器，则插件链上每个插件返回的处理后的payload都会作为默认参数传递给下一插件
 
@@ -451,22 +454,22 @@ FuzzGIU插件的命令行参数语法遵循以下的被称为**伪函数调用�
 
 6. **Iterator（迭代器插件）**
 
-   + **作用**：根据任务使用的关键字数量与每个关键字对应的payload列表决定迭代长度，或根据当前迭代下标选择要使用的关键字组合。
+   + **作用**：根据任务使用的占位符数量与每个占位符对应的payload列表决定迭代长度，或根据当前迭代下标选择要使用的占位符组合。
    + **链式调用**：本插件不支持链式调用
 
    迭代器由两个函数——`IterLen`与`IterIndex`共同组成。下面分别介绍每个函数的参数与返回值
 
    `IterLen`
 
-   + **上下文参数**：`lengths []int`->每个关键字对应的payload列表的长度
+   + **上下文参数**：`lengths []int`->每个占位符对应的payload列表的长度
    + **返回值**：正整数最大迭代长度，或者-1表示不限迭代次数
 
    `IterIndex`
 
-   + **上下文参数**：`lengths []int`->每个关键字对应的payload列表长度、`ind int`->当前迭代下标
-   + **返回值**：`indexes []int`->每个关键字使用的payload的下标
+   + **上下文参数**：`lengths []int`->每个占位符对应的payload列表长度、`ind int`->当前迭代下标
+   + **返回值**：`indexes []int`->每个占位符使用的payload的下标
 
-   **注意事项**：`IterIndex`返回的下标列表可以为负数，此时对应关键字会替换为空payload；当`IterLen`返回-1时，迭代不会自动停止，而是根据`IterIndex`返回值决定，当`IterInex`返回一个全负数的下标列表时停止。
+   **注意事项**：`IterIndex`返回的下标列表可以为负数，此时对应占位符会替换为空payload；当`IterLen`返回-1时，迭代不会自动停止，而是根据`IterIndex`返回值决定，当`IterInex`返回一个全负数的下标列表时停止。
 
 #### 插件开发与扩展
 
@@ -499,7 +502,11 @@ access token: mYOC23ROFTJVEAw+
 
 ##### `POST`方法
 
-这个方法用于暂停/恢复任务的执行，调用时传入一个json格式的`map[string]string`，其`action`键值代表要执行的操作，可以为`pause`或者`resume`，若暂停/恢复执行成功，返回204状态码，否则返回错误信息。
+这个方法用于暂停/恢复任务的执行或者查看任务状态，调用时传入一个json格式的`map[string]string`，其`action`键值代表要执行的操作，可以为`pause`、`resume`或`status`，每种action的作用分别如下：
+
++ `pause`：暂停任务执行，返回204状态码
++ `resume`：恢复任务的执行，返回204状态码
++ `status`：返回任务状态，包括执行进度、执行过程中发生的错误总数以及任务是否暂停。
 
 #### job
 
@@ -569,21 +576,18 @@ func main() {
 		fmt.Println("\tURL:", jobInfo.Preprocess.ReqTemplate.URL)
 
 		jobCtx.Pause()   // 暂停任务执行
+		// do something
 		jobCtx.Resume()  // 继续任务的执行
-		jobCtx.Release() // jobCtx内部维护一个引用计数，GetJob会增加此引用计数，手动释放避免任务在执行完成后仍旧无法退出
+		jobCtx.Release() // jobCtx内部维护一个引用计数，GetJob会增加此引用计数，手动释放避免任务在执行完成后阻塞
 	}
 
 	go func() {
 		time.Sleep(100 * time.Second)
-		// 向api端点发送请求，停止运行
-		req, _ := http.NewRequest("GET", "https://127.0.0.1:8080/stop", nil)
-		req.Header.Set("Access-Token", fuzzer.GetApiToken())
-		(&http.Client{}).Do(req)
+        fuzzer.StopHttpApi()
 	}()
 
-	fuzzer.Wait() // 等待，若http api模式启动，则需要访问/stop端点来关闭，否则Wait保持阻塞
-	// 未开启http api，Wait会在所有任务及其衍生任务完成后放行，需手动调用fuzzer.Stop()停止
-	// fuzzer.Stop()
+	fuzzer.Wait() // 等待直到fuzzer中全部任务都执行完毕
+	fuzzer.Stop() // 停止fuzzer的运行
 	if err != nil {
 		log.Fatalln(err)
 	}

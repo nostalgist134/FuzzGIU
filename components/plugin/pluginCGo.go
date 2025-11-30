@@ -1,6 +1,6 @@
 //go:build windows
 
-// say hello to the world of reverse engineering
+// 向RE世界致敬
 
 package plugin
 
@@ -109,7 +109,7 @@ func callSharedLib(p fuzzTypes.Plugin, relPath string, writeBuffer *reusablebyte
 		mu.Unlock()
 	}
 
-	if pi := pRecord.pInfo; pi != nil && len(pi.Params) != len(byteSlices)+len(p.Args) {
+	if pi := pRecord.pInfo; pi != nil && len(pi.Params) != len(byteSlices)+len(p.Args)-getSelectorNum(relPath) {
 		return 0, fmt.Errorf("incorrect parameter count, expect %d, got %d", len(pi.Params),
 			len(byteSlices)+len(p.Args))
 	}
@@ -347,7 +347,7 @@ func Preprocess(p fuzzTypes.Plugin, fuzz1 *fuzzTypes.Fuzz, outCtx *output.Ctx) *
 
 // DoRequest 根据sendMeta发送请求，并接收响应
 func DoRequest(p fuzzTypes.Plugin, reqCtx *fuzzTypes.RequestCtx) *fuzzTypes.Resp {
-	reqJson, err := json.Marshal(reqCtx)
+	marshaled, err := json.Marshal(reqCtx)
 	if err != nil {
 		return &fuzzTypes.Resp{ErrMsg: err.Error()}
 	}
@@ -359,13 +359,13 @@ func DoRequest(p fuzzTypes.Plugin, reqCtx *fuzzTypes.RequestCtx) *fuzzTypes.Resp
 	defer bp.Put(id)
 
 	var needed int
-	if needed, err = callSharedLib(p, RelPathRequester, rb, reqJson); err != nil {
+	if needed, err = callSharedLib(p, RelPathRequester, rb, marshaled); err != nil {
 		return &fuzzTypes.Resp{ErrMsg: err.Error()}
 	} else if needed == -1 {
 		return &fuzzTypes.Resp{ErrMsg: errInteriorMarshal}
 	} else if needed > rb.Cap() {
 		rb.Resize(needed + needed>>1)
-		needed, err = callSharedLib(p, RelPathRequester, rb, reqJson)
+		needed, err = callSharedLib(p, RelPathRequester, rb, marshaled)
 		if err != nil {
 			return &fuzzTypes.Resp{ErrMsg: err.Error()}
 		}
@@ -386,14 +386,14 @@ func DoRequest(p fuzzTypes.Plugin, reqCtx *fuzzTypes.RequestCtx) *fuzzTypes.Resp
 func React(p fuzzTypes.Plugin, req *fuzzTypes.Req, resp *fuzzTypes.Resp) *fuzzTypes.Reaction {
 	rct := resourcePool.GetReaction()
 
-	reqJson, err := json.Marshal(req)
+	marshaledReq, err := json.Marshal(req)
 	if err != nil {
 		rct.Output.Msg = "error: " + err.Error()
 		rct.Flag |= fuzzTypes.ReactOutput
 		return rct
 	}
 
-	respJson, err := json.Marshal(resp)
+	marshaledResp, err := json.Marshal(resp)
 	if err != nil {
 		rct.Output.Msg = "error: " + err.Error()
 		rct.Flag |= fuzzTypes.ReactOutput
@@ -407,7 +407,7 @@ func React(p fuzzTypes.Plugin, req *fuzzTypes.Req, resp *fuzzTypes.Resp) *fuzzTy
 	defer bp.Put(id)
 
 	var needed int
-	if needed, err = callSharedLib(p, RelPathReactor, rb, reqJson, respJson); err != nil {
+	if needed, err = callSharedLib(p, RelPathReactor, rb, marshaledReq, marshaledResp); err != nil {
 		rct.Output.Msg = err.Error()
 		rct.Flag |= fuzzTypes.ReactOutput
 		return rct
@@ -417,7 +417,7 @@ func React(p fuzzTypes.Plugin, req *fuzzTypes.Req, resp *fuzzTypes.Resp) *fuzzTy
 		return rct
 	} else if needed > rb.Cap() {
 		rb.Resize(needed + needed>>1)
-		needed, err = callSharedLib(p, RelPathReactor, rb, reqJson, respJson)
+		needed, err = callSharedLib(p, RelPathReactor, rb, marshaledReq, marshaledResp)
 		if err != nil {
 			rct.Output.Msg = err.Error()
 			rct.Flag |= fuzzTypes.ReactOutput
@@ -442,6 +442,7 @@ func React(p fuzzTypes.Plugin, req *fuzzTypes.Req, resp *fuzzTypes.Resp) *fuzzTy
 // 迭代器调用前会通过下面的 IterLen 确定迭代长度，但是实现上这个函数是可选的，若选择不限迭代长度，也可
 // 在迭代器中返回一个元素全为无效元素（全为负数）的数组来标记结束
 // 传入的p.Args布局为：selectorIterIndex, ind, ...
+// 总的调用布局为：outBytes, len(outBytes), lengthsBytes, len(lengthsBytes), selector, ind, ...
 func IterIndex(p fuzzTypes.Plugin, lengths []int, out []int) {
 	lengthsBytes, id := ints2Bytes(lengths)
 	defer bp.Put(id)
@@ -456,7 +457,7 @@ func IterIndex(p fuzzTypes.Plugin, lengths []int, out []int) {
 	needed, err := callSharedLib(p, RelPathIterator, rb, lengthsBytes)
 
 	// iterator不使用“先探测，后写入”的逻辑，因为理论上来讲写入的长度是可预测的（长度即为len(lengthsBytes)），因此长度不符合直接标记停止
-	if err != nil || needed > rb.Len() {
+	if err != nil || needed > rb.Cap() {
 		for i, _ := range out {
 			out[i] = -1
 		}

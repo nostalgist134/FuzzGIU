@@ -26,6 +26,7 @@ type Ctx struct {
 	lockOnLog    atomic.Bool
 	lockOnOutput atomic.Bool
 	occupied     sync.WaitGroup
+	quitOnce     sync.Once
 }
 
 type tviewScreen struct {
@@ -34,4 +35,5 @@ type tviewScreen struct {
 	pages     *tview.Pages
 	pageNames []string
 	listJobs  *tview.List
+	listFlx   *tview.Flex
 }

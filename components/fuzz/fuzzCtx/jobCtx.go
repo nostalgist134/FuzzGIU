@@ -33,6 +33,7 @@ func (jc *JobCtx) Stop() {
 	if jc.Cancel != nil {
 		jc.Cancel()
 	}
+	jc.RP.Resume() // 让rp继续运行，防止卡在暂停状态接收不到停止信息
 }
 
 // Pause 暂停当前任务

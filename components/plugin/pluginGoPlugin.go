@@ -70,7 +70,7 @@ func callSharedLib(p fuzzTypes.Plugin, relPath string, jsons ...[]byte) ([]byte,
 		mu.Unlock()
 	}
 
-	if pi := pRecord.pInfo; pi != nil && len(pi.Params) != len(jsons)+len(p.Args) {
+	if pi := pRecord.pInfo; pi != nil && len(pi.Params) != len(jsons)+len(p.Args)-getSelectorNum(relPath) {
 		return nil, fmt.Errorf("incorrect parameter count, expect %d, got %d", len(pi.Params),
 			len(jsons)+len(p.Args))
 	}

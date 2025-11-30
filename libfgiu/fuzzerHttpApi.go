@@ -1,11 +1,13 @@
 package libfgiu
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/labstack/echo/v4"
 	"github.com/nostalgist134/FuzzGIU/components/common"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
+	"github.com/nostalgist134/FuzzGIU/components/rp"
 	"log"
 	"strconv"
 	"sync"
@@ -49,6 +51,12 @@ func errorMsg(err error) map[string]string {
 }
 
 func (f *Fuzzer) StartHttpApi(apiConf WebApiConfig) error {
+	f.muApi.Lock()
+	defer f.muApi.Unlock()
+	if f.s != nil {
+		return nil
+	}
+
 	addr, startTLS, certFileName, certKeyName := getApiConfig(apiConf)
 
 	stopChan := make(chan struct{})
@@ -89,7 +97,7 @@ func (f *Fuzzer) StartHttpApi(apiConf WebApiConfig) error {
 	}
 
 	controlJob := func(c echo.Context) error {
-		var oper map[string]string
+		var oper = make(map[string]string)
 		jid, err := strconv.ParseInt(c.Param("id"), 10, 64)
 		if err != nil {
 			return c.JSON(400, errorMsg(fmt.Errorf("failed to parse job id: %v", err)))
@@ -99,7 +107,7 @@ func (f *Fuzzer) StartHttpApi(apiConf WebApiConfig) error {
 			return c.JSON(404, errorMsg(fmt.Errorf("job#%d not found", jid)))
 		}
 		defer jobCtx.Release()
-		err = c.Bind(oper)
+		err = c.Bind(&oper)
 		if err != nil {
 			return c.JSON(400, errorMsg(fmt.Errorf("invalid operation: %v", err)))
 		}
@@ -114,6 +122,13 @@ func (f *Fuzzer) StartHttpApi(apiConf WebApiConfig) error {
 		case "resume":
 			jobCtx.Resume()
 			return c.NoContent(204)
+		case "status":
+			paused := jobCtx.RP.Status() == rp.StatPause
+			return c.JSON(200, map[string]any{
+				"progress": jobCtx.OutputCtx.Counter.TaskProgress,
+				"errors":   jobCtx.OutputCtx.Counter.Errors.Completed,
+				"paused":   paused,
+			})
 		default:
 			return c.JSON(400, errorMsg(fmt.Errorf("unknown action '%s'", action)))
 		}
@@ -186,4 +201,25 @@ func (f *Fuzzer) StartHttpApi(apiConf WebApiConfig) error {
 		}
 	}()
 	return nil
+}
+
+// StopHttpApi 关闭http api
+func (f *Fuzzer) StopHttpApi() error {
+	f.muApi.Lock()
+	defer f.muApi.Unlock()
+	var err error
+	if f.s != nil && f.s.e != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
+		defer cancel()
+		err = f.s.e.Shutdown(ctx)
+	}
+	return err
+}
+
+// GetApiToken 如果启动了http api模式，获取api模式的token
+func (f *Fuzzer) GetApiToken() string {
+	if f.Status() == FuzzerStatStopped || f.s == nil {
+		return ""
+	}
+	return f.s.accessToken
 }

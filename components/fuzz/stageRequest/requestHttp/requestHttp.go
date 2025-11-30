@@ -8,13 +8,12 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
 
-var cliPool = sync.Pool{
+var httpClients = sync.Pool{
 	New: func() any {
 		return new(http.Client)
 	},
@@ -22,11 +21,13 @@ var cliPool = sync.Pool{
 
 const defaultUa = "milaogiu browser (21.1)"
 
-// initHttpCli 初始化 Http 客户端，设置代理、超时、重定向等
-func initHttpCli(proxy string, timeout int, redirect bool, redirectChain *string) (*http.Client, error) {
+// getHttpCli 初始化 Http 客户端，设置代理、超时、重定向等
+func getHttpCli(proxy string, timeout int, redirect bool, redirectChain *string) (*http.Client, error) {
 	// 从池中获取一个 http.Client
-	cli := cliPool.Get().(*http.Client)
+	cli := httpClients.Get().(*http.Client)
 
+	// 理论上来讲http.transport应该是要能够复用的，可是我实际用下来发现不行，http2下一旦复用就会在h2pack中panic，
+	// 而且我又没找到好用的第三方库，所以只能这么做了；代价就是http2发包速度上限在50r/s左右，这也没办法，总比panic好
 	tr := http.DefaultTransport.(*http.Transport).Clone()
 	tr.TLSClientConfig.InsecureSkipVerify = true
 	tr.ForceAttemptHTTP2 = true
@@ -44,7 +45,6 @@ func initHttpCli(proxy string, timeout int, redirect bool, redirectChain *string
 	if redirect {
 		// 是否跟随重定向
 		cli.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-			// 简化重定向链拼接逻辑：via是已完成的请求，req是下一个请求
 			if len(*redirectChain) == 0 && len(via) > 0 {
 				*redirectChain = via[0].URL.String() // 初始请求URL（via[0]是第一个请求）
 			}
@@ -105,16 +105,6 @@ func fuzzReq2HttpReq(fuzzReq *fuzzTypes.Req) (*http.Request, error) {
 	return httpReq, err
 }
 
-func containRetryCode(code int, retryCodes []string) bool {
-	codeStr := strconv.Itoa(code)
-	for _, c := range retryCodes {
-		if c == codeStr {
-			return true
-		}
-	}
-	return false
-}
-
 // DoRequestHttp http发包函数
 func DoRequestHttp(reqCtx *fuzzTypes.RequestCtx) (*fuzzTypes.Resp, error) {
 	request := reqCtx.Request
@@ -136,18 +126,17 @@ func DoRequestHttp(reqCtx *fuzzTypes.RequestCtx) (*fuzzTypes.Resp, error) {
 	}
 
 	var redirectChain string
-	cli, err := initHttpCli(proxy, timeout, httpRedirect, &redirectChain)
+	cli, err := getHttpCli(proxy, timeout, httpRedirect, &redirectChain)
 	if err != nil {
 		resp.ErrMsg = err.Error()
 		return resp, err
 	}
-	defer cliPool.Put(cli) // 确保客户端放回池中
+	defer httpClients.Put(cli) // 确保客户端放回池中
 
 	timeStart := time.Now()
 	reqData := request.Data // 保存原始请求数据
 
 	var httpResponse *http.Response
-	var sendErr error
 
 	// 主请求和重试逻辑
 	for attempt := 0; attempt <= retry; attempt++ {
@@ -158,24 +147,27 @@ func DoRequestHttp(reqCtx *fuzzTypes.RequestCtx) (*fuzzTypes.Resp, error) {
 			httpReq.Body = io.NopCloser(bytes.NewBuffer(reqData))
 		}
 
-		httpResponse, sendErr = cli.Do(httpReq)
+		httpResponse, err = cli.Do(httpReq)
 
-		if sendErr != nil {
-			resp.ErrMsg = sendErr.Error()
+		if err != nil {
+			resp.ErrMsg = err.Error()
 			if attempt < retry {
 				continue // 继续重试
 			}
 			break
+		} else { // 如果无错误，则清空错误信息
+			resp.ErrMsg = ""
 		}
 
 		// 构建响应
-		rawResp, body, buildErr := buildRawHTTPResponse(httpResponse)
-		if buildErr != nil {
+		var rawResp, body []byte
+		rawResp, body, err = buildRawHTTPResponse(httpResponse)
+		if err != nil {
 			if httpResponse.Body != nil {
 				httpResponse.Body.Close()
 			}
-			resp.ErrMsg = buildErr.Error()
-			return resp, buildErr
+			resp.ErrMsg = err.Error()
+			return resp, err
 		}
 
 		resp.RawResponse = body
@@ -198,5 +190,8 @@ func DoRequestHttp(reqCtx *fuzzTypes.RequestCtx) (*fuzzTypes.Resp, error) {
 	}
 
 	resp.ResponseTime = time.Since(timeStart)
-	return resp, sendErr
+	if err != nil && resp.HttpResponse != nil {
+		resp.HttpResponse.StatusCode = 0
+	}
+	return resp, err
 }

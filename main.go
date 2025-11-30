@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/nostalgist134/FuzzGIU/components/opt"
+	"github.com/nostalgist134/FuzzGIU/components/output/tviewOutput"
 	"github.com/nostalgist134/FuzzGIU/components/plugin"
 	"github.com/nostalgist134/FuzzGIU/libfgiu"
 	"log"
@@ -84,11 +85,19 @@ func main() {
 		if err != nil {
 			log.Fatalf("failed to create fuzzer: %v\n", err)
 		}
+		err = fuzzer.Start()
+		if err != nil {
+			log.Fatalf("failed to start fuzzer: %v\n", err)
+		}
 		_, err = fuzzer.Submit(j)
 		if err != nil {
 			log.Fatalf("failed to execute fuzz: %v\n", err)
 		}
-		fuzzer.Start()
 		fuzzer.Wait()
+		err = fuzzer.Stop()
+		tviewOutput.QuitTview()
+		if err != nil {
+			log.Fatalf("failed to stop fuzzer: %v\n", err)
+		}
 	}
 }

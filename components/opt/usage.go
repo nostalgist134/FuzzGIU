@@ -18,7 +18,7 @@ func getSection(name string) string {
 	case strings.HasPrefix(name, "f") && name != "fmt":
 		return "FILTER"
 	case name == "X" || name == "b" || name == "H" || name == "http2" || name == "F" || name == "s" || name == "x" ||
-		name == "ra" || name == "r" || name == "d":
+		name == "ra" || name == "r" || name == "d" || name == "df":
 		return "REQUEST"
 	case strings.HasPrefix(name, "pl") || name == "w":
 		return "PAYLOAD"

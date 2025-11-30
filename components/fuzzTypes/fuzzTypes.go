@@ -172,6 +172,8 @@ type (
 
 	// Fuzz 测试任务结构，包含执行单个fuzz任务所需的所有信息
 	Fuzz struct {
+		// 任务id
+		Id int `json:"id,omitempty"`
 		// 预处理阶段的设置
 		Preprocess FuzzStagePreprocess `json:"preprocess,omitempty"`
 		// 请求阶段的设置

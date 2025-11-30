@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func stringifyMap(m map[string]*fuzzTypes.PayloadMeta) string {
+func stringifyPlMeta(m map[string]*fuzzTypes.PayloadMeta) string {
 	stringified := strings.Builder{}
 	for k, p := range m {
 		stringified.WriteString(fmt.Sprintf("\t%s : %s|%s <- %s\n", k,
@@ -130,7 +130,6 @@ func stringifyOutputSetting(outSetting *fuzzTypes.OutputSetting) string {
 func stringifyJobInfo(jobInfo *fuzzTypes.Fuzz) string {
 	return fmt.Sprintf(`KEYWORDS>
 %s
-
 REQUEST>
 %s
 
@@ -164,7 +163,7 @@ ITERATION>
 
 OUTPUT_SETTINGS>
 %s`,
-		stringifyMap(jobInfo.Preprocess.PlMeta),
+		stringifyPlMeta(jobInfo.Preprocess.PlMeta),
 		stringifyRequest(&jobInfo.Preprocess.ReqTemplate),
 		stringifyMatch(&jobInfo.React.Matcher),
 		stringifyMatch(&jobInfo.React.Filter),
