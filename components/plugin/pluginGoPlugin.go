@@ -124,14 +124,16 @@ func PreLoad(p fuzzTypes.Plugin, relPath string) (*convention.PluginInfo, error)
 }
 
 // Preprocess 返回指向preprocessor处理后新生成的*Fuzz
-func Preprocess(p fuzzTypes.Plugin, fuzz1 *fuzzTypes.Fuzz) *fuzzTypes.Fuzz {
+func Preprocess(p fuzzTypes.Plugin, fuzz1 *fuzzTypes.Fuzz, outCtx *output.Ctx) *fuzzTypes.Fuzz {
 	fuzzJson, err := json.Marshal(fuzz1)
 	if err != nil {
+		pluginError(outCtx, RelPathPreprocessor, p, err)
 		return fuzz1
 	}
 
 	jsonBytes, err := callSharedLib(p, RelPathPreprocessor, fuzzJson)
 	if err != nil {
+		pluginError(outCtx, RelPathPreprocessor, p, err)
 		return fuzz1
 	}
 
@@ -139,6 +141,7 @@ func Preprocess(p fuzzTypes.Plugin, fuzz1 *fuzzTypes.Fuzz) *fuzzTypes.Fuzz {
 
 	err = json.Unmarshal(jsonBytes, newFuzz)
 	if err != nil {
+		pluginError(outCtx, RelPathPreprocessor, p, err)
 		return fuzz1
 	}
 
