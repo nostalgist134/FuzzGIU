@@ -1,6 +1,7 @@
 package tviewOutput
 
 import (
+	"context"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/nostalgist134/FuzzGIU/components/output/counter"
 	"github.com/nostalgist134/FuzzGIU/components/output/interfaceJobCtx"
@@ -25,15 +26,17 @@ type Ctx struct {
 	startCounter chan struct{}
 	lockOnLog    atomic.Bool
 	lockOnOutput atomic.Bool
-	occupied     sync.WaitGroup
-	quitOnce     sync.Once
 }
 
 type tviewScreen struct {
-	wg        sync.WaitGroup
-	tviewApp  *tview.Application
-	pages     *tview.Pages
-	pageNames []string
-	listJobs  *tview.List
-	listFlx   *tview.Flex
+	wg                  sync.WaitGroup
+	wgAdded             atomic.Int64
+	tviewApp            *tview.Application
+	pages               *tview.Pages
+	listJobs            *tview.List
+	listFlx             *tview.Flex
+	tviewCtxs           sync.Map
+	ctx                 context.Context
+	cancel              context.CancelFunc
+	listJobsNameToIndex sync.Map
 }

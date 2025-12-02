@@ -79,8 +79,6 @@ func React(jobCtx *fuzzCtx.JobCtx, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 		(resp.HttpResponse != nil &&
 			fuzz1.React.RecursionControl.StatCodes.Contains(resp.HttpResponse.StatusCode) ||
 			common.RegexMatch(resp.RawResponse, fuzz1.React.RecursionControl.Regex)) && recursionPos != nil {
-		outCtx.LogFmtMsg("job#%d payload %s recursive, add new job", jobCtx.JobId, payloadEachKeyword[0])
-
 		recursionJob = deriveRecursionJob(fuzz1, reqSend, recursionPos)
 	}
 

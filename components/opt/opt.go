@@ -41,6 +41,7 @@ type (
 	}
 	General struct {
 		RoutinePoolSize int    `json:"routine_pool_size,omitempty"`
+		JobConcurrency  int    `json:"job_concurrency,omitempty"`
 		Timeout         int    `json:"timeout,omitempty"`
 		Delay           string `json:"delay,omitempty"`
 		Iter            string `json:"iter,omitempty"`

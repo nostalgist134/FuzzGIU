@@ -10,7 +10,17 @@ import (
 	"unsafe"
 )
 
-const strNil = "{nil}"
+const (
+	strNil    = "[nil]"
+	nilWColor = "[[#70aeff]nil[-]]"
+)
+
+func nilIfColor(color bool) string {
+	if color {
+		return nilWColor
+	}
+	return strNil
+}
 
 func outObj2Json(obj *OutObj) []byte {
 	outObjJson, err := json.Marshal(obj)
@@ -74,7 +84,7 @@ func kwPlPair(keywords, payloads []string, color bool, level int) string {
 	}
 	if sb.Len() == 0 {
 		sb.WriteString(indent)
-		sb.WriteString(strNil)
+		sb.WriteString(nilIfColor(color))
 		sb.WriteByte('\n')
 	}
 	return sb.String()
@@ -118,7 +128,7 @@ func resp2FmtNative(resp *fuzzTypes.Resp, color bool, verbosity int) string {
 
 	rawRespToWrite := resp.RawResponse
 	if rawRespToWrite == nil {
-		rawRespToWrite = []byte(strNil)
+		rawRespToWrite = []byte(nilIfColor(color))
 	} else if len(rawRespToWrite) == 0 {
 		rawRespToWrite = []byte("{empty raw response}")
 	}
@@ -142,6 +152,9 @@ func resp2FmtNative(resp *fuzzTypes.Resp, color bool, verbosity int) string {
 }
 
 func req2FmtNative(req *fuzzTypes.Req, color bool, verbosity int) string {
+	if verbosity == 1 {
+		return ""
+	}
 	colors := []string{"[orange]", "[#7589e4]", "[#efc894]", "[#46f758]"}
 	colorSp := getColorSplitter(color)
 	clearColors(colors, color)
@@ -159,7 +172,7 @@ func req2FmtNative(req *fuzzTypes.Req, color bool, verbosity int) string {
 		writeStringColor(title)
 		sb.WriteString(" : ")
 		if content == "" {
-			sb.WriteString(strNil)
+			sb.WriteString(nilIfColor(color))
 		} else {
 			sb.WriteString(content)
 		}
@@ -178,7 +191,7 @@ func req2FmtNative(req *fuzzTypes.Req, color bool, verbosity int) string {
 		sb.WriteString(fmt.Sprintf("%sREQUEST%s>\n", colors[1], colorSp))
 		if req == nil {
 			sb.WriteByte('\t')
-			sb.WriteString(strNil)
+			sb.WriteString(nilIfColor(color))
 			sb.WriteByte('\n')
 			return sb.String()
 		}
@@ -190,7 +203,7 @@ func req2FmtNative(req *fuzzTypes.Req, color bool, verbosity int) string {
 		sb.WriteString(fmt.Sprintf("\t%sHTTP_HEADERS%s>\n", colors[3], colorSp))
 		if len(req.HttpSpec.Headers) == 0 {
 			sb.WriteString("\t\t")
-			sb.WriteString(strNil)
+			sb.WriteString(nilIfColor(color))
 		} else {
 			for i, h := range req.HttpSpec.Headers {
 				sb.WriteString("\t\t")
@@ -205,7 +218,7 @@ func req2FmtNative(req *fuzzTypes.Req, color bool, verbosity int) string {
 		sb.WriteString(fmt.Sprintf("\t%sFIELDS%s>\n", colors[3], colorSp))
 		if len(req.Fields) == 0 {
 			sb.WriteString("\t\t")
-			sb.WriteString(strNil)
+			sb.WriteString(nilIfColor(color))
 			sb.WriteByte('\n')
 		} else {
 			for _, f := range req.Fields {
@@ -214,14 +227,12 @@ func req2FmtNative(req *fuzzTypes.Req, color bool, verbosity int) string {
 		}
 
 		sb.WriteString(fmt.Sprintf("\t%sDATA%s : ", colors[1], colorSp))
-		dataToWrite := []byte(strNil)
+		dataToWrite := []byte(nilIfColor(color))
 		if len(req.Data) != 0 {
 			dataToWrite = req.Data
 			sb.WriteByte('`')
 		}
-		sb.WriteString(colors[2])
 		sb.Write(dataToWrite)
-		sb.WriteString(colorSp)
 		if len(req.Data) != 0 {
 			sb.WriteByte('`')
 		}
@@ -232,7 +243,7 @@ func req2FmtNative(req *fuzzTypes.Req, color bool, verbosity int) string {
 
 func nativeOutObj(obj *OutObj, color bool, verbosity int) []byte {
 	if obj == nil {
-		return []byte(strNil)
+		return []byte(nilIfColor(color))
 	}
 	colors := []string{"[#3af4f1]", "[#7589e4]", "[red]"}
 	colorSp := getColorSplitter(color)
@@ -240,9 +251,6 @@ func nativeOutObj(obj *OutObj, color bool, verbosity int) []byte {
 	buf := bytes.Buffer{}
 	tagWColor := func(tag string) {
 		buf.WriteString(fmt.Sprintf("%s%s%s>\n", colors[1], tag, colorSp))
-	}
-	if verbosity == 3 {
-		buf.WriteString(fmt.Sprintf("JOB#%s%d%s\n", colors[0], obj.Jid, colorSp))
 	}
 	tagWColor("PAYLOADS")
 	buf.WriteString(kwPlPair(obj.Keywords, obj.Payloads, color, 1))

@@ -26,11 +26,6 @@ var (
 	errHttpApiDisallowTview = errors.New("tview output is not allowed in http api mode")
 )
 
-type pendingJob struct {
-	job      *fuzzTypes.Fuzz
-	parentId int
-}
-
 // Fuzzer 用来执行模糊测试任务，允许多个任务并发执行，内部维护一个任务协程池
 // 注意：此结构是一次性的，也就是说调用Stop之后就不能再调用Start启动，否则可
 // 能导致未定义行为，必须使用NewFuzzer重新获取（因为我实在是懒得调它的状态机
@@ -45,7 +40,7 @@ type Fuzzer struct {
 	jp          *jobExecPool
 	cancel      context.CancelFunc
 	quitCtx     context.Context
-	pendingJobs []pendingJob
+	pendingJobs []*fuzzCtx.JobCtx
 	muApi       sync.Mutex
 	s           *httpService
 }
@@ -81,15 +76,7 @@ func (f *Fuzzer) daemon() {
 			// 循环1：消耗pendingJobs队列，由于pendingJobs只在此函数中调用，且此函数不启动多次，因此无需加锁
 			for ; i < len(f.pendingJobs); i++ {
 				p := f.pendingJobs[i]
-				ctx, cancel = context.WithCancel(f.quitCtx)
-				jobCtx, err = fuzz.NewJobCtx(p.job, p.parentId, ctx, cancel)
-				if err != nil {
-					log.Printf("[FUZZER] failed to init job: %v\n", err)
-				} else if !f.jp.submit(jobCtx) {
-					err = jobCtx.Close() // 关闭输出上下文，避免资源泄漏
-					if err != nil {
-						log.Printf("[JOB_CONTEXT] close error: %v\n", err)
-					}
+				if !f.jp.submit(p) {
 					break
 				} else if i == len(f.pendingJobs)-1 { // pendingJobs最后一个元素也被消费了，标记为true
 					lastConsumed = true
@@ -97,7 +84,7 @@ func (f *Fuzzer) daemon() {
 			}
 
 			if lastConsumed { // 如果最后一个元素也被消费了，则置空
-				f.pendingJobs = []pendingJob{}
+				f.pendingJobs = []*fuzzCtx.JobCtx{}
 			} else { // 切到未消耗的部分
 				f.pendingJobs = f.pendingJobs[i:]
 			}
@@ -111,30 +98,20 @@ func (f *Fuzzer) daemon() {
 				if len(res.newJobs) > 0 { // 如果有衍生任务，判断为非空闲
 					idle = false
 				}
-				lastConsumed = false
-				// 尝试提交newJobs切片中任务，直到jp队列满或者提交全部完成
+				// 尝试提交newJobs切片中任务，若提交失败，则将任务存入pendingJobs队列
 				for i = 0; i < len(res.newJobs); i++ {
 					ctx, cancel = context.WithCancel(f.quitCtx)
 					jobCtx, err = fuzz.NewJobCtx(res.newJobs[i], res.jid, ctx, cancel)
 					if err != nil {
 						log.Printf("[FUZZER] failed to init job: %v\n", err)
 					} else if !f.jp.submit(jobCtx) {
-						err = jobCtx.Close()
-						if err != nil {
-							log.Printf("[JOB_CONTEXT] close error: %v\n", err)
-						}
-						break
-					} else if i == len(res.newJobs)-1 {
-						lastConsumed = true
-					}
-				}
-				if !lastConsumed { // 将剩余未提交的任务存入pendingJobs队列中
-					for ; i < len(res.newJobs); i++ {
-						f.pendingJobs = append(f.pendingJobs, pendingJob{res.newJobs[i], res.jid})
+						f.pendingJobs = append(f.pendingJobs, jobCtx)
 					}
 				}
 			}
-			if len(f.jp.jobQueue) > 0 || len(f.jp.results) > 0 { // 若任务池结果队列或任务队列非空，判断为非空闲
+
+			// 若任务池在运行/等待任务数非0、结果队列或任务队列非空，判断为非空闲
+			if f.jp.activePendingCnt.Load() > 0 || len(f.jp.results) > 0 || len(f.jp.jobQueue) > 0 {
 				idle = false
 			}
 			f.condIdle.L.Lock()

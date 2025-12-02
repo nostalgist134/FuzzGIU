@@ -7,7 +7,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/labstack/echo/v4 v4.13.4
 	github.com/nostalgist134/FuzzGIUPluginKit v0.1.0-5
-	github.com/nostalgist134/reusableBytes v0.1.2
+	github.com/nostalgist134/reusableBytes v0.1.3
 	github.com/rivo/tview v0.42.0
 	github.com/valyala/fasthttp v1.68.0
 	github.com/xyproto/randomstring v1.0.5

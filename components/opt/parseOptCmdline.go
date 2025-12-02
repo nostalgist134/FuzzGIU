@@ -27,7 +27,8 @@ func ParseOptCmdline() *Opt {
 	flag.Usage = usage
 
 	// 一般性设置
-	flag.IntVar(&general.RoutinePoolSize, "t", 64, "routine pool size")
+	flag.IntVar(&general.RoutinePoolSize, "t", 64, "routine pool size(for single job)")
+	flag.IntVar(&general.JobConcurrency, "c", 5, "max concurrent jobs")
 	flag.IntVar(&general.Timeout, "timeout", 10, "timeout(second)")
 	flag.StringVar(&general.Delay, "delay", "0s", "delay between each job submission")
 	flag.StringVar(&general.Iter, "iter", "clusterbomb", "embedded/plugin iterator to be "+

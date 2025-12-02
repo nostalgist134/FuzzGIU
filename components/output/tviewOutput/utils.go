@@ -34,6 +34,7 @@ func newTextViewAndFlex(jobInfo *fuzzTypes.Fuzz) (textViews []*tview.TextView, f
 		textViews[i].SetInputCapture(vimKey) // 为每个textView添加vim风格按键映射
 		switch i {
 		case IndJobInfo:
+			textViews[i].SetDynamicColors(true)
 			textViews[i].SetText(stringifyJobInfo(jobInfo))
 		case IndOutput:
 			textViews[i].SetDynamicColors(true)
@@ -42,8 +43,7 @@ func newTextViewAndFlex(jobInfo *fuzzTypes.Fuzz) (textViews []*tview.TextView, f
 		}
 		// 标题统一采用左对齐，并且统一采用边框
 		textViews[i].SetTitle(titles[i]).SetTitleAlign(tview.AlignLeft).SetBorder(true)
-		// 将textView对象添加到flex中，并且设置第一个为聚焦对象(i==0)
-		flx.AddItem(textViews[i], 0, proportions[i], i == 0)
+		flx.AddItem(textViews[i], 0, proportions[i], false)
 	}
 	return
 }

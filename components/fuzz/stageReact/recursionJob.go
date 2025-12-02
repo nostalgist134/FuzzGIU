@@ -91,6 +91,43 @@ FIELDS
 DATA
 */
 
+// migrateVolatileReq 用来将字段安全地迁移到新的请求模板中
+// reqSend是从模板引擎替换得到的，由于模板替换时使用的是unsafe.String，并且对象对应的
+// 缓冲区在单个task结束之后会回池，这里需要此函数来避免使用旧缓冲区导致的污染
+func migrateVolatileReq(dst *fuzzTypes.Req, volatile *fuzzTypes.Req) {
+	sb := strings.Builder{}
+	sb.WriteString(dst.HttpSpec.Method)
+	dst.HttpSpec.Method = sb.String()
+	sb.Reset()
+
+	sb.WriteString(volatile.URL)
+	dst.URL = sb.String()
+	sb.Reset()
+
+	sb.WriteString(volatile.HttpSpec.Proto)
+	dst.HttpSpec.Proto = sb.String()
+	sb.Reset()
+
+	for i, h := range volatile.HttpSpec.Headers {
+		sb.WriteString(h)
+		dst.HttpSpec.Headers[i] = sb.String() // 下标不检查，因为literalClone会分配长度完全相等的下标
+		sb.Reset()
+	}
+
+	for i, f := range volatile.Fields {
+		migratedField := fuzzTypes.Field{}
+		sb.WriteString(f.Name)
+		migratedField.Name = sb.String()
+		sb.Reset()
+		sb.WriteString(f.Value)
+		migratedField.Value = sb.String()
+		sb.Reset()
+		dst.Fields[i] = migratedField
+	}
+
+	// Data字段已经由literalClone复制了，无需处理
+}
+
 // deriveRecursionJob 生成递归任务
 func deriveRecursionJob(job *fuzzTypes.Fuzz, reqSend *fuzzTypes.Req, recPos []int) *fuzzTypes.Fuzz {
 	recCtrl := &job.React.RecursionControl
@@ -98,10 +135,12 @@ func deriveRecursionJob(job *fuzzTypes.Fuzz, reqSend *fuzzTypes.Req, recPos []in
 	recSp := recCtrl.Splitter
 
 	recJob := job.Clone()
-	recJob.Control.IterCtrl.Iterator.Name = ""
 
 	recJob.React.RecursionControl.RecursionDepth++
-	recJob.Preprocess.ReqTemplate = *reqSend
+	recJob.Control.IterCtrl.End = 0
+
+	recJob.Preprocess.ReqTemplate = reqSend.LiteralClone()
+	migrateVolatileReq(&recJob.Preprocess.ReqTemplate, reqSend)
 
 	derived := &recJob.Preprocess.ReqTemplate
 	curPos := 0

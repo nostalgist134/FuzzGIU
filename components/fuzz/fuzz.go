@@ -64,13 +64,13 @@ func handleReaction(jobCtx *fuzzCtx.JobCtx, r *fuzzTypes.Reaction) (stopJob bool
 	if r.Flag&fuzzTypes.ReactAddJob != 0 && r.NewJob != nil {
 		k, p := stageReact.GetReactTraceInfo(r)
 		if k != nil && p != nil {
-			jobCtx.OutputCtx.LogFmtMsg("Job#%d task with %s:%s added Job", jobCtx.JobId, k, p)
+			jobCtx.OutputCtx.LogFmtMsg("job#%d task with %s:%s added Job", jobCtx.JobId, k, p)
 		}
 		newJobs = append(newJobs, r.NewJob)
 	}
 
 	if r.Flag&fuzzTypes.ReactStopJob != 0 {
-		jobCtx.OutputCtx.LogFmtMsg("Job#%d stopped by react", jobCtx.JobId)
+		jobCtx.OutputCtx.LogFmtMsg("job#%d stopped by react", jobCtx.JobId)
 		jobCtx.RP.Clear()
 		stopJob = true
 	}
@@ -112,7 +112,7 @@ func drainRp(jobCtx *fuzzCtx.JobCtx) []*fuzzTypes.Fuzz {
 
 	for {
 		canStop := true // canStop 标记了结果是否已经消耗完毕
-		// 循环1：跑到Rp等待不阻塞（也就是任务队列为空）为止
+		// 循环1：跑到Rp等待不阻塞为止
 		for !routinePool.Wait(time.Millisecond * 10) {
 			for r := routinePool.GetSingleResult(); r != nil; r = routinePool.GetSingleResult() {
 				stopJob, addReq, newJobsFromHandle = handleReaction(jobCtx, r)
@@ -187,11 +187,6 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 	outCtx := jobCtx.OutputCtx
 	routinePool := jobCtx.RP
 
-	// 递归边界
-	if job.React.RecursionControl.RecursionDepth > job.React.RecursionControl.MaxRecursionDepth {
-		return
-	}
-
 	defer func() {
 		timeLapsed = time.Since(timeStart)
 		err = errors.Join(err, outCtx.LogFmtMsg("job#%d completed, time spent: %v", jobCtx.JobId, timeLapsed))
@@ -218,19 +213,25 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 
 	iter := &(job.Control.IterCtrl)
 	// 确认迭代终点与使用的执行函数
-	if iter.End == 0 {
-		iterName := job.Control.IterCtrl.Iterator.Name
+	iterName := job.Control.IterCtrl.Iterator.Name
+	if iter.End == 0 { // 迭代长度只有当非0时才计算，否则使用预置的
 		// sniper模式或者递归模式，仅允许单个fuzz关键字
 		if iterName == "sniper" || job.React.RecursionControl.MaxRecursionDepth > 0 {
+			iterLength = lengths[0]
 			if iter.Iterator.Name == "sniper" { // sniper模式的迭代长度=关键字的payload列表长度*关键字出现次数
-				iterLength = parsedTmpl.KeywordCount(0) * lengths[0]
+				iterLength *= parsedTmpl.KeywordCount(0)
 			}
-			routinePool.RegisterExecutor(taskSingleKeyword, rp.ExecMajor)
 		} else { // 多关键字模式
 			iterLength = iterLen(job.Control.IterCtrl.Iterator, lengths)
-			routinePool.RegisterExecutor(taskMultiKeyword, rp.ExecMajor)
 		}
 		iter.End = iterLength
+	}
+
+	// 执行器无论如何都注册
+	if iterName == "sniper" || job.React.RecursionControl.MaxRecursionDepth > 0 {
+		routinePool.RegisterExecutor(taskSingleKeyword, rp.ExecMajor)
+	} else {
+		routinePool.RegisterExecutor(taskMultiKeyword, rp.ExecMajor)
 	}
 
 	job = stagePreprocess.Preprocess(job, jobCtx.OutputCtx, false)
@@ -302,7 +303,7 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 
 			task.Payloads = payloads
 		} else { // sniper模式或者递归模式
-			snipLen := len(payloadLists[0])
+			snipLen := lengths[0]
 			payload := payloadLists[0][i%snipLen]
 			payloads[0] = payload
 			task.Payloads = payloads
@@ -401,6 +402,8 @@ func DoJobByCtx(jobCtx *fuzzCtx.JobCtx) (jid int, timeLapsed time.Duration, subJ
 		return
 	}
 	jid = jobCtx.JobId
+	jobCtx.OutputCtx.Counter.SetNowAsStartTime()
+	jobCtx.OutputCtx.Counter.StartRecordTaskRate()
 	timeLapsed, subJobs, err = doJobInter(jobCtx)
 	err = jobCtx.Close()
 	return

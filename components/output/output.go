@@ -30,10 +30,9 @@ output 包用于处理FuzzGIU的输出结果，主要提供3类函数：InitOutp
 */
 
 type (
-	OutObj  = outputable.OutObj
-	Log     = outputable.Log
-	Counter = counter.Counter
-	Ctx     outCtx.OutputCtx // outCtx.OutputCtx仅定义类成员，类方法在此文件中定义
+	OutObj = outputable.OutObj
+	Log    = outputable.Log
+	Ctx    outCtx.OutputCtx // outCtx.OutputCtx仅定义类成员，类方法在此文件中定义
 )
 
 var (
@@ -68,10 +67,7 @@ func NewOutputCtx(outSetting *fuzzTypes.OutputSetting, jobCtx interfaceJobCtx.IF
 
 	outputCtx := new(Ctx)
 
-	outputCtx.Counter = &Counter{
-		StartTime: time.Now(),
-	}
-	outputCtx.Counter.StartRecordTaskRate()
+	outputCtx.Counter = new(counter.Counter)
 
 	var err error
 

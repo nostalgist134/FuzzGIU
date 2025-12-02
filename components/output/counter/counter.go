@@ -19,6 +19,7 @@ type Counter struct {
 	TaskProgress Progress  `json:"task_progress,omitempty" xml:"task_progress,omitempty"`
 	ticker       *time.Ticker
 	mu           sync.Mutex
+	set          atomic.Bool
 	stop         chan struct{}
 }
 
@@ -29,7 +30,7 @@ func (c *Counter) StartRecordTaskRate() {
 	if c.ticker != nil {
 		return
 	}
-	c.ticker = time.NewTicker(time.Second) // 速率每秒统计1次
+	c.ticker = time.NewTicker(500 * time.Millisecond) // 速率每秒统计1次
 	go func() {
 		lastCompleted := c.Get(CntrTask, FieldCompleted)
 		c.stop = make(chan struct{})
@@ -150,13 +151,17 @@ func (c *Counter) Clear(whichCounter int8, whichField int8) {
 	c.Set(whichCounter, whichField, 0)
 }
 
-// TimeAnchor 设置开始时间
-func (c *Counter) TimeAnchor() {
+// SetNowAsStartTime 将当前时间设置为设置开始时间
+func (c *Counter) SetNowAsStartTime() {
 	c.StartTime = time.Now()
+	c.set.Store(true)
 }
 
-// TimeFromAnchor 从开始时间经过了多久
-func (c *Counter) TimeFromAnchor() time.Duration {
+// GetTimeLapsed 从开始时间经过了多久
+func (c *Counter) GetTimeLapsed() time.Duration {
+	if !c.set.Load() {
+		return 0
+	}
 	return time.Since(c.StartTime)
 }
 
@@ -204,5 +209,5 @@ func formatDuration(d time.Duration) string {
 func (c *Counter) ToFmt() string {
 	s := c.Snapshot()
 	return fmt.Sprintf("tasks:[%d / %d]   errors:[%d]   rate:[%d t/s]   duration:[%s]", s.TaskProgress.Completed,
-		s.TaskProgress.Total, s.Errors.Completed, s.TaskRate, formatDuration(time.Since(s.StartTime)))
+		s.TaskProgress.Total, s.Errors.Completed, s.TaskRate, formatDuration(s.GetTimeLapsed()))
 }

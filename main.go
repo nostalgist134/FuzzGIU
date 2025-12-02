@@ -67,7 +67,7 @@ func main() {
 			CertFileName: o.ApiConfig.TLSCertFile,
 			CertKeyName:  o.ApiConfig.TLSKeyFile,
 		}
-		fuzzer, err = libfgiu.NewFuzzer(20, webApiCfg)
+		fuzzer, err = libfgiu.NewFuzzer(o.General.JobConcurrency, webApiCfg)
 		if err != nil {
 			log.Fatalf("failed to create fuzzer: %v\n", err)
 		}
@@ -81,7 +81,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("failed to create job: %v\n", err)
 		}
-		fuzzer, err = libfgiu.NewFuzzer(20)
+		fuzzer, err = libfgiu.NewFuzzer(o.General.JobConcurrency)
 		if err != nil {
 			log.Fatalf("failed to create fuzzer: %v\n", err)
 		}

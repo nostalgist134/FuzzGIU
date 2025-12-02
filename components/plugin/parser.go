@@ -51,7 +51,7 @@ func parseArgStr(argStr string) any {
 	}
 }
 
-// ParsePluginsStr 用来解析插件字符串，具体规则参考fuzzTypes.go中的注释
+// ParsePluginsStr 用来解析插件字符串，具体规则参考readme
 // 解析结果为Plugin类型
 func ParsePluginsStr(pluginsStr string) ([]fuzzTypes.Plugin, error) {
 	if len(pluginsStr) == 0 {

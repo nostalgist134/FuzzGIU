@@ -14,3 +14,7 @@ func TestStringify(t *testing.T) {
 	f.Preprocess.Preprocessors = []fuzzTypes.Plugin{{"NISHIGIU", []any{3, 4, "woshigiu"}}, {"WOSHIGIU", []any{"", 1}}}
 	fmt.Println(stringifyJobInfo(f))
 }
+
+func TestGetColorByType(t *testing.T) {
+	fmt.Println(getColorByType(3))
+}

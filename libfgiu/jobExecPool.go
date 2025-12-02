@@ -6,6 +6,7 @@ import (
 	"github.com/nostalgist134/FuzzGIU/components/fuzz/fuzzCtx"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -20,15 +21,16 @@ type result struct {
 
 // jobExecPool 用于并发执行fuzz任务
 type jobExecPool struct {
-	mu          sync.Mutex
-	concurrency int
-	jobQueue    chan *fuzzCtx.JobCtx
-	results     chan result
-	runningJobs sync.Map
-	executor    jobExecutor
-	quitCtx     context.Context
-	cancel      context.CancelFunc
-	wg          sync.WaitGroup
+	mu               sync.Mutex
+	concurrency      int
+	jobQueue         chan *fuzzCtx.JobCtx
+	results          chan result
+	runningJobs      sync.Map
+	activePendingCnt atomic.Int64
+	executor         jobExecutor
+	quitCtx          context.Context
+	cancel           context.CancelFunc
+	wg               sync.WaitGroup
 }
 
 func nopExec(*fuzzCtx.JobCtx) (int, time.Duration, []*fuzzTypes.Fuzz, error) {
@@ -59,6 +61,7 @@ func (jp *jobExecPool) registerExecutor(executor jobExecutor) {
 func (jp *jobExecPool) submit(jobCtx *fuzzCtx.JobCtx) bool {
 	select {
 	case jp.jobQueue <- jobCtx:
+		jp.activePendingCnt.Add(1)
 		jp.wg.Add(1)
 		return true
 	default:
@@ -85,6 +88,7 @@ func (jp *jobExecPool) worker() {
 			jp.results <- result{jid, timeLapsed, newJobs, err}
 			jp.runningJobs.Delete(job.JobId)
 			jp.wg.Done()
+			jp.activePendingCnt.Add(-1)
 		case <-jp.quitCtx.Done():
 			return
 		}

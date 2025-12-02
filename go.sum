@@ -27,6 +27,8 @@ github.com/nostalgist134/FuzzGIUPluginKit v0.1.0-5 h1:9O5Y+kkm4oKRQXObCcMbDzGsIX
 github.com/nostalgist134/FuzzGIUPluginKit v0.1.0-5/go.mod h1:SzrB+fiK27skh6a2GuZWpVJVV0liIgO2blrM1U5KI4o=
 github.com/nostalgist134/reusableBytes v0.1.2 h1:26Ra4xuCD7rMeqQmVnEHM/Sgn9Udcl301F9Pgb5cF1E=
 github.com/nostalgist134/reusableBytes v0.1.2/go.mod h1:1p21T+oPrRE9K6dMgQ2xi0iE2G9SpjrsXsWd/D7WrCY=
+github.com/nostalgist134/reusableBytes v0.1.3 h1:kB632R69eKgHevBjP3IfMF8VLJ+x509l4kJx4kPSWWs=
+github.com/nostalgist134/reusableBytes v0.1.3/go.mod h1:1p21T+oPrRE9K6dMgQ2xi0iE2G9SpjrsXsWd/D7WrCY=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/rivo/tview v0.42.0 h1:b/ftp+RxtDsHSaynXTbJb+/n/BxDEi+W3UfF5jILK6c=

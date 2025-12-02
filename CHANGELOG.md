@@ -1,3 +1,15 @@
+## 2025.12.2
++ 优化了tview窗口信息显示
++ 修复了tview窗口中按下`Ctrl+C`退出失败的问题
++ 修复了tview窗口的计数器在任务结束后有时无法显示正确任务数的问题
++ 将`github.com/nostalgist134/reusableBytes`依赖更新至`v0.1.3`版本
++ 更新了readme文件，解释tview窗口操作方法
++ 修复了递归功能无法正常使用的bug
++ 修复了`libfgiu.Fuzzer`对象漏掉衍生任务的bug
++ 优化了`libfgiu.Fuzzer.daemon`的逻辑，现在不会再出现假性任务提交了
++ 添加命令行`-c`选项，用于控制最大并发任务数
++ 移除了herobrine
+
 ## 2025.11.30
 + 将fuzz包整体重构，现在支持多个fuzz任务并发
 + 暂时移除input功能以及对应函数
@@ -8,7 +20,6 @@
 + 添加了http api功能（即原先的被动模式）
 + 将`plugin.Plugin`移至`fuzzTypes`包中，自定义`Plugin`对象的反序列化与序列化，避免了any参数类型丢失问题
 + 修改`fuzzTypes`包中的声明，使其结构与命名更合理，并为大部分对象添加了receiver
-+ 移除了herobrine
 + 别的忘了
 
 ## 2025.09.16
