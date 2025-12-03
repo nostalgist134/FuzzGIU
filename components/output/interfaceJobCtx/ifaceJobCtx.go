@@ -10,4 +10,6 @@ type IFaceJobCtx interface {
 	Occupy()
 	Release()
 	GetJobInfo() *fuzzTypes.Fuzz
+	GetJobId() int
+	GetParentId() int
 }

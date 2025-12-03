@@ -25,7 +25,7 @@ func TestOutObj_ToFormatStr(t *testing.T) {
 				Proto: "2.99", ForceHttps: true, RandomAgent: true}, Fields: []fuzzTypes.Field{
 				{"NISHIGIU", "WOSHIGIU"}, {"NISHIGIU", "MILAOGIU"},
 			}},
-		Response: &fuzzTypes.Resp{RawResponse: []byte("NISHIGIUWOSHGIUMILAOGIU\nWOSHIGIUNISHIGIUMILAOGIU"),
+		Response: &fuzzTypes.Resp{RawResponse: []byte(""),
 			ResponseTime: 834194 * time.Microsecond},
 		Msg:  "MILAOGIU",
 		Time: time.Now(),

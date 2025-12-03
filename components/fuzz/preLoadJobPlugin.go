@@ -8,8 +8,6 @@ import (
 	"github.com/nostalgist134/FuzzGIUPluginKit/convention"
 )
 
-// todo: 需要更新fgpk，添加和迭代器插件有关的常量，下面用到迭代器的先用reactor的代替
-
 var embeddedGen = map[string]bool{
 	"int":       true,
 	"permute":   true,
@@ -105,7 +103,8 @@ func preLoadJobPlugin(job *fuzzTypes.Fuzz) error {
 			errTotal = errors.Join(errTotal, err)
 		}
 	}
-	// doRequest插件由于可能是易变的（url中可能包含fuzz关键字），预加载实现难度过大，因此略去
+
+	// requester插件由于可能是易变的（url中可能包含fuzz关键字），预加载实现难度过大，因此略去
 
 	// 加载reactor插件
 	if job.React.Reactor.Name != "" {
@@ -129,7 +128,7 @@ func preLoadJobPlugin(job *fuzzTypes.Fuzz) error {
 				errTotal = errors.Join(errTotal, err)
 			}
 
-			if err = checkPlugin(pi, convention.IndPTypeReact, iterator, 2); err != nil {
+			if err = checkPlugin(pi, convention.IndPTypeIterator, iterator, 2); err != nil {
 				errTotal = errors.Join(errTotal, err)
 			}
 		}

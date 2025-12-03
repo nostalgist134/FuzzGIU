@@ -22,9 +22,11 @@ type JobCtx struct {
 
 // Close 关闭任务上下文，释放其资源
 func (jc *JobCtx) Close() error {
-	jc.occupied.Wait()
-	jc.RP.ReleaseSelf()
-	jc.Stop()
+	jc.closeOnce.Do(func() {
+		jc.occupied.Wait()
+		jc.Stop()
+		jc.RP.ReleaseSelf()
+	})
 	return jc.OutputCtx.Close()
 }
 
@@ -63,4 +65,14 @@ func (jc *JobCtx) Release() {
 // GetJobInfo 获取当前任务的任务信息
 func (jc *JobCtx) GetJobInfo() *fuzzTypes.Fuzz {
 	return jc.Job
+}
+
+// GetJobId 获取任务id
+func (jc *JobCtx) GetJobId() int {
+	return jc.JobId
+}
+
+// GetParentId 获取父任务id
+func (jc *JobCtx) GetParentId() int {
+	return jc.ParentId
 }

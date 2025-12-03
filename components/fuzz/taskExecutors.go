@@ -10,7 +10,7 @@ import (
 	"github.com/nostalgist134/FuzzGIU/components/output/counter"
 	"github.com/nostalgist134/FuzzGIU/components/resourcePool"
 	"github.com/nostalgist134/FuzzGIU/components/tmplReplace"
-	"math/rand"
+	"math/rand/v2"
 )
 
 // taskMultiKeyword 多关键字fuzz使用的执行函数
@@ -148,7 +148,7 @@ func taskNoKeywords(c *fuzzCtx.TaskCtx) *fuzzTypes.Reaction {
 
 	// 随机代理（因为这里没有i变量，所以不能轮询，就随便选一个）
 	if len(job.Request.Proxies) > 0 {
-		rc.Proxy = job.Request.Proxies[rand.Int()%len(job.Request.Proxies)]
+		rc.Proxy = job.Request.Proxies[rand.IntN(len(job.Request.Proxies))]
 	}
 
 	resp := stageRequest.DoRequest(rc, "")

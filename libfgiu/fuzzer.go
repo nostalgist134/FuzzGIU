@@ -57,6 +57,9 @@ func (f *Fuzzer) daemon() {
 	for {
 		select {
 		case <-f.quitCtx.Done():
+			for _, pendingJob := range f.pendingJobs {
+				pendingJob.Close()
+			}
 			f.pendingJobs = nil
 			return
 		default:
@@ -121,7 +124,7 @@ func (f *Fuzzer) daemon() {
 			} else {
 				f.condIdle.L.Unlock()
 			}
-			time.Sleep(20 * time.Millisecond) // 短暂休眠，避免空转
+			time.Sleep(50 * time.Millisecond) // 短暂休眠，避免空转
 		}
 	}
 }

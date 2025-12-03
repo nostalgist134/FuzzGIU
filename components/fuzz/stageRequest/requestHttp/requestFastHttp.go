@@ -199,6 +199,7 @@ func doRequestFastHttp(reqCtx *fuzzTypes.RequestCtx) (*fuzzTypes.Resp, error) {
 	if err != nil {
 		resp.ErrMsg = err.Error()
 		resp.HttpResponse.StatusCode = 0
+		resp.RawResponse = []byte{}
 	}
 	return resp, err
 }

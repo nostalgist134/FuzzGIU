@@ -26,6 +26,7 @@ type Ctx struct {
 	startCounter chan struct{}
 	lockOnLog    atomic.Bool
 	lockOnOutput atomic.Bool
+	tagName      string
 }
 
 type tviewScreen struct {
@@ -35,7 +36,7 @@ type tviewScreen struct {
 	pages               *tview.Pages
 	listJobs            *tview.List
 	listFlx             *tview.Flex
-	tviewCtxs           sync.Map
+	activeTviewCtxs     sync.Map
 	ctx                 context.Context
 	cancel              context.CancelFunc
 	listJobsNameToIndex sync.Map

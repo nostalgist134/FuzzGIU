@@ -24,7 +24,7 @@ func newTextViewAndFlex(jobInfo *fuzzTypes.Fuzz) (textViews []*tview.TextView, f
 	textViews = make([]*tview.TextView, 4)
 	flx = tview.NewFlex().SetDirection(tview.FlexRow).SetFullScreen(true)
 	for i, _ := range textViews {
-		textViews[i] = tview.NewTextView()
+		textViews[i] = tview.NewTextView().SetWrap(false)
 		textViews[i].SetFocusFunc(func() { // 为textView设置选中时边框变为蓝色
 			textViews[i].SetBorderColor(tcell.ColorBlue)
 		})
@@ -46,16 +46,4 @@ func newTextViewAndFlex(jobInfo *fuzzTypes.Fuzz) (textViews []*tview.TextView, f
 		flx.AddItem(textViews[i], 0, proportions[i], false)
 	}
 	return
-}
-
-func getListItemByName(lst *tview.List, name string) int {
-	if lst == nil {
-		return -1
-	}
-	for i := 0; i < lst.GetItemCount(); i++ {
-		if mainName, _ := lst.GetItemText(i); mainName == name {
-			return i
-		}
-	}
-	return -1
 }

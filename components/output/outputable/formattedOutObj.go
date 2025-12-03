@@ -11,8 +11,10 @@ import (
 )
 
 const (
-	strNil    = "[nil]"
-	nilWColor = "[[#70aeff]nil[-]]"
+	strNil      = "[nil]"
+	nilWColor   = "[[#70aeff]nil[-]]"
+	empty       = "[empty]"
+	emptyWColor = "[[#c5a97a]empty[-]]"
 )
 
 func nilIfColor(color bool) string {
@@ -20,6 +22,13 @@ func nilIfColor(color bool) string {
 		return nilWColor
 	}
 	return strNil
+}
+
+func emptyIfColor(color bool) string {
+	if color {
+		return emptyWColor
+	}
+	return empty
 }
 
 func outObj2Json(obj *OutObj) []byte {
@@ -41,6 +50,9 @@ func outObj2Xml(obj *OutObj) []byte {
 }
 
 func getBytesFirstLine(b []byte) []byte {
+	if b == nil {
+		return nil
+	}
 	i := -1
 	if i = bytes.Index(b, []byte("\r\n")); i != -1 {
 		return b[:i]
@@ -116,7 +128,7 @@ func resp2FmtNative(resp *fuzzTypes.Resp, color bool, verbosity int) string {
 	}
 	sb.WriteString(
 		fmt.Sprintf(
-			"%sRESP_STATUS%s : {%sSIZE%s: %d|%sLINES%s: %d|%sWORDS%s: %d|%sTIME%s: %v|%sHTTP_STATUS%s: %d}\n",
+			"%sRESPONSE%s : [%sSIZE%s: %d|%sLINES%s: %d|%sWORDS%s: %d|%sTIME%s: %v|%sHTTP_STATUS%s: %d]\n",
 			colors[4], colorSp, colors[2], colorSp, resp.Size, colors[2], colorSp, resp.Lines, colors[2], colorSp,
 			resp.Words, colors[2], colorSp, resp.ResponseTime, colors[2], colorSp, httpStat))
 
@@ -127,25 +139,32 @@ func resp2FmtNative(resp *fuzzTypes.Resp, color bool, verbosity int) string {
 	}
 
 	rawRespToWrite := resp.RawResponse
-	if rawRespToWrite == nil {
-		rawRespToWrite = []byte(nilIfColor(color))
-	} else if len(rawRespToWrite) == 0 {
-		rawRespToWrite = []byte("{empty raw response}")
-	}
 	if verbosity >= 3 {
-		sb.WriteString(fmt.Sprintf("%sRAW_RESPONSE%s↓\n", colors[0], colorSp))
+		if len(rawRespToWrite) == 0 {
+			sb.WriteString(fmt.Sprintf("%sRAW_RESPONSE%s: ", colors[0], colorSp))
+		} else {
+			sb.WriteString(fmt.Sprintf("%sRAW_RESPONSE%s↓\n", colors[0], colorSp))
+		}
+		if rawRespToWrite == nil {
+			rawRespToWrite = []byte(nilIfColor(color))
+		} else if len(rawRespToWrite) == 0 {
+			rawRespToWrite = []byte(emptyIfColor(color))
+		}
 		sb.Write(rawRespToWrite)
 	} else {
 		sb.WriteString(fmt.Sprintf("%s└>%s ", colors[0], colorSp))
-		sb.WriteString(colors[1])
-
 		rawRespToWrite = getBytesFirstLine(rawRespToWrite)
-		if len(rawRespToWrite) == 0 {
-			rawRespToWrite = []byte("{empty response first line}")
+		if rawRespToWrite == nil {
+			rawRespToWrite = []byte(nilIfColor(color))
+			sb.Write(rawRespToWrite)
+		} else if len(rawRespToWrite) == 0 {
+			rawRespToWrite = []byte(emptyIfColor(color))
+			sb.Write(rawRespToWrite)
+		} else {
+			sb.WriteString(colors[1])
+			sb.Write(rawRespToWrite)
+			sb.WriteString(colorSp)
 		}
-		sb.Write(rawRespToWrite)
-
-		sb.WriteString(colorSp)
 	}
 	sb.WriteByte('\n')
 	return sb.String()

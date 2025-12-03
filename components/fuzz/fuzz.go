@@ -67,6 +67,7 @@ func handleReaction(jobCtx *fuzzCtx.JobCtx, r *fuzzTypes.Reaction) (stopJob bool
 			jobCtx.OutputCtx.LogFmtMsg("job#%d task with %s:%s added Job", jobCtx.JobId, k, p)
 		}
 		newJobs = append(newJobs, r.NewJob)
+		jobCtx.OutputCtx.Counter.Complete(counter.CntrDerivedJobs)
 	}
 
 	if r.Flag&fuzzTypes.ReactStopJob != 0 {

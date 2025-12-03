@@ -52,9 +52,6 @@ func DoRequest(rCtx *fuzzTypes.RequestCtx, scheme string) *fuzzTypes.Resp {
 	if ret == nil {
 		ret = &fuzzTypes.Resp{ErrMsg: "nil response"}
 	}
-
-	if ret.RawResponse == nil {
-		ret.RawResponse = []byte("")
-	}
+	
 	return ret
 }

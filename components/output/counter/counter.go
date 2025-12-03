@@ -15,6 +15,7 @@ type Progress struct {
 type Counter struct {
 	StartTime    time.Time `json:"start_time,omitempty" xml:"start_time,omitempty"`
 	TaskRate     int64     `json:"task_rate,omitempty" xml:"task_rate,omitempty"`
+	DerivedJobs  int64     `json:"derived_jobs,omitempty" xml:"derived_jobs,omitempty"`
 	Errors       Progress  `json:"errors,omitempty" xml:"errors,omitempty"`
 	TaskProgress Progress  `json:"task_progress,omitempty" xml:"task_progress,omitempty"`
 	ticker       *time.Ticker
@@ -99,6 +100,9 @@ func (c *Counter) Complete(whichCounter int8) {
 		pProgress = &c.Errors
 	case CntrTask:
 		pProgress = &c.TaskProgress
+	case CntrDerivedJobs:
+		atomic.AddInt64(&c.DerivedJobs, 1)
+		return
 	default:
 		return
 	}
@@ -168,8 +172,9 @@ func (c *Counter) GetTimeLapsed() time.Duration {
 // Snapshot 获取当前计数器的状态
 func (c *Counter) Snapshot() Counter {
 	return Counter{
-		StartTime: c.StartTime,
-		TaskRate:  int64(c.GetTaskRate()),
+		StartTime:   c.StartTime,
+		TaskRate:    int64(c.GetTaskRate()),
+		DerivedJobs: atomic.LoadInt64(&c.DerivedJobs),
 		TaskProgress: Progress{
 			Completed: int64(c.Get(CntrTask, FieldCompleted)),
 			Total:     int64(c.Get(CntrTask, FieldTotal)),
@@ -208,6 +213,8 @@ func formatDuration(d time.Duration) string {
 
 func (c *Counter) ToFmt() string {
 	s := c.Snapshot()
-	return fmt.Sprintf("tasks:[%d / %d]   errors:[%d]   rate:[%d t/s]   duration:[%s]", s.TaskProgress.Completed,
-		s.TaskProgress.Total, s.Errors.Completed, s.TaskRate, formatDuration(s.GetTimeLapsed()))
+	return fmt.Sprintf(
+		"tasks:[%d / %d]   errors:[%d]   rate:[%d t/s]   duration:[%s]   derived jobs:[%d]",
+		s.TaskProgress.Completed, s.TaskProgress.Total, s.Errors.Completed,
+		s.TaskRate, formatDuration(c.GetTimeLapsed()), s.DerivedJobs)
 }
