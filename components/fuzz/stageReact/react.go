@@ -10,37 +10,6 @@ import (
 	"github.com/nostalgist134/FuzzGIU/components/resourcePool"
 )
 
-// matchResponse 将响应与match成员进行匹配
-func matchResponse(resp *fuzzTypes.Resp, m *fuzzTypes.Match) bool {
-	if len(m.Size) == 0 && len(m.Words) == 0 && len(m.Code) == 0 && len(m.Lines) == 0 &&
-		len(m.Regex) == 0 && m.Time.Upper == m.Time.Lower {
-		return false
-	}
-	whenToRet := false
-	if m.Mode == "or" {
-		whenToRet = true
-	}
-	if len(m.Size) != 0 && m.Size.Contains(resp.Size) == whenToRet {
-		return whenToRet
-	}
-	if len(m.Words) != 0 && m.Words.Contains(resp.Words) == whenToRet {
-		return whenToRet
-	}
-	if len(m.Code) != 0 && resp.HttpResponse != nil && m.Code.Contains(resp.HttpResponse.StatusCode) == whenToRet {
-		return whenToRet
-	}
-	if len(m.Lines) != 0 && m.Lines.Contains(resp.Lines) == whenToRet {
-		return whenToRet
-	}
-	if len(m.Regex) != 0 && common.RegexMatch(resp.RawResponse, m.Regex) == whenToRet {
-		return whenToRet
-	}
-	if m.Time.Valid() && m.Time.Contains(resp.ResponseTime) == whenToRet {
-		return whenToRet
-	}
-	return !whenToRet
-}
-
 // mergeReaction 将r2的内容归并到r1中
 // r1为空的字段赋值为r2相应的字段，不为空的字段保持不变
 // r1、r2的flag相或
@@ -89,20 +58,16 @@ func React(jobCtx *fuzzCtx.JobCtx, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 	}
 
 	// 决定是否过滤，自定义reactor若没有标识响应是否会被过滤，根据Matcher和Filter确定
-	if (reaction.Flag&fuzzTypes.ReactMatch == 0) && (reaction.Flag&fuzzTypes.ReactFiltered == 0) {
-		filtered := matchResponse(resp, &fuzz1.React.Filter)
-		matched := matchResponse(resp, &fuzz1.React.Matcher)
-		if filtered {
-			reaction.Flag |= fuzzTypes.ReactFiltered
-		}
-		if matched {
-			reaction.Flag |= fuzzTypes.ReactMatch
-		}
-		// 仅当没被标记为过滤，且被标记为匹配，或者出错时输出
-		if !filtered && matched || !fuzz1.React.IgnoreError && resp.ErrMsg != "" {
-			reaction.Flag |= fuzzTypes.ReactOutput
-		}
-	} else if reaction.Flag&fuzzTypes.ReactMatch != 0 {
+	filtered := fuzz1.React.Filter.MatchResponse(resp)
+	matched := fuzz1.React.Matcher.MatchResponse(resp)
+	if filtered {
+		reaction.Flag |= fuzzTypes.ReactFiltered
+	}
+	if matched {
+		reaction.Flag |= fuzzTypes.ReactMatch
+	}
+	// 仅当没被标记为过滤，且被标记为匹配，或者出错时输出
+	if !filtered && matched || !fuzz1.React.IgnoreError && resp.ErrMsg != "" {
 		reaction.Flag |= fuzzTypes.ReactOutput
 	}
 

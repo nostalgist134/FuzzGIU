@@ -2,6 +2,7 @@ package fuzzTypes
 
 import (
 	"bytes"
+	"github.com/nostalgist134/FuzzGIU/components/common"
 	"time"
 )
 
@@ -37,6 +38,37 @@ func (m Match) LiteralClone() Match {
 	m1.Words = cloneSlice(m.Words)
 	m1.Size = cloneSlice(m.Size)
 	return m1
+}
+
+// MatchResponse 匹配响应包
+func (m Match) MatchResponse(resp *Resp) bool {
+	if len(m.Size) == 0 && len(m.Words) == 0 && len(m.Code) == 0 && len(m.Lines) == 0 &&
+		len(m.Regex) == 0 && m.Time.Upper == m.Time.Lower {
+		return false
+	}
+	whenToRet := false
+	if m.Mode == "or" {
+		whenToRet = true
+	}
+	if len(m.Size) != 0 && m.Size.Contains(resp.Size) == whenToRet {
+		return whenToRet
+	}
+	if len(m.Words) != 0 && m.Words.Contains(resp.Words) == whenToRet {
+		return whenToRet
+	}
+	if len(m.Code) != 0 && resp.HttpResponse != nil && m.Code.Contains(resp.HttpResponse.StatusCode) == whenToRet {
+		return whenToRet
+	}
+	if len(m.Lines) != 0 && m.Lines.Contains(resp.Lines) == whenToRet {
+		return whenToRet
+	}
+	if len(m.Regex) != 0 && common.RegexMatch(resp.RawResponse, m.Regex) == whenToRet {
+		return whenToRet
+	}
+	if m.Time.Valid() && m.Time.Contains(resp.ResponseTime) == whenToRet {
+		return whenToRet
+	}
+	return !whenToRet
 }
 
 // Clone 将当前的Fuzz结构克隆一份（但是不克隆payload列表）

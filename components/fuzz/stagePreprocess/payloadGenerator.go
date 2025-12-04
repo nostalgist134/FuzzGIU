@@ -256,7 +256,7 @@ func generatePayloadsPlugin(generatorPlugins []fuzzTypes.Plugin, outCtx *output.
 	return payloads
 }
 
-// PayloadGenerator 根据payloadGenerator生成payload，同时使用payloadProcessor对生成的payload进行处理
+// PayloadGenerator 根据payloadGenerator生成payload
 // 返回[]string类型 - 生成的payload
 func PayloadGenerator(gen fuzzTypes.PlGen, outCtx *output.Ctx) []string {
 	generators := gen.Gen

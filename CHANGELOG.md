@@ -1,3 +1,8 @@
+## 2025.12.4 v0.2.4
++ 为`fuzzTypes.Match`添加了`MatchResponse`方法
++ 移除`stageReact`包的`matchResponse`函数，改为使用`Match.MatchResponse`
++ 移除`stageReact.React`函数中的一段无效if语句
+
 ## 2025.12.3 v0.2.3
 + 优化了tview窗口信息显示
 + 修复了iterator插件预加载错误的bug
