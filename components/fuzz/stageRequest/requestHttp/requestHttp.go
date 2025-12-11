@@ -5,7 +5,7 @@ import (
 	"github.com/nostalgist134/FuzzGIU/components/common"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"io"
-	"math/rand"
+	"math/rand/v2"
 	"net/http"
 	"net/url"
 	"strings"
@@ -18,8 +18,6 @@ var httpClients = sync.Pool{
 		return new(http.Client)
 	},
 }
-
-const defaultUa = "milaogiu browser (21.1)"
 
 // getHttpCli 初始化 Http 客户端，设置代理、超时、重定向等
 func getHttpCli(proxy string, timeout int, redirect bool, redirectChain *string) (*http.Client, error) {
@@ -97,7 +95,7 @@ func fuzzReq2HttpReq(fuzzReq *fuzzTypes.Req) (*http.Request, error) {
 	// 设置UA头
 	if httpReq.Header.Get("User-Agent") == "" {
 		if fuzzReq.HttpSpec.RandomAgent {
-			httpReq.Header.Set("User-Agent", agents[rand.Int()%len(agents)])
+			httpReq.Header.Set("User-Agent", getRandAgent())
 		} else {
 			httpReq.Header.Set("User-Agent", defaultUa)
 		}
@@ -142,7 +140,7 @@ func DoRequestHttp(reqCtx *fuzzTypes.RequestCtx) (*fuzzTypes.Resp, error) {
 	for attempt := 0; attempt <= retry; attempt++ {
 		if attempt > 0 {
 			// 重试延迟
-			time.Sleep(time.Duration(rand.Intn(100)+50) * time.Millisecond)
+			time.Sleep(time.Duration(rand.IntN(500)+500) * time.Millisecond)
 			// 重新创建body
 			httpReq.Body = io.NopCloser(bytes.NewBuffer(reqData))
 		}

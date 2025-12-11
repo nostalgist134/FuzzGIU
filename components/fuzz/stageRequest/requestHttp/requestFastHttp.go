@@ -6,12 +6,17 @@ import (
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/fasthttpproxy"
-	"math/rand"
+	"math/rand/v2"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 )
+
+var defaultDial = (&fasthttp.TCPDialer{
+	Concurrency:      1,
+	DNSCacheDuration: time.Hour,
+}).Dial
 
 var fastHttpClients = sync.Pool{New: func() any {
 	return &fasthttp.Client{
@@ -22,10 +27,7 @@ var fastHttpClients = sync.Pool{New: func() any {
 		DisableHeaderNamesNormalizing: true,
 		DisablePathNormalizing:        true,
 		TLSConfig:                     &tls.Config{InsecureSkipVerify: true},
-		Dial: (&fasthttp.TCPDialer{
-			Concurrency:      1,
-			DNSCacheDuration: time.Hour,
-		}).Dial,
+		Dial:                          defaultDial,
 	}
 }}
 
@@ -154,7 +156,7 @@ func doRequestFastHttp(reqCtx *fuzzTypes.RequestCtx) (*fuzzTypes.Resp, error) {
 
 	cli := getFastHttpCli(proxy)
 	defer func() {
-		cli.Dial = nil
+		cli.Dial = defaultDial
 		fastHttpClients.Put(cli)
 	}()
 
@@ -178,7 +180,7 @@ func doRequestFastHttp(reqCtx *fuzzTypes.RequestCtx) (*fuzzTypes.Resp, error) {
 					!retryCodes.Contains(fhResp.StatusCode()) && err == nil {
 					break
 				}
-				time.Sleep(time.Duration(rand.Intn(100)+50) * time.Millisecond)
+				time.Sleep(time.Duration(rand.IntN(500)+500) * time.Millisecond)
 			}
 		}
 	}

@@ -14,9 +14,10 @@ type Progress struct {
 
 type Counter struct {
 	StartTime    time.Time `json:"start_time,omitempty" xml:"start_time,omitempty"`
+	Out          int64     `json:"out,omitempty" xml:"out,omitempty"`
 	TaskRate     int64     `json:"task_rate,omitempty" xml:"task_rate,omitempty"`
 	DerivedJobs  int64     `json:"derived_jobs,omitempty" xml:"derived_jobs,omitempty"`
-	Errors       Progress  `json:"errors,omitempty" xml:"errors,omitempty"`
+	Errors       int64     `json:"errors,omitempty" xml:"errors,omitempty"`
 	TaskProgress Progress  `json:"task_progress,omitempty" xml:"task_progress,omitempty"`
 	ticker       *time.Ticker
 	mu           sync.Mutex
@@ -31,7 +32,8 @@ func (c *Counter) StartRecordTaskRate() {
 	if c.ticker != nil {
 		return
 	}
-	c.ticker = time.NewTicker(500 * time.Millisecond) // 速率每秒统计1次
+	tickerDur := 500 * time.Millisecond
+	c.ticker = time.NewTicker(tickerDur) // 速率每0.5秒统计1次
 	go func() {
 		lastCompleted := c.Get(CntrTask, FieldCompleted)
 		c.stop = make(chan struct{})
@@ -43,8 +45,8 @@ func (c *Counter) StartRecordTaskRate() {
 				return
 			case <-c.ticker.C:
 				currentCompleted := c.Get(CntrTask, FieldCompleted)
-				delta := currentCompleted - lastCompleted
-				atomic.StoreInt64(&c.TaskRate, int64(delta))
+				delta := int64(currentCompleted - lastCompleted)
+				atomic.StoreInt64(&c.TaskRate, delta*int64(time.Second)/int64(tickerDur))
 				lastCompleted = currentCompleted
 			}
 		}
@@ -75,7 +77,11 @@ func (c *Counter) Get(whichCounter int8, whichField int8) int {
 
 	switch whichCounter {
 	case CntrErrors:
-		pProgress = &c.Errors
+		return int(atomic.LoadInt64(&c.Errors))
+	case CntrDerivedJobs:
+		return int(atomic.LoadInt64(&c.DerivedJobs))
+	case CntrOut:
+		return int(atomic.LoadInt64(&c.Out))
 	case CntrTask:
 		pProgress = &c.TaskProgress
 	default:
@@ -92,16 +98,20 @@ func (c *Counter) Get(whichCounter int8, whichField int8) int {
 	return -1
 }
 
-// Complete 将job或task的completed字段加1
+// Complete 将特定字段加1
 func (c *Counter) Complete(whichCounter int8) {
 	var pProgress *Progress
 	switch whichCounter {
-	case CntrErrors:
-		pProgress = &c.Errors
 	case CntrTask:
 		pProgress = &c.TaskProgress
+	case CntrErrors:
+		atomic.AddInt64(&c.Errors, 1)
+		return
 	case CntrDerivedJobs:
 		atomic.AddInt64(&c.DerivedJobs, 1)
+		return
+	case CntrOut:
+		atomic.AddInt64(&c.Out, 1)
 		return
 	default:
 		return
@@ -114,8 +124,6 @@ func (c *Counter) Set(whichCounter int8, whichField int8, val int) {
 	var pProgress *Progress
 
 	switch whichCounter {
-	case CntrErrors:
-		pProgress = &c.Errors
 	case CntrTask:
 		pProgress = &c.TaskProgress
 	default:
@@ -134,8 +142,6 @@ func (c *Counter) Add(whichCounter int8, whichField int8, delta int) {
 	var pProgress *Progress
 
 	switch whichCounter {
-	case CntrErrors:
-		pProgress = &c.Errors
 	case CntrTask:
 		pProgress = &c.TaskProgress
 	default:
@@ -179,10 +185,8 @@ func (c *Counter) Snapshot() Counter {
 			Completed: int64(c.Get(CntrTask, FieldCompleted)),
 			Total:     int64(c.Get(CntrTask, FieldTotal)),
 		},
-		Errors: Progress{
-			Completed: int64(c.Get(CntrErrors, FieldCompleted)),
-			Total:     int64(c.Get(CntrErrors, FieldTotal)),
-		},
+		Errors: atomic.LoadInt64(&c.Errors),
+		Out:    atomic.LoadInt64(&c.Out),
 	}
 }
 
@@ -214,7 +218,7 @@ func formatDuration(d time.Duration) string {
 func (c *Counter) ToFmt() string {
 	s := c.Snapshot()
 	return fmt.Sprintf(
-		"tasks:[%d / %d]   errors:[%d]   rate:[%d t/s]   duration:[%s]   derived jobs:[%d]",
-		s.TaskProgress.Completed, s.TaskProgress.Total, s.Errors.Completed,
+		"tasks:[%d / %d]   outputs[%d]   errors:[%d]   rate:[%d t/s]   duration:[%s]   derived jobs:[%d]",
+		s.TaskProgress.Completed, s.TaskProgress.Total, s.Out, s.Errors,
 		s.TaskRate, formatDuration(c.GetTimeLapsed()), s.DerivedJobs)
 }

@@ -18,7 +18,7 @@ func TestAll(t *testing.T) {
 	cntr := &counter.Counter{
 		StartTime:    time.Time{},
 		TaskRate:     0,
-		Errors:       counter.Progress{},
+		Errors:       0,
 		TaskProgress: counter.Progress{},
 	}
 	cntr.Set(counter.CntrTask, counter.FieldTotal, 999)

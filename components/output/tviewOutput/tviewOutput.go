@@ -114,19 +114,23 @@ func lockableInputCap(tviewCtx *Ctx, ind, lockedInd int,
 
 func counterProgress(c *counter.Counter) string {
 	s := c.Snapshot()
-	if s.Errors.Completed == 0 {
+	if s.Errors == 0 {
 		return fmt.Sprintf(
-			"  [#2dffff]progress[-][[#76bdff]%d[-]/[#76bdff]%d[-]]   errors[[yellow]%d[-]]   derivedJobs[[green]%d[-]]",
+			"  [#2dffff]progress[-][[#76bdff]%d[-]/[#76bdff]%d[-]]   outputs[[white]%d[-]]   "+
+				"errors[[yellow]%d[-]]   derivedJobs[[green]%d[-]]",
 			s.TaskProgress.Completed,
 			s.TaskProgress.Total,
-			s.Errors.Completed,
+			s.Out,
+			s.Errors,
 			s.DerivedJobs)
 	}
 	return fmt.Sprintf(
-		"  [#2dffff]progress[-][[#76bdff]%d[-]/[#76bdff]%d[-]]  [red]errors[-][[red]%d[-]]   derivedJobs[[green]%d[-]]",
+		"  [#2dffff]progress[-][[#76bdff]%d[-]/[#76bdff]%d[-]]   outputs[[white]%d[-]]   "+
+			"[red]errors[-][[red]%d[-]]   derivedJobs[[green]%d[-]]",
 		s.TaskProgress.Completed,
 		s.TaskProgress.Total,
-		s.Errors.Completed,
+		s.Out,
+		s.Errors,
 		s.DerivedJobs)
 }
 

@@ -46,10 +46,14 @@ func getPayloadsWordlist(files []string, outputCtx *output.Ctx) []string {
 }
 
 // 生成一个范围类的int
-func genIntStrings(lower int, upper int, base int) []string {
+func genIntStrings(lower int, upper int, base int, minLength int) []string {
 	ret := make([]string, 0)
 	for i := lower; i < upper; i++ {
-		ret = append(ret, strconv.FormatInt(int64(i), base))
+		numStr := strconv.FormatInt(int64(i), base)
+		if len(numStr) < minLength {
+			numStr = strings.Repeat("0", minLength-len(numStr)) + numStr
+		}
+		ret = append(ret, numStr)
 	}
 	return ret
 }
@@ -189,9 +193,12 @@ func generatePayloadsPlugin(generatorPlugins []fuzzTypes.Plugin, outCtx *output.
 		switch p.Name {
 		case "int":
 			if len(p.Args) >= 2 {
-				var ok bool
-				var lower int
-				var upper int
+				var (
+					ok     bool
+					lower  int
+					upper  int
+					minLen int
+				)
 				base := 10
 				if lower, ok = p.Args[0].(int); !ok {
 					continue
@@ -204,7 +211,12 @@ func generatePayloadsPlugin(generatorPlugins []fuzzTypes.Plugin, outCtx *output.
 						base = 10
 					}
 				}
-				payloads = append(payloads, genIntStrings(lower, upper, base)...)
+				if len(p.Args) > 3 {
+					if minLen, ok = p.Args[3].(int); !ok {
+						minLen = -1
+					}
+				}
+				payloads = append(payloads, genIntStrings(lower, upper, base, minLen)...)
 			}
 		case "permute":
 			if len(p.Args) != 0 {

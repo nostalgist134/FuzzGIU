@@ -78,7 +78,7 @@ func ParseOptCmdline() *Opt {
 	flag.StringVar(&output.File, "out-file", "", "file to output")
 	flag.StringVar(&output.HttpUrl, "out-url", "", "post output to a http url")
 	flag.StringVar(&output.Fmt, "fmt", "native", "output format(native, xml or json)")
-	flag.IntVar(&output.Verbosity, "v", 1, "verbosity level(native output format only)")
+	flag.IntVar(&output.Verbosity, "v", 2, "verbosity level(native output format only)")
 	flag.BoolVar(&output.IgnoreError, "ie", false, "ignore errors(will not output error message)")
 	flag.BoolVar(&output.NativeStdout, "ns", false, "native stdout")
 	flag.BoolVar(&output.TviewOutput, "tview", true, "tview output")

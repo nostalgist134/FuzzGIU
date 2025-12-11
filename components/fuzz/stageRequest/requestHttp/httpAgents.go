@@ -1,6 +1,8 @@
 package requestHttp
 
-import "math/rand"
+import "math/rand/v2"
+
+const defaultUa = "milaogiu browser (21.1)"
 
 var agents = []string{
 	"Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36 OPR/26.0.1656.60",
@@ -68,5 +70,5 @@ var agents = []string{
 }
 
 func getRandAgent() string {
-	return agents[rand.Int()%len(agents)]
+	return agents[rand.IntN(len(agents))]
 }

@@ -139,6 +139,8 @@ func (c *Ctx) Output(obj *OutObj) error {
 	defer c.Wg.Done()
 	toWhere := c.ToWhere
 
+	c.Counter.Complete(counter.CntrOut)
+
 	var err error
 
 	if toWhere&outputFlag.OutToFile != 0 {

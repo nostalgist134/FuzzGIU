@@ -7,7 +7,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/nostalgist134/FuzzGIU/components/common"
 	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
-	"math/rand"
+	"math/rand/v2"
 	"time"
 )
 
@@ -40,7 +40,7 @@ func DoRequestWs(req *fuzzTypes.Req, timeout int, retry int, retryRegex string) 
 				break
 			}
 			// 重试间隔（50-300ms随机，避免高频请求）
-			time.Sleep(time.Duration(rand.Intn(250)+50) * time.Millisecond)
+			time.Sleep(time.Duration(rand.IntN(250)+50) * time.Millisecond)
 			continue
 		}
 
@@ -63,7 +63,7 @@ func DoRequestWs(req *fuzzTypes.Req, timeout int, retry int, retryRegex string) 
 			if !isTemporaryError(err) {
 				break
 			}
-			time.Sleep(time.Duration(rand.Intn(100)+50) * time.Millisecond)
+			time.Sleep(time.Duration(rand.IntN(500)+500) * time.Millisecond)
 			continue
 		}
 
@@ -77,7 +77,7 @@ func DoRequestWs(req *fuzzTypes.Req, timeout int, retry int, retryRegex string) 
 			if !isTemporaryError(err) {
 				break
 			}
-			time.Sleep(time.Duration(rand.Intn(250)+50) * time.Millisecond)
+			time.Sleep(time.Duration(rand.IntN(250)+50) * time.Millisecond)
 			continue
 		}
 
@@ -92,7 +92,7 @@ func DoRequestWs(req *fuzzTypes.Req, timeout int, retry int, retryRegex string) 
 
 		// 6. 判断是否满足重试条件（正则匹配）
 		if common.RegexMatch(message, retryRegex) {
-			time.Sleep(time.Duration(rand.Intn(250)+50) * time.Millisecond)
+			time.Sleep(time.Duration(rand.IntN(250)+50) * time.Millisecond)
 			continue
 		}
 

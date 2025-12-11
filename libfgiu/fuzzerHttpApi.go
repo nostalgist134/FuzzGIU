@@ -124,9 +124,11 @@ func (f *Fuzzer) StartHttpApi(apiConf WebApiConfig) error {
 			return c.NoContent(204)
 		case "status":
 			paused := jobCtx.RP.Status() == rp.StatPause
+			counterSnap := jobCtx.OutputCtx.Counter.Snapshot()
 			return c.JSON(200, map[string]any{
-				"progress": jobCtx.OutputCtx.Counter.TaskProgress,
-				"errors":   jobCtx.OutputCtx.Counter.Errors.Completed,
+				"progress": counterSnap.TaskProgress,
+				"outputs":  counterSnap.Out,
+				"errors":   counterSnap.Errors,
 				"paused":   paused,
 			})
 		default:

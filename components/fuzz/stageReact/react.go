@@ -72,7 +72,7 @@ func React(jobCtx *fuzzCtx.JobCtx, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 	}
 
 	if resp.ErrMsg != "" {
-		jobCtx.OutputCtx.Counter.Add(counter.CntrErrors, counter.FieldCompleted, 1)
+		jobCtx.OutputCtx.Counter.Complete(counter.CntrErrors)
 	}
 
 	// reactor插件调用
