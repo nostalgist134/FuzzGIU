@@ -1,3 +1,9 @@
+## 2025.12.11 v0.2.5
++ 修复了计数器显示错误数值bug
++ 为计数器添加了显示当前任务总输出数的字段
++ 将命令行参数`-v`的默认值从1改为2
++ 修复了http api返回无效的任务进度问题
+
 ## 2025.12.4 v0.2.4
 + 为`fuzzTypes.Match`添加了`MatchResponse`方法
 + 移除`stageReact`包的`matchResponse`函数，改为使用`Match.MatchResponse`
