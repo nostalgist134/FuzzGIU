@@ -278,7 +278,7 @@ type HTTPSpec struct {
 
 目前工具内置3种payload生成器：
 
-- `int(lower, upper, base)`: 生成 `[lower, upper)` 范围内指定 `base` 进制的数字字符串。e.g., `int(1, 100, 10)` 生成 "1" 到 "99"，`base`参数可省略，默认为10。
+- `int(lower, upper, base, minLen)`: 生成 `[lower, upper)` 范围内指定 `base` 进制的数字字符串。e.g., `int(1, 100, 10)` 生成 "1" 到 "99"，`base`参数可省略，默认为10；`minLen`参数指定了生成的数字最小的位数，可省略，不足位数会使用前导0补足。
 - `permute(s, maxLen)`: 生成字符串 `s` 的所有排列组合，最多 `maxLen` 个。e.g., `permute("abc", 10)`，若`maxLen`省略或为-1，则不限制。
 - `permuteex(s, m, n)`: 生成字符串`s`的长度从`m`到`n`的全排列，若`n`未设置或小于0，则设置为最大长度。
 - `nil(length)`: 生成一个长度为`length`，全为空字符串的列表。
