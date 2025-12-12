@@ -230,7 +230,7 @@ type HTTPSpec struct {
 **注意**：
 
 + 由于`net/http`库本身的缺陷，若指定了`-http2`选项，内存占用会飙升至少10倍，并且请求会变得极不稳定，虽然工具提供了此选项，但是不建议使用。
-+ http/2协议仅支持http代理，不支持socks系列；http/1.1无此限制。
++ 目前版本中的内置协议仅支持http代理。
 
 ### 输出设置
 
@@ -254,13 +254,14 @@ type HTTPSpec struct {
 ### payload生成与迭代
 
 ```shell
--pl-gen  # payload 生成器
--pl-proc # payload 处理器
--w       # fuzz 字典
--iter    # 指定使用的迭代器
+-pl-gen   # payload 生成器
+-pl-proc  # payload 处理器
+-w        # fuzz 字典
+-pl-dedup # 对生成的payload列表去重
+-iter     # 指定使用的迭代器
 ```
 
-和payload相关的设置总共有这3个，`-w`参数的详细用法上面已经介绍过了，这里不赘述。
+和payload相关的设置总共有这些，`-w`参数的详细用法上面已经介绍过了，这里不赘述。
 
 `-iter`参数用于指定使用的迭代器，内置的迭代器有4种：`clusterbomb`、`pitchfork`、`pitchfork-cycle`与`sniper`，它们的作用如下：
 
@@ -273,6 +274,8 @@ type HTTPSpec struct {
 + `sniper`模式：**仅用于**单个占位符在请求中出现多次的情况。工具根据占位符出现的位置依次将特定位置的占位符替换为payload列表中的所有payload，并将其它位置的占位符替换为空。
 
 除内置外，迭代器也可基于插件实现。
+
+`-pl-dedup`对生成的payload列表进行去重。
 
 `-pl-gen`参数用来指定fuzz占位符的payload生成器，注意：`-pl-gen`**与**`-w`**选项是互斥的，暂不支持同时使用payload生成器和字典来对某个占位符生成payload**。`-pl-gen`参数与`-w`参数类似，使用`::`符号关联payload生成器列表和占位符。payload生成器的命令行参数值遵循 [伪函数调用表达式](#插件调用) 语法。
 
@@ -297,6 +300,7 @@ type HTTPSpec struct {
 
 + 指定fuzz占位符时**不允许任何占位符是另一个占位符的子串**（比如指定了`FUZZ`，然后再指定`FUZZ1`），这种情况会导致模板解析失败，因此会拒绝执行
 + 若占位符没有绑定的payload生成器或字典，尝试对其绑定payload处理器会导致错误
++ [递归模式](#递归任务)与sniper模式下仅允许单个fuzz占位符存在
 
 ### http api配置
 

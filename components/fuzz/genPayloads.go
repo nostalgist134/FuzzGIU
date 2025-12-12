@@ -5,6 +5,19 @@ import (
 	"github.com/nostalgist134/FuzzGIU/components/fuzz/stagePreprocess"
 )
 
+func deduplicatePayloads(payloads []string) []string {
+	m := make(map[string]struct{})
+	deduplicated := make([]string, 0)
+	for _, p := range payloads {
+		if _, ok := m[p]; ok {
+			continue
+		}
+		m[p] = struct{}{}
+		deduplicated = append(deduplicated, p)
+	}
+	return deduplicated
+}
+
 func genPayloads(jobCtx *fuzzCtx.JobCtx) {
 	job := jobCtx.Job
 	outCtx := jobCtx.OutputCtx
@@ -13,6 +26,9 @@ func genPayloads(jobCtx *fuzzCtx.JobCtx) {
 		plList := job.Preprocess.PlMeta[keyword].PlList
 		if len(plList) == 0 { // 仅当列表为空时生成，若已有数据则跳过
 			pMeta.PlList = stagePreprocess.PayloadGenerator(job.Preprocess.PlMeta[keyword].Generators, outCtx)
+		}
+		if job.Preprocess.PlDeduplicate {
+			pMeta.PlList = deduplicatePayloads(pMeta.PlList)
 		}
 	}
 }

@@ -26,9 +26,10 @@ type (
 		RandomAgent    bool     `json:"random_agent"`
 	}
 	PayloadSetting struct {
-		Wordlists  sliceStr `json:"wordlists,omitempty"`
-		Generators sliceStr `json:"generator,omitempty"`
-		Processors sliceStr `json:"processor,omitempty"`
+		Wordlists   sliceStr `json:"wordlists,omitempty"`
+		Generators  sliceStr `json:"generator,omitempty"`
+		Processors  sliceStr `json:"processor,omitempty"`
+		Deduplicate bool     `json:"deduplicate,omitempty"`
 	}
 	Output struct {
 		Verbosity    int    `json:"verbosity,omitempty"`

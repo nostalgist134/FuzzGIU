@@ -128,6 +128,7 @@ type (
 	// FuzzStagePreprocess fuzz任务预处理阶段的相关信息
 	FuzzStagePreprocess struct {
 		PlMeta          map[string]*PayloadMeta `json:"pl_meta,omitempty"`           // 任务使用的fuzz关键字与对应的payload信息
+		PlDeduplicate   bool                    `json:"pl_deduplicate,omitempty"`    // 是否对payload列表进行去重
 		Preprocessors   []Plugin                `json:"preprocessors,omitempty"`     // 自定义预处理器（生成payload后使用）
 		PreprocPriorGen []Plugin                `json:"preproc_prior_gen,omitempty"` // 自定义预处理器（生成payload前）
 		ReqTemplate     Req                     `json:"req_tmpl,omitempty"`          // 含有fuzz关键字的请求模板

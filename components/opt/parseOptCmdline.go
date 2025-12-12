@@ -73,6 +73,7 @@ func ParseOptCmdline() *Opt {
 	flag.Var(&payload.Wordlists, "w", "wordlists to be used for payload")
 	flag.Var(&payload.Generators, "pl-gen", "plugin payload generators")
 	flag.Var(&payload.Processors, "pl-proc", "payload processors")
+	flag.BoolVar(&payload.Deduplicate, "pl-dedup", false, "deduplicate payloads")
 
 	// 输出设置
 	flag.StringVar(&output.File, "out-file", "", "file to output")

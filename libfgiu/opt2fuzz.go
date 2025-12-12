@@ -307,6 +307,7 @@ func Opt2fuzz(o *opt.Opt) (fuzz1 *fuzzTypes.Fuzz, err error) {
 	err = errors.Join(err, appendPlGen(fuzz1, o.Payload.Generators, "plugin"))
 	err = errors.Join(appendPlGen(fuzz1, o.Payload.Wordlists, "wordlist"))
 	err = errors.Join(appendPlProc(fuzz1, o.Payload.Processors))
+	fuzz1.Preprocess.PlDeduplicate = o.Payload.Deduplicate
 
 	/*--- o.General ---*/
 	fuzz1.Request.Timeout = o.General.Timeout
