@@ -243,7 +243,6 @@ func (c *Ctx) Log(log *outputable.Log) error {
 // LogFmtMsg 格式化输出日志
 func (c *Ctx) LogFmtMsg(format string, a ...any) error {
 	l := outputable.Log{
-		Jid:  c.Id,
 		Msg:  fmt.Sprintf(format, a...),
 		Time: time.Now(),
 	}

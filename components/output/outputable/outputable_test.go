@@ -9,7 +9,6 @@ import (
 
 func TestLog_ToFormatBytes(t *testing.T) {
 	l := &Log{
-		Jid:  0,
 		Msg:  "MIALGOU",
 		Time: time.Now(),
 	}
@@ -19,7 +18,6 @@ func TestLog_ToFormatBytes(t *testing.T) {
 
 func TestOutObj_ToFormatStr(t *testing.T) {
 	o := &OutObj{
-		Jid: 9,
 		Request: &fuzzTypes.Req{URL: "https://nishigiu.com", Data: []byte("NISHI=GIU&WOSHI=GIU\nMILOGIU"),
 			HttpSpec: fuzzTypes.HTTPSpec{Method: "GET", Headers: []string{"NISHI: GIU", "WOSHI: GIU", "MILAO: GIU"},
 				Proto: "2.99", ForceHttps: true, RandomAgent: true}, Fields: []fuzzTypes.Field{

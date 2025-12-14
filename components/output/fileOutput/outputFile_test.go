@@ -23,7 +23,6 @@ func TestCtxOutputAndLog(t *testing.T) {
 		t.Fatal(err)
 	}
 	outObj := &outputable.OutObj{
-		Jid:      95,
 		Keywords: nil,
 		Payloads: nil,
 		Request:  nil,
@@ -32,7 +31,6 @@ func TestCtxOutputAndLog(t *testing.T) {
 		Time:     time.Now(),
 	}
 	l := &outputable.Log{
-		Jid:  0,
 		Msg:  "MILAOGIU",
 		Time: time.Now(),
 	}
@@ -68,7 +66,6 @@ func TestAsnycOutputAndLog(t *testing.T) {
 		wg.Add(1)
 		defer wg.Done()
 		outObj := &outputable.OutObj{
-			Jid:      95,
 			Keywords: nil,
 			Payloads: nil,
 			Request:  nil,
@@ -77,7 +74,6 @@ func TestAsnycOutputAndLog(t *testing.T) {
 			Time:     time.Now(),
 		}
 		log := &outputable.Log{
-			Jid:  95,
 			Time: time.Now(),
 			Msg:  msg,
 		}

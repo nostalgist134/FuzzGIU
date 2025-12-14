@@ -41,7 +41,6 @@ func TestAll(t *testing.T) {
 				o := &outputable.OutObj{
 					Id:       0,
 					XMLName:  xml.Name{},
-					Jid:      rand.Int() % 1000,
 					Keywords: nil,
 					Payloads: nil,
 					Request:  nil,
@@ -55,7 +54,6 @@ func TestAll(t *testing.T) {
 			}
 			if rand.Int()%1000 == 5 {
 				l := outputable.Log{
-					Jid:  5,
 					Msg:  "nishigiuwoshigiumilaogiu",
 					Time: time.Now(),
 				}
