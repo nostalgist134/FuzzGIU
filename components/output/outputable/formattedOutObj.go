@@ -261,7 +261,8 @@ func nativeOutObj(obj *OutObj, color bool, verbosity int) []byte {
 	if obj == nil {
 		return []byte(nilIfColor(color))
 	}
-	colors := []string{"[#3af4f1]", "[#7589e4]", "[red]"}
+	const split = "-----------------------------------------------------------------------------------------------------------------------------------"
+	colors := []string{"[#3af4f1]", "[#7589e4]", "[red]", "[yellow]"}
 	colorSp := getColorSplitter(color)
 	clearColors(colors, color)
 	buf := bytes.Buffer{}
@@ -277,6 +278,9 @@ func nativeOutObj(obj *OutObj, color bool, verbosity int) []byte {
 		buf.WriteByte('\n')
 	}
 	buf.WriteString(resp2FmtNative(obj.Response, color, verbosity))
+	buf.WriteString(colors[3])
+	buf.WriteString(split)
+	buf.WriteString(colorSp)
 	return buf.Bytes()
 }
 

@@ -84,9 +84,9 @@ func coloredPluginsExpr(ps []fuzzTypes.Plugin) string {
 func stringifyPlMeta(m map[string]*fuzzTypes.PayloadMeta) string {
 	stringified := strings.Builder{}
 	for k, p := range m {
-		stringified.WriteString(fmt.Sprintf("\t%s%s%s>", "[#2dffff]", k, colorSp))
+		stringified.WriteString(fmt.Sprintf("\t%s%s%s>\n", "[#2dffff]", k, colorSp))
 		if len(p.Generators.Wordlists) != 0 {
-			stringified.WriteString("\t\tWORDLIST :")
+			stringified.WriteString("\t\tWORDLISTS : ")
 			for i, w := range p.Generators.Wordlists {
 				stringified.WriteString(w)
 				if i != len(p.Generators.Wordlists)-1 {
@@ -99,9 +99,8 @@ func stringifyPlMeta(m map[string]*fuzzTypes.PayloadMeta) string {
 			stringified.WriteString(fmt.Sprintf("\t\tGEN  : %s\n", coloredPluginsExpr(p.Generators.Plugins)))
 		}
 		if len(p.Processors) != 0 {
-			stringified.WriteString(fmt.Sprintf("PROC : %s", coloredPluginsExpr(p.Processors)))
+			stringified.WriteString(fmt.Sprintf("\t\tPROC : %s\n", coloredPluginsExpr(p.Processors)))
 		}
-		stringified.WriteByte('\n')
 	}
 	return stringified.String()
 }
