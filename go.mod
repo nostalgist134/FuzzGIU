@@ -6,7 +6,7 @@ require (
 	github.com/gdamore/tcell/v2 v2.8.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/labstack/echo/v4 v4.13.4
-	github.com/nostalgist134/FuzzGIUPluginKit v0.1.0-6
+	github.com/nostalgist134/FuzzGIUPluginKit v0.1.0
 	github.com/nostalgist134/reusableBytes v0.1.3
 	github.com/rivo/tview v0.42.0
 	github.com/valyala/fasthttp v1.68.0
