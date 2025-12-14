@@ -271,20 +271,11 @@ func generatePayloadsPlugin(generatorPlugins []fuzzTypes.Plugin, outCtx *output.
 // PayloadGenerator 根据payloadGenerator生成payload
 // 返回[]string类型 - 生成的payload
 func PayloadGenerator(gen fuzzTypes.PlGen, outCtx *output.Ctx) []string {
-	generators := gen.Gen
-	generatorType := gen.Type
+	wordlists := gen.Wordlists
+	plugins := gen.Plugins
 	// 根据generator生成payload
-	var payloads []string
-	switch generatorType {
-	case "wordlist": // wordlist类型的generator
-		files := strings.Split(generators[0].Name, ",")
-		payloads = getPayloadsWordlist(files, outCtx)
-	case "plugin": // plugin类型的generator
-		payloads = generatePayloadsPlugin(generators, outCtx)
-	default:
-		outCtx.LogFmtMsg("unsupported generator type [%s]", generatorType)
-		payloads = []string{""}
-	}
+	payloads := getPayloadsWordlist(wordlists, outCtx)
+	payloads = append(payloads, generatePayloadsPlugin(plugins, outCtx)...)
 	if len(payloads) == 0 {
 		payloads = append(payloads, "")
 	}

@@ -3,7 +3,6 @@ package fuzzTypes
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -32,8 +31,8 @@ type (
 
 	// Field 描述一个请求字段
 	Field struct {
-		Name  string `json:"name" xml:"name"`   // 字段名
-		Value string `json:"value" xml:"value"` // 字段值
+		Name  string `json:"name,omitempty" xml:"name,omitempty"`   // 字段名
+		Value string `json:"value,omitempty" xml:"value,omitempty"` // 字段值
 	}
 
 	HTTPSpec struct {
@@ -54,14 +53,14 @@ type (
 
 	// Resp 响应对象
 	Resp struct {
-		HttpResponse      *http.Response `json:"-" xml:"-"` // http响应包（但是tag标记为空，因为不能反序列化）
-		ResponseTime      time.Duration  `json:"response_time,omitempty" xml:"response_time,omitempty"`
-		Size              int            `json:"size,omitempty" xml:"size,omitempty"`
-		Words             int            `json:"words,omitempty" xml:"words,omitempty"`
-		Lines             int            `json:"lines,omitempty" xml:"lines,omitempty"`
-		HttpRedirectChain string         `json:"http_redirect_chain,omitempty" xml:"http_redirect_chain,omitempty"`
-		RawResponse       []byte         `json:"raw_response,omitempty" xml:"raw_response,omitempty"`
-		ErrMsg            string         `json:"err_msg,omitempty" xml:"err_msg,omitempty"`
+		StatCode          int           `json:"stat_code,omitempty" xml:"stat_code,omitempty"`
+		ResponseTime      time.Duration `json:"response_time,omitempty" xml:"response_time,omitempty"`
+		Size              int           `json:"size,omitempty" xml:"size,omitempty"`
+		Words             int           `json:"words,omitempty" xml:"words,omitempty"`
+		Lines             int           `json:"lines,omitempty" xml:"lines,omitempty"`
+		HttpRedirectChain string        `json:"http_redirect_chain,omitempty" xml:"http_redirect_chain,omitempty"`
+		RawResponse       []byte        `json:"raw_response,omitempty" xml:"raw_response,omitempty"`
+		ErrMsg            string        `json:"err_msg,omitempty" xml:"err_msg,omitempty"`
 	}
 
 	// Reaction 响应
@@ -75,9 +74,10 @@ type (
 		NewReq *Req  `json:"new_req,omitempty"` // 如果要添加新请求，新请求结构体指针
 	}
 
+	// PlGen payload生成源
 	PlGen struct {
-		Type string   `json:"type"`
-		Gen  []Plugin `json:"gen"`
+		Wordlists []string `json:"wordlists,omitempty"`
+		Plugins   []Plugin `json:"plugins,omitempty"`
 	}
 
 	// PayloadMeta 与单个关键字相关联的payload相关设置

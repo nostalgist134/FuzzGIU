@@ -65,34 +65,22 @@ func assignToPluginSlice(assignType string, slice *[]fuzzTypes.Plugin, assign st
 	return nil
 }
 
-func appendPlGen(f *fuzzTypes.Fuzz, args []string, appendGenType string) error {
+func appendPlGen(f *fuzzTypes.Fuzz, args []string, genType string) error {
 	if f.Preprocess.PlMeta == nil {
 		f.Preprocess.PlMeta = make(map[string]*fuzzTypes.PayloadMeta)
 	}
 
-	var err error
-
 	for _, arg := range args {
 		gen, keyword := cutGenProcArg(arg) // 分离关键字部分与表达式部分
-		m, ok := f.Preprocess.PlMeta[keyword]
-
-		if ok { // 关键字已经存在
-			if m.Generators.Type != appendGenType { // 一个关键字只能选择从payload生成器插件或者字典中加载payload
-				return fmt.Errorf("try to append generator of type '%s' to keyword '%s' whose "+
-					"generator type is '%s'", appendGenType, keyword, m.Generators.Type)
-			}
-			err = assignToPluginSlice(appendGenType, &m.Generators.Gen, gen)
+		switch genType {
+		case "wordlists":
+			f.AddKeywordWordlists(keyword, []string{gen})
+		case "plugin":
+			plugins, err := plugin.ParsePluginsStr(arg)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to parse payload generator plugin expression: %w", err)
 			}
-		} else { // 关键字不存在
-			m = &fuzzTypes.PayloadMeta{
-				Generators: fuzzTypes.PlGen{
-					Type: appendGenType,
-				},
-			}
-			f.Preprocess.PlMeta[keyword] = m
-			err = assignToPluginSlice(appendGenType, &m.Generators.Gen, gen)
+			f.AddKeywordPlGenPlugins(keyword, plugins)
 		}
 	}
 	return nil
@@ -305,7 +293,7 @@ func Opt2fuzz(o *opt.Opt) (fuzz1 *fuzzTypes.Fuzz, err error) {
 
 	/*--- opts.PayloadSetting ---*/
 	err = errors.Join(err, appendPlGen(fuzz1, o.Payload.Generators, "plugin"))
-	err = errors.Join(appendPlGen(fuzz1, o.Payload.Wordlists, "wordlist"))
+	err = errors.Join(appendPlGen(fuzz1, o.Payload.Wordlists, "wordlists"))
 	err = errors.Join(appendPlProc(fuzz1, o.Payload.Processors))
 	fuzz1.Preprocess.PlDeduplicate = o.Payload.Deduplicate
 

@@ -56,27 +56,25 @@ func checkPlugin(pi *convention.PluginInfo, expectTypeInd int, p fuzzTypes.Plugi
 func preLoadJobPlugin(job *fuzzTypes.Fuzz) error {
 	var errTotal error
 
-	for _, plTmp := range job.Preprocess.PlMeta {
+	for _, pm := range job.Preprocess.PlMeta {
 		// 加载payload生成器插件
-		if plTmp.Generators.Type == "plugin" { // 仅当生成器类型为plugin时才加载插件
-			for _, gen := range plTmp.Generators.Gen {
-				// 避免将内置生成器当成插件加载
-				if _, ok := embeddedGen[gen.Name]; ok {
-					continue
-				}
-				pi, err := plugin.PreLoad(gen, plugin.RelPathPlGen)
-				if err != nil {
-					errTotal = errors.Join(errTotal, err)
-				}
+		for _, p := range pm.Generators.Plugins {
+			// 避免将内置生成器当成插件加载
+			if _, ok := embeddedGen[p.Name]; ok {
+				continue
+			}
+			pi, err := plugin.PreLoad(p, plugin.RelPathPlGen)
+			if err != nil {
+				errTotal = errors.Join(errTotal, err)
+			}
 
-				if err = checkPlugin(pi, convention.IndPTypePlGen, gen, 0); err != nil {
-					errTotal = errors.Join(errTotal, err)
-				}
+			if err = checkPlugin(pi, convention.IndPTypePlGen, p, 0); err != nil {
+				errTotal = errors.Join(errTotal, err)
 			}
 		}
 
 		// 加载payload处理器插件
-		for _, plProc := range plTmp.Processors {
+		for _, plProc := range pm.Processors {
 			// 避免将内置处理器当成插件加载
 			if _, ok := embeddedPlProc[plProc.Name]; ok {
 				continue

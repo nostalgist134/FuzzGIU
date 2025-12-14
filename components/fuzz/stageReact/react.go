@@ -45,8 +45,7 @@ func React(jobCtx *fuzzCtx.JobCtx, reqSend *fuzzTypes.Req, resp *fuzzTypes.Resp,
 	*/
 	// 递归模式添加新任务
 	if fuzz1.React.RecursionControl.RecursionDepth < fuzz1.React.RecursionControl.MaxRecursionDepth &&
-		(resp.HttpResponse != nil &&
-			fuzz1.React.RecursionControl.StatCodes.Contains(resp.HttpResponse.StatusCode) ||
+		(fuzz1.React.RecursionControl.StatCodes.Contains(resp.StatCode) ||
 			common.RegexMatch(resp.RawResponse, fuzz1.React.RecursionControl.Regex)) && recursionPos != nil {
 		recursionJob = deriveRecursionJob(fuzz1, reqSend, recursionPos)
 	}

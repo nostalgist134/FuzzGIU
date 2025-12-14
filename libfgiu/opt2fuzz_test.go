@@ -41,7 +41,6 @@ func TestCutGenProcArg(t *testing.T) {
 	}
 	for k, m := range f.Preprocess.PlMeta {
 		fmt.Println(k)
-		fmt.Println(m.Generators.Gen)
 		fmt.Println(m.Processors)
 	}
 }

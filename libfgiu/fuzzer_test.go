@@ -11,10 +11,7 @@ func TestFuzzer(t *testing.T) {
 	testF := new(fuzzTypes.Fuzz)
 	testF.Preprocess.PlMeta = make(map[string]*fuzzTypes.PayloadMeta)
 	testF.Preprocess.PlMeta["FUZZ"] = &fuzzTypes.PayloadMeta{
-		Generators: fuzzTypes.PlGen{
-			Type: "wordlist",
-			Gen:  []fuzzTypes.Plugin{{"C:\\Users\\patrick\\Desktop\\test.txt", nil}},
-		},
+		Generators: fuzzTypes.PlGen{},
 		Processors: nil,
 	}
 	testF.Preprocess.ReqTemplate = fuzzTypes.Req{

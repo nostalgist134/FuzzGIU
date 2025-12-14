@@ -10,7 +10,6 @@ import (
 type OutObj struct {
 	Id       uint            `json:"-" xml:"-" gorm:"primarykey"`
 	XMLName  xml.Name        `json:"-" xml:"output"`
-	Jid      int             `json:"jid,omitempty" xml:"jid,omitempty"`
 	Keywords []string        `json:"keywords" xml:"keywords>keyword"`
 	Payloads []string        `json:"payloads" xml:"payloads>payload"`
 	Request  *fuzzTypes.Req  `json:"request"  xml:"request"`
@@ -21,7 +20,6 @@ type OutObj struct {
 
 type Log struct {
 	XMLName xml.Name  `json:"-" xml:"log"`
-	Jid     int       `json:"jid" xml:"jid"`
 	Msg     string    `json:"msg" xml:"msg"`
 	Time    time.Time `json:"time" xml:"time"`
 }

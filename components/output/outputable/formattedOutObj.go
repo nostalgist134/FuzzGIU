@@ -122,10 +122,7 @@ func resp2FmtNative(resp *fuzzTypes.Resp, color bool, verbosity int) string {
 		sb.WriteByte('\n')
 	}
 
-	httpStat := 0
-	if resp.HttpResponse != nil {
-		httpStat = resp.HttpResponse.StatusCode
-	}
+	httpStat := resp.StatCode
 	sb.WriteString(
 		fmt.Sprintf(
 			"%sRESPONSE%s : [%sSIZE%s: %d|%sLINES%s: %d|%sWORDS%s: %d|%sTIME%s: %v|%sHTTP_STATUS%s: %d]\n",

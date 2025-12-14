@@ -3,6 +3,7 @@ package fuzzTypes
 import (
 	"bytes"
 	"github.com/nostalgist134/FuzzGIU/components/common"
+	"strings"
 	"time"
 )
 
@@ -56,7 +57,7 @@ func (m Match) MatchResponse(resp *Resp) bool {
 	if len(m.Words) != 0 && m.Words.Contains(resp.Words) == whenToRet {
 		return whenToRet
 	}
-	if len(m.Code) != 0 && resp.HttpResponse != nil && m.Code.Contains(resp.HttpResponse.StatusCode) == whenToRet {
+	if len(m.Code) != 0 && m.Code.Contains(resp.StatCode) == whenToRet {
 		return whenToRet
 	}
 	if len(m.Lines) != 0 && m.Lines.Contains(resp.Lines) == whenToRet {
@@ -81,7 +82,7 @@ func (f *Fuzz) Clone() *Fuzz {
 	newFuzz.Preprocess.PlMeta = make(map[string]*PayloadMeta)
 	for k, v := range f.Preprocess.PlMeta {
 		newFuzz.Preprocess.PlMeta[k] = &PayloadMeta{
-			Generators: PlGen{v.Generators.Type, clonePlugins(v.Generators.Gen)},
+			Generators: PlGen{cloneSlice(v.Generators.Wordlists), clonePlugins(v.Generators.Plugins)},
 			Processors: clonePlugins(v.Processors),
 			// PlList不复制，因为这个部分通常比较大，如果用户确实有需要可自行复制
 		}
@@ -105,6 +106,95 @@ func (f *Fuzz) Clone() *Fuzz {
 	newFuzz.Control.IterCtrl.Iterator = clonePlugin(f.Control.IterCtrl.Iterator)
 
 	return newFuzz
+}
+
+func (f *Fuzz) setPlMetaIfNil() {
+	if f.Preprocess.PlMeta == nil {
+		f.Preprocess.PlMeta = make(map[string]*PayloadMeta)
+	}
+}
+
+// WithMinimalExecutable 最小可运行的Fuzz任务，仅fuzz url，单个关键字，状态码匹配200
+func (f *Fuzz) WithMinimalExecutable(url, keyword string, payloads []string, sniper bool) *Fuzz {
+	f.Preprocess.ReqTemplate.URL = url
+	f.setPlMetaIfNil()
+	f.Preprocess.PlMeta[keyword] = &PayloadMeta{PlList: payloads}
+	if sniper {
+		f.Control.IterCtrl.Iterator.Name = "sniper"
+	} else {
+		f.Control.IterCtrl.Iterator.Name = "clusterbomb"
+	}
+	return f
+}
+
+// WithTemplate 设置任务使用的模板
+func (f *Fuzz) WithTemplate(tmpl Req) *Fuzz {
+	f.Preprocess.ReqTemplate = tmpl
+	return f
+}
+
+// WithMatcher 设置匹配器
+func (f *Fuzz) WithMatcher(m Match) {
+	f.React.Matcher = m.LiteralClone()
+}
+
+// WithFilter 设置过滤器
+func (f *Fuzz) WithFilter(filt Match) {
+	f.React.Filter = filt.LiteralClone()
+}
+
+// AddKeyword 尝试添加一个fuzz关键字及其payload信息，若已经存在，则返回原有的payload信息与false，不覆盖
+// 否则返回添加后的信息与true
+func (f *Fuzz) AddKeyword(keyword string, m PayloadMeta) (*PayloadMeta, bool) {
+	f.setPlMetaIfNil()
+	m1, ok := f.Preprocess.PlMeta[keyword]
+	if ok {
+		return m1, false
+	}
+	f.Preprocess.PlMeta[keyword] = &m
+	return &m, true
+}
+
+// AddKeywordWordlists 添加一个带字典的关键字，或者为已存在的关键字添加字典
+func (f *Fuzz) AddKeywordWordlists(keyword string, wordlists []string) (*PayloadMeta, bool) {
+	f.setPlMetaIfNil()
+	pm, ok := f.Preprocess.PlMeta[keyword]
+	if !ok {
+		pm = &PayloadMeta{}
+		f.Preprocess.PlMeta[keyword] = pm
+	}
+	pm.Generators.AddWordlists(wordlists)
+	return pm, true
+}
+
+// AddKeywordPlGenPlugins 添加一个带插件生成器的关键字，或者为已存在的关键字添加字典
+func (f *Fuzz) AddKeywordPlGenPlugins(keyword string, plugins []Plugin) (*PayloadMeta, bool) {
+	f.setPlMetaIfNil()
+	pm, ok := f.Preprocess.PlMeta[keyword]
+	if !ok {
+		pm = &PayloadMeta{}
+		f.Preprocess.PlMeta[keyword] = pm
+	}
+	pm.Generators.AddPlGenPlugins(plugins)
+	return pm, true
+}
+
+// AddKeywordPlProc 为关键字添加payload处理器，如果关键字不存在，则返回false
+func (f *Fuzz) AddKeywordPlProc(keyword string, proc []Plugin) bool {
+	if f.Preprocess.PlMeta == nil {
+		return false
+	}
+	pm, ok := f.Preprocess.PlMeta[keyword]
+	if !ok || pm == nil {
+		return false
+	}
+	pm.Processors = append(pm.Processors, proc...)
+	return true
+}
+
+// AddProxies 添加代理
+func (f *Fuzz) AddProxies(proxies []string) {
+	f.Request.Proxies = append(f.Request.Proxies, proxies...)
 }
 
 // Clone 克隆Req结构，返回新结构的指针
@@ -174,6 +264,12 @@ func (resp *Resp) Statistic() {
 	resp.Size = len(resp.RawResponse)
 }
 
+// SetRaw 设置rawResponse，并自动计算统计数据
+func (resp *Resp) SetRaw(raw []byte) {
+	resp.RawResponse = raw
+	resp.Statistic()
+}
+
 // Contains 判断一个值是否在当前Range内
 func (r Range) Contains(v int) bool {
 	return r.Upper >= v && v >= r.Lower
@@ -196,4 +292,23 @@ func (timeBound TimeBound) Contains(t time.Duration) bool {
 // Valid 判断时间范围是否有效
 func (timeBound TimeBound) Valid() bool {
 	return timeBound.Upper > timeBound.Lower
+}
+
+// AddWordlists 为PlGen添加字典生成源
+// wordlists为string切片，每个元素可为一个字典或以','分隔的多个字典
+func (g *PlGen) AddWordlists(wordlists []string) {
+	for _, w1 := range wordlists {
+		if strings.Contains(w1, ",") {
+			for _, w2 := range strings.Split(w1, ",") {
+				g.Wordlists = append(g.Wordlists, strings.TrimSpace(w2))
+			}
+		} else {
+			g.Wordlists = append(g.Wordlists, strings.TrimSpace(w1))
+		}
+	}
+}
+
+// AddPlGenPlugins 为PlGen添加payloadGenerator插件生成源
+func (g *PlGen) AddPlGenPlugins(plugins []Plugin) {
+	g.Plugins = append(g.Plugins, plugins...)
 }

@@ -3,6 +3,7 @@ package fuzz
 import (
 	"github.com/nostalgist134/FuzzGIU/components/fuzz/fuzzCtx"
 	"github.com/nostalgist134/FuzzGIU/components/fuzz/stagePreprocess"
+	"github.com/nostalgist134/FuzzGIU/components/fuzzTypes"
 )
 
 func deduplicatePayloads(payloads []string) []string {
@@ -22,13 +23,17 @@ func genPayloads(jobCtx *fuzzCtx.JobCtx) {
 	job := jobCtx.Job
 	outCtx := jobCtx.OutputCtx
 	// 生成payload
-	for keyword, pMeta := range job.Preprocess.PlMeta {
+	for keyword, pm := range job.Preprocess.PlMeta {
+		if pm == nil {
+			pm = &fuzzTypes.PayloadMeta{}
+			job.Preprocess.PlMeta[keyword] = pm
+		}
 		plList := job.Preprocess.PlMeta[keyword].PlList
 		if len(plList) == 0 { // 仅当列表为空时生成，若已有数据则跳过
-			pMeta.PlList = stagePreprocess.PayloadGenerator(job.Preprocess.PlMeta[keyword].Generators, outCtx)
+			pm.PlList = stagePreprocess.PayloadGenerator(job.Preprocess.PlMeta[keyword].Generators, outCtx)
 		}
 		if job.Preprocess.PlDeduplicate {
-			pMeta.PlList = deduplicatePayloads(pMeta.PlList)
+			pm.PlList = deduplicatePayloads(pm.PlList)
 		}
 	}
 }

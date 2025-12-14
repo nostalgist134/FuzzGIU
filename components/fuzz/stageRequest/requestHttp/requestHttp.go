@@ -171,7 +171,7 @@ func DoRequestHttp(reqCtx *fuzzTypes.RequestCtx) (*fuzzTypes.Resp, error) {
 		resp.RawResponse = body
 		resp.Statistic()
 		resp.RawResponse = rawResp
-		resp.HttpResponse = httpResponse
+		resp.StatCode = httpResponse.StatusCode
 		resp.HttpRedirectChain = redirectChain
 
 		// 检查是否需要重试
@@ -188,8 +188,8 @@ func DoRequestHttp(reqCtx *fuzzTypes.RequestCtx) (*fuzzTypes.Resp, error) {
 	}
 
 	resp.ResponseTime = time.Since(timeStart)
-	if err != nil && resp.HttpResponse != nil {
-		resp.HttpResponse.StatusCode = 0
+	if err != nil {
+		resp.StatCode = 0
 	}
 	return resp, err
 }

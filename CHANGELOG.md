@@ -1,3 +1,8 @@
+## 2025.12.14 v0.2.8
++ 重构了`fuzzTypes.PlGen`结构，现在单个关键字可同时使用payload生成器插件与字典作为生成源了
++ 移除`fuzzTypes.Resp`的`HttpResponse`字段，添加`StatCode`来表示状态码
++ 为`fuzzTypes`包中的对象添加了一些`receiver`
+
 ## 2025.12.12 v0.2.6
 + 添加了payload列表去重功能`-pl-dedup`
 

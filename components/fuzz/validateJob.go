@@ -62,10 +62,7 @@ func ValidateJob(job *fuzzTypes.Fuzz) error {
 					keywords[j], keywords[i]))
 			}
 		}
-		if pl.Generators.Type != "wordlist" && pl.Generators.Type != "plugin" {
-			errTot = errors.Join(errTot,
-				fmt.Errorf("unsupported payload generator type '%s' for keyword '%s'", pl.Generators.Type, kw))
-		} else if pl.Generators.Type == "plugin" && pluginsPathTraverse(pl.Generators.Gen) {
+		if pluginsPathTraverse(pl.Generators.Plugins) {
 			errTot = errors.Join(errTot, fmt.Errorf("keyword '%s' generator has path traverse", kw))
 		}
 		if pluginsPathTraverse(pl.Processors) {

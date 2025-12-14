@@ -7,7 +7,6 @@ import (
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/fasthttpproxy"
 	"math/rand/v2"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -192,7 +191,7 @@ func doRequestFastHttp(reqCtx *fuzzTypes.RequestCtx) (*fuzzTypes.Resp, error) {
 	rawResponse, body = buildRawHTTPResponse1(fhResp)
 
 	// 填充httpResponse对象（仅需填充status code，因为过滤与匹配只用到status code）
-	resp.HttpResponse = &http.Response{StatusCode: fhResp.StatusCode()}
+	resp.StatCode = fhResp.StatusCode()
 
 	resp.HttpRedirectChain = rdr
 	resp.RawResponse = body
@@ -200,7 +199,7 @@ func doRequestFastHttp(reqCtx *fuzzTypes.RequestCtx) (*fuzzTypes.Resp, error) {
 	resp.RawResponse = rawResponse
 	if err != nil {
 		resp.ErrMsg = err.Error()
-		resp.HttpResponse.StatusCode = 0
+		resp.StatCode = 0
 		resp.RawResponse = []byte{}
 	}
 	return resp, err

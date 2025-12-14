@@ -156,10 +156,10 @@ func getKeywordsPayloads(job *fuzzTypes.Fuzz) (keywords []string, lengths []int,
 	keywords = make([]string, 0, n)
 	lengths = make([]int, 0, n)
 	payloadLists = make([][]string, 0, n)
-	for kw, pt := range job.Preprocess.PlMeta {
+	for kw, pm := range job.Preprocess.PlMeta {
 		keywords = append(keywords, kw)
-		lengths = append(lengths, len(pt.PlList))
-		payloadLists = append(payloadLists, pt.PlList)
+		lengths = append(lengths, len(pm.PlList))
+		payloadLists = append(payloadLists, pm.PlList)
 	}
 	return
 }
