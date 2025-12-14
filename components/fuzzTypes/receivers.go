@@ -134,13 +134,15 @@ func (f *Fuzz) WithTemplate(tmpl Req) *Fuzz {
 }
 
 // WithMatcher 设置匹配器
-func (f *Fuzz) WithMatcher(m Match) {
+func (f *Fuzz) WithMatcher(m Match) *Fuzz {
 	f.React.Matcher = m.LiteralClone()
+	return f
 }
 
 // WithFilter 设置过滤器
-func (f *Fuzz) WithFilter(filt Match) {
+func (f *Fuzz) WithFilter(filt Match) *Fuzz {
 	f.React.Filter = filt.LiteralClone()
+	return f
 }
 
 // AddKeyword 尝试添加一个fuzz关键字及其payload信息，若已经存在，则返回原有的payload信息与false，不覆盖
