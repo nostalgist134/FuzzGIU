@@ -228,6 +228,13 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 		iter.End = iterLength
 	}
 
+	job = stagePreprocess.Preprocess(job, jobCtx.OutputCtx, false)
+	err = ValidateJob(job)
+	if err != nil {
+		return
+	}
+
+	routinePool.Pause()
 	// 执行器无论如何都注册
 	if iterName == "sniper" || job.React.RecursionControl.MaxRecursionDepth > 0 {
 		routinePool.RegisterExecutor(taskSingleKeyword, rp.ExecMajor)
@@ -235,13 +242,8 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 		routinePool.RegisterExecutor(taskMultiKeyword, rp.ExecMajor)
 	}
 
-	job = stagePreprocess.Preprocess(job, jobCtx.OutputCtx, false)
-	err = ValidateJob(job)
-	if err != nil {
-		return
-	}
-
 	routinePool.RegisterExecutor(taskNoKeywords, rp.ExecMinor)
+	routinePool.Resume()
 	routinePool.Start()
 
 	outCtx.Counter.Set(counter.CntrTask, counter.FieldTotal, iter.End)

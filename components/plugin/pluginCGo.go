@@ -345,7 +345,7 @@ func Preprocess(p fuzzTypes.Plugin, fuzz1 *fuzzTypes.Fuzz, outCtx *output.Ctx) *
 	return newFuzz
 }
 
-// DoRequest 根据sendMeta发送请求，并接收响应
+// DoRequest 根据RequestCtx发送请求，并接收响应
 func DoRequest(p fuzzTypes.Plugin, reqCtx *fuzzTypes.RequestCtx) *fuzzTypes.Resp {
 	marshaled, err := json.Marshal(reqCtx)
 	if err != nil {

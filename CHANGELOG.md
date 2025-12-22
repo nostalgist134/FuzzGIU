@@ -1,3 +1,6 @@
+## 2025.12.22 v0.2.9
++ 修复了协程池执行函数注册失败的问题
+
 ## 2025.12.14 v0.2.8
 + 重构了`fuzzTypes.PlGen`结构，现在单个关键字可同时使用payload生成器插件与字典作为生成源了
 + 移除`fuzzTypes.Resp`的`HttpResponse`字段，添加`StatCode`来表示状态码
