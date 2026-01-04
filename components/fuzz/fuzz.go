@@ -74,6 +74,7 @@ func handleReaction(jobCtx *fuzzCtx.JobCtx, r *fuzzTypes.Reaction) (stopJob bool
 		jobCtx.OutputCtx.LogFmtMsg("job#%d stopped by react", jobCtx.JobId)
 		jobCtx.RP.Clear()
 		stopJob = true
+		return // 如果任务停止了，就没必要管ReactAddReq标志了
 	}
 
 	if r.Flag&fuzzTypes.ReactAddReq != 0 && r.NewReq != nil {
@@ -275,6 +276,7 @@ func doJobInter(jobCtx *fuzzCtx.JobCtx) (timeLapsed time.Duration, newJobs []*fu
 		// 只有进入fuzz循环了，才能停止任务（其实是我懒得设计那么多select了）
 		select {
 		case <-jobCtx.GlobCtx.Done():
+			jobCtx.RP.Clear()
 			return
 		default:
 		}
