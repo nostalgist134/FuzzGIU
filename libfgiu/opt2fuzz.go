@@ -76,7 +76,7 @@ func appendPlGen(f *fuzzTypes.Fuzz, args []string, genType string) error {
 		case "wordlists":
 			f.AddKeywordWordlists(keyword, []string{gen})
 		case "plugin":
-			plugins, err := plugin.ParsePluginsStr(arg)
+			plugins, err := plugin.ParsePluginsStr(gen)
 			if err != nil {
 				return fmt.Errorf("failed to parse payload generator plugin expression: %w", err)
 			}
