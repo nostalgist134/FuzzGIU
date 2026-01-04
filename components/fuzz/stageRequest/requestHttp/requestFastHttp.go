@@ -22,6 +22,7 @@ var fastHttpClients = sync.Pool{New: func() any {
 		ReadTimeout:                   0,
 		WriteTimeout:                  0,
 		MaxIdleConnDuration:           90 * time.Second,
+		MaxConnsPerHost:               1,
 		NoDefaultUserAgentHeader:      true,
 		DisableHeaderNamesNormalizing: true,
 		DisablePathNormalizing:        true,
